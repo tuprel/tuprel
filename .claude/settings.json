@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "disableBypassPermissionsMode": "disable",
+    "blockReadsOutsideWorkingDirectories": true,
+    "allow": [
+      "Bash(./gradlew test *)",
+      "Bash(./gradlew check *)",
+      "Bash(./gradlew build *)",
+      "Bash(./gradlew spotlessCheck *)",
+      "Bash(./gradlew spotlessApply *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)"
+    ],
+    "ask": [
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(./gradlew publish *)",
+      "Bash(./gradlew publishToMavenLocal *)",
+      "Bash(docker *)",
+      "Bash(docker compose *)",
+      "Bash(git clean *)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(**/.env.development)",
+      "Read(**/.env.production)",
+      "Read(**/.env.test)",
+      "Read(**/secrets/**)",
+      "Read(**/credentials/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git reset --hard *)",
+      "Bash(rm -rf *)"
+    ]
+  }
+}

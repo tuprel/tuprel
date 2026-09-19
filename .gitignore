@@ -1,0 +1,36 @@
+.gradle/
+build/
+**/build/
+target/
+**/target/
+out/
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.DS_Store
+Thumbs.db
+
+# Segredos e configurações locais
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# Claude Code local
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Testes/relatórios locais
+.testcontainers.properties
+reports/
+coverage/
