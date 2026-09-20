@@ -43,6 +43,7 @@ configuração local não versionada ficam de fora.
 - `.codex/agents/postgresql-reviewer.toml`
 - `.codex/agents/security-reviewer.toml`
 - `.codex/agents/test-engineer.toml`
+- `.codex/config.toml`
 - `.editorconfig`
 - `.gitattributes`
 - `.gitignore`
