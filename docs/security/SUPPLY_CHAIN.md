@@ -36,8 +36,10 @@ Cobertura relevante para esta política:
 
 Limite desta garantia: locking fixa versões seleccionadas, não integridade de
 artefactos. Um artefacto substituído com as mesmas coordenadas não é detectado
-por locking. Essa é a função da dependency verification, ainda **não**
-configurada, que terá de cobrir as duas origens listadas abaixo.
+por locking. Essa é a função da dependency verification, activa em modo
+`strict` com checksums SHA-256 nos scopes da raiz, build-logic directo e
+fixtures TestKit. A verificação de assinaturas permanece desactivada como
+hardening futuro.
 
 ## Estado da dependency verification
 

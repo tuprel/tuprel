@@ -3,6 +3,15 @@
 Ficheiros versionados do repositório. Outputs de build (`build/`, `.gradle/`) e
 configuração local não versionada ficam de fora.
 
+- `.agents/skills/architecture-review/SKILL.md`
+- `.agents/skills/implement-slice/SKILL.md`
+- `.agents/skills/migration-review/SKILL.md`
+- `.agents/skills/plan-feature/SKILL.md`
+- `.agents/skills/release-check/SKILL.md`
+- `.agents/skills/security-review/SKILL.md`
+- `.agents/skills/sql-review/SKILL.md`
+- `.agents/skills/test-matrix/SKILL.md`
+- `.agents/skills/write-adr/SKILL.md`
 - `.claude/README.md`
 - `.claude/agents/architect.md`
 - `.claude/agents/docs-reviewer.md`
@@ -28,6 +37,12 @@ configuração local não versionada ficam de fora.
 - `.claude/skills/sql-review/SKILL.md`
 - `.claude/skills/test-matrix/SKILL.md`
 - `.claude/skills/write-adr/SKILL.md`
+- `.codex/agents/architect.toml`
+- `.codex/agents/docs-reviewer.toml`
+- `.codex/agents/java-api-reviewer.toml`
+- `.codex/agents/postgresql-reviewer.toml`
+- `.codex/agents/security-reviewer.toml`
+- `.codex/agents/test-engineer.toml`
 - `.editorconfig`
 - `.gitattributes`
 - `.gitignore`
