@@ -358,9 +358,10 @@ Dependency locking fixa **as versões seleccionadas**. Não diz nada sobre o
 conteúdo dos artefactos: não deteta um artefacto substituído ou adulterado que
 mantenha as mesmas coordenadas.
 
-Essa garantia é a **dependency verification** (checksums, assinaturas, chaves
-confiáveis), que ainda **não** está configurada neste repositório e pertence a
-uma fatia posterior. Não descrevas locking como protecção de integridade.
+Essa garantia é a **dependency verification**, actualmente activa em modo
+`strict` com checksums SHA-256 nos scopes da raiz, build-logic directo e
+fixtures TestKit. A verificação de assinaturas permanece desactivada e é
+hardening futuro. Não descrevas locking como protecção de integridade.
 
 ---
 
