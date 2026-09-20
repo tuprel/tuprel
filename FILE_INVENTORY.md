@@ -45,9 +45,11 @@ configuração local não versionada ficam de fora.
 - `build-logic/buildscript-gradle.lockfile`
 - `build-logic/gradle.lockfile`
 - `build-logic/gradle.properties`
+- `build-logic/gradle/verification-metadata.xml`
 - `build-logic/settings.gradle.kts`
 - `build-logic/src/main/kotlin/tuprel.java-conventions.gradle.kts`
 - `build-logic/src/test/kotlin/dev/tuprel/buildlogic/JavaConventionsPluginTest.kt`
+- `build-logic/src/test/resources/testkit/verification-metadata.xml`
 - `build.gradle.kts`
 - `buildscript-gradle.lockfile`
 - `docs/adr/ADR-0001-gradle-multi-project.md`
@@ -78,6 +80,7 @@ configuração local não versionada ficam de fora.
 - `docs/testing/TEST_STRATEGY.md`
 - `gradle.properties`
 - `gradle/libs.versions.toml`
+- `gradle/verification-metadata.xml`
 - `gradle/wrapper/gradle-wrapper.jar`
 - `gradle/wrapper/gradle-wrapper.properties`
 - `gradlew`

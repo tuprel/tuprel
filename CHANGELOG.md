@@ -40,8 +40,14 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   `docs/security/SUPPLY_CHAIN.md`.
 - Dependency locking do Gradle activo, com lockfiles versionados para o
   classpath de plugins da raiz e para o included build `build-logic`. Fixa as
-  versões resolvidas; a verificação de integridade de artefactos (dependency
-  verification) continua por configurar.
+  versões resolvidas.
+- Dependency verification do Gradle activa em modo `strict`, com checksums
+  SHA-256 versionados para os três scopes de build: raiz, `build-logic` e as
+  builds aninhadas de Gradle TestKit. Cobre artefactos do Maven Central e do
+  Gradle Plugin Portal, incluindo plugin markers e o grafo consumidor do
+  convention plugin. Verifica bytes de artefactos, não identidade de
+  publicador: a verificação de assinaturas PGP continua por decidir (ver
+  `docs/security/SUPPLY_CHAIN.md`).
 
 ### Notas
 

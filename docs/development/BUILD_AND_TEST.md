@@ -278,12 +278,13 @@ Existem e são executados hoje:
 - static analysis com Error Prone;
 - verificação do convention plugin com JUnit 5 e Gradle TestKit;
 - agregação do `build-logic:check` no `check` da raiz;
-- dependency locking (secção 8).
+- dependency locking (secção 8);
+- dependency verification SHA-256 em modo `strict` (secção 9).
 
 Ainda **não** existem, e pertencem a fatias posteriores da Fase 0
 (`plans/PHASE_0_FOUNDATION.md`):
 
-- dependency verification (`verification-metadata.xml`, checksums, chaves);
+- verificação de assinaturas PGP dos artefactos;
 - integração contínua (GitHub Actions);
 - CodeQL / code scanning;
 - Dependabot e dependency review;
@@ -363,7 +364,121 @@ uma fatia posterior. Não descrevas locking como protecção de integridade.
 
 ---
 
-## 9. Resolução de problemas
+## 9. Dependency verification
+
+A dependency verification nativa do Gradle está **activa** em modo `strict`
+(o modo por omissão). Cada artefacto externo resolvido é comparado com um
+checksum SHA-256 registado em metadata versionada; se não corresponder, ou se
+o artefacto não estiver registado, a build falha.
+
+Três controlos diferentes, três perguntas diferentes:
+
+| Controlo | Pergunta a que responde | Estado |
+|---|---|---|
+| Dependency locking | *que versão* é seleccionada | activo |
+| Verificação por checksum | se os *bytes* do artefacto continuam iguais à baseline revista | activo |
+| Verificação de assinaturas | quem *publicou* o artefacto (provenance) | **não activo** |
+
+Um checksum não identifica o publicador. Diz apenas que o artefacto não mudou
+desde que a baseline foi registada.
+
+### Ficheiros de metadata
+
+| Ficheiro | Build que o usa |
+|---|---|
+| `gradle/verification-metadata.xml` | invocações a partir da raiz (`.\gradlew.bat check`, `build`, ...) |
+| `build-logic/gradle/verification-metadata.xml` | invocações directas com `-p build-logic` |
+| `build-logic/src/test/resources/testkit/verification-metadata.xml` | builds aninhadas de TestKit (ver mais abaixo) |
+
+São necessários os dois porque a verificação é lida a partir da build
+*corrente*. Numa invocação a partir da raiz é o ficheiro da raiz que governa
+toda a árvore, incluindo o included build — o ficheiro do `build-logic` é
+ignorado nesse caso. Numa invocação `-p build-logic`, o `build-logic` passa a
+ser a build corrente e usa o seu próprio ficheiro; sem ele, esse atalho
+correria sem verificação nenhuma.
+
+Cobrem artefactos das duas origens em uso: Maven Central e Gradle Plugin
+Portal, incluindo plugin markers.
+
+### Builds normais
+
+Não passes `--write-verification-metadata` no trabalho normal. Os comandos da
+secção 2 já verificam, porque `strict` é o modo por omissão.
+
+### Refrescar a metadata deliberadamente
+
+Regenerar checksums é uma operação de dependências/segurança e deve ser
+revista como tal. São precisos dois comandos, um por scope de verificação:
+
+```powershell
+# Windows (PowerShell)
+.\gradlew.bat check --refresh-dependencies --write-verification-metadata sha256
+.\gradlew.bat -p build-logic check --refresh-dependencies --write-verification-metadata sha256
+```
+
+```bash
+# Linux / macOS
+./gradlew check --refresh-dependencies --write-verification-metadata sha256
+./gradlew -p build-logic check --refresh-dependencies --write-verification-metadata sha256
+```
+
+`--refresh-dependencies` não é opcional. Sem ele, o Gradle só regista o que
+resolver de facto nessa execução: artefactos já em cache podem não ser
+re-resolvidos e ficam de fora da metadata, produzindo um ficheiro que parece
+completo e falha mais tarde numa máquina limpa.
+
+Usa `check` e não uma task que não resolva nada, pela mesma razão descrita na
+secção 8.
+
+### Aviso de bootstrap (trust on first use)
+
+Gerar metadata **não estabelece confiança**. O Gradle limita-se a registar o
+checksum do que estiver nos repositórios nesse momento. Se um artefacto já
+estivesse comprometido na primeira vez que foi descarregado, o checksum gerado
+passa a legitimar o artefacto comprometido.
+
+O que a metadata garante é **estabilidade**: a partir daí, qualquer alteração
+ao conteúdo de um artefacto é detectada.
+
+Por isso o diff da metadata é revisto como qualquer outra alteração de
+dependências, e checksums novos ou alterados sem uma mudança de versão
+correspondente são tratados como suspeitos até prova em contrário
+(ver `docs/security/SUPPLY_CHAIN.md`).
+
+### Builds aninhadas de TestKit
+
+Uma build TestKit é uma build Gradle independente, num directório temporário
+com o seu próprio Gradle user home: não herda nada da verificação deste
+repositório. Sem tratamento explícito, cada fixture resolveria do Maven Central
+sem verificação nenhuma — incluindo `com.google.errorprone:error_prone_core`,
+que o convention plugin injecta e que corre dentro do compilador.
+
+O mecanismo actual fecha isso:
+
+| Peça | Onde |
+|---|---|
+| Baseline partilhada do grafo consumidor | `build-logic/src/test/resources/testkit/verification-metadata.xml` |
+| Cópia para cada fixture | helper `writeSettings()`, que escreve `<fixture>/gradle/verification-metadata.xml` |
+| Modo de verificação | `--dependency-verification strict` em todas as invocações do `GradleRunner` |
+
+A baseline é um ficheiro só, partilhado por todas as fixtures, e foi gerada a
+partir de uma build real que aplica `tuprel.java-conventions` e resolve o grafo
+que os consumidores usam de facto (Error Prone core e o grafo JUnit), com
+`--refresh-dependencies`.
+
+Um teste dedicado prova que o mecanismo está vivo: uma fixture que peça um
+artefacto fora da baseline falha com `Dependency verification failed`. Se
+alguma vez a baseline deixar de cobrir o que as fixtures resolvem, os testes
+falham em vez de passarem a resolver sem verificação.
+
+Quando o grafo consumidor mudar — por exemplo ao actualizar a versão do Error
+Prone no convention plugin — a baseline tem de ser regenerada a partir de uma
+build real que aplique o convention plugin, e o diff revisto como qualquer
+outra alteração de checksums.
+
+---
+
+## 10. Resolução de problemas
 
 ### Os testes de `build-logic` falham com erros de memória
 

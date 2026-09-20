@@ -231,6 +231,47 @@ class JavaConventionsPluginTest {
         assertContains(result.output, "warnings found and -Werror specified")
     }
 
+    @Test
+    @DisplayName("a fixture corre sob verificação estrita e rejeita um artefacto fora da baseline")
+    fun rejectsDependencyOutsideVerificationBaseline() {
+        writeSettings()
+        /*
+         * `commons-io` não pertence ao grafo do convention plugin e não está
+         * na baseline. É um artefacto pequeno, o que mantém o teste barato.
+         */
+        writeBuild(
+            """
+            dependencies {
+                testImplementation("commons-io:commons-io:2.16.1")
+            }
+            """.trimIndent(),
+        )
+        writeCalculator()
+        writeSource(
+            "src/test/java/fixture/CalculatorTest.java",
+            """
+            package fixture;
+
+            import static org.junit.jupiter.api.Assertions.assertEquals;
+
+            import org.junit.jupiter.api.Test;
+
+            class CalculatorTest {
+
+                @Test
+                void addsTwoNumbers() {
+                    assertEquals(3, new Calculator().add(1, 2));
+                }
+            }
+            """.trimIndent(),
+        )
+
+        val result: BuildResult = runner("compileTestJava").buildAndFail()
+
+        assertContains(result.output, "Dependency verification failed")
+        assertContains(result.output, "commons-io")
+    }
+
     private fun writeSettings() {
         projectDir.resolve("settings.gradle.kts").writeText(
             """
@@ -261,6 +302,34 @@ class JavaConventionsPluginTest {
             "org.gradle.jvmargs=-Xms64m -Xmx384m -XX:MaxMetaspaceSize=256m\n" +
                 "org.gradle.workers.max=1\n",
         )
+
+        writeVerificationMetadata()
+    }
+
+    /*
+     * Uma build TestKit é uma build Gradle independente: não herda a
+     * verification metadata deste repositório. Sem este passo, cada fixture
+     * resolveria do Maven Central sem verificação nenhuma — incluindo
+     * `error_prone_core`, que o convention plugin injecta e que corre dentro
+     * do compilador.
+     *
+     * A baseline partilhada vive em src/test/resources e é gerada a partir de
+     * uma build real que aplica `tuprel.java-conventions`. É copiada para cada
+     * fixture em vez de duplicada por teste.
+     */
+    private fun writeVerificationMetadata() {
+        val gradleDir = projectDir.resolve("gradle")
+        gradleDir.mkdirs()
+
+        val baseline = checkNotNull(
+            javaClass.getResourceAsStream(VERIFICATION_METADATA_RESOURCE),
+        ) {
+            "baseline de verification metadata em falta: $VERIFICATION_METADATA_RESOURCE"
+        }
+
+        baseline.use { input ->
+            gradleDir.resolve("verification-metadata.xml").outputStream().use(input::copyTo)
+        }
     }
 
     private fun writeBuild(extra: String = "") {
@@ -308,13 +377,22 @@ class JavaConventionsPluginTest {
         file.writeText(content + "\n")
     }
 
+    /*
+     * `--dependency-verification strict` é explícito e não redundante: deixa
+     * registado no comando que a fixture corre sob verificação e falha de
+     * imediato se a baseline não cobrir um artefacto resolvido.
+     */
     private fun runner(vararg arguments: String): GradleRunner =
         GradleRunner.create()
             .withProjectDir(projectDir)
             .withPluginClasspath()
-            .withArguments(*arguments)
+            .withArguments(*arguments, "--dependency-verification", "strict")
 
     private fun assertContains(actual: String, expected: String) {
         assertTrue(actual.contains(expected), "output não contém \"" + expected + "\":\n" + actual)
+    }
+
+    private companion object {
+        const val VERIFICATION_METADATA_RESOURCE = "/testkit/verification-metadata.xml"
     }
 }
