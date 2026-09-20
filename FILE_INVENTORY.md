@@ -44,6 +44,10 @@ configuração local não versionada ficam de fora.
 - `.codex/agents/security-reviewer.toml`
 - `.codex/agents/test-engineer.toml`
 - `.codex/config.toml`
+- `.github/dependabot.yml`
+- `.github/workflows/ci.yml`
+- `.github/workflows/codeql.yml`
+- `.github/workflows/dependency-review.yml`
 - `.editorconfig`
 - `.gitattributes`
 - `.gitignore`
@@ -119,8 +123,3 @@ configuração local não versionada ficam de fora.
 - `project/MODULE_CATALOG.md`
 - `settings-gradle.lockfile`
 - `settings.gradle.kts`
-- `templates/GITHUB_SETUP.md`
-- `templates/github/ci.yml`
-- `templates/github/codeql.yml`
-- `templates/github/dependabot.yml`
-- `templates/github/dependency-review.yml`

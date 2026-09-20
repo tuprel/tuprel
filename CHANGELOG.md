@@ -50,6 +50,8 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   `docs/security/SUPPLY_CHAIN.md`).
 - Configuration cache e build cache local do Gradle, activados após validação
   de armazenamento e reutilização na raiz e em build-logic.
+- Automação GitHub com CI Java 21, dependency review, CodeQL e Dependabot,
+  usando permissões mínimas e actions fixadas a commits imutáveis.
 
 ### Notas
 
