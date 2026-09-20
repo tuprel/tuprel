@@ -288,10 +288,26 @@ Ainda **não** existem, e pertencem a fatias posteriores da Fase 0
 - integração contínua (GitHub Actions);
 - CodeQL / code scanning;
 - Dependabot e dependency review;
-- configuration cache e build cache;
 - publicação, assinatura e verificações de release.
 
 Nenhum destes deve ser descrito como activo enquanto não for implementado.
+
+### Caches do Gradle
+
+O configuration cache e o build cache local estão activos tanto na raiz como
+em invocações directas de `build-logic`. A compatibilidade foi validada com
+Gradle 9.7.1 e dependency verification estrita:
+
+- `check` na raiz armazenou e reutilizou a configuração sem problemas;
+- `check` directo de build-logic armazenou e reutilizou a configuração sem
+  problemas;
+- depois de um primeiro `clean test --build-cache`, uma segunda execução
+  restaurou oito tasks do cache, incluindo `test`.
+
+`org.gradle.configuration-cache.problems=fail` impede que incompatibilidades
+novas sejam aceites como warnings. O build cache configurado é local; não há
+infraestrutura de cache remoto. Os testes TestKit continuam a ser a prova do
+comportamento das builds consumidoras e não perdem nenhum gate de qualidade.
 
 As origens de artefactos que a build usa actualmente estão inventariadas em
 `docs/security/SUPPLY_CHAIN.md`. Esse é o documento canónico sobre supply

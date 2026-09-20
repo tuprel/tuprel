@@ -48,6 +48,8 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   convention plugin. Verifica bytes de artefactos, não identidade de
   publicador: a verificação de assinaturas PGP continua por decidir (ver
   `docs/security/SUPPLY_CHAIN.md`).
+- Configuration cache e build cache local do Gradle, activados após validação
+  de armazenamento e reutilização na raiz e em build-logic.
 
 ### Notas
 
