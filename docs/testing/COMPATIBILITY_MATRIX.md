@@ -5,7 +5,9 @@ Estado: a validar durante as fases de implementação.
 ## Java
 
 - Java 21: baseline obrigatório.
-- JDKs posteriores: CI de compatibilidade conforme disponibilidade e política definida na Fase 0.
+- CI da Fase 0: Linux com Java 21, a única versão actualmente declarada.
+- JDKs posteriores: só entram na matriz depois de existir código de produto e
+  uma política de compatibilidade que defina o valor desse sinal adicional.
 
 O projecto não deve usar APIs de JDK posterior se o artefacto 1.0 declarar Java 21 como mínimo.
 

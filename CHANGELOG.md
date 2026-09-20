@@ -53,6 +53,12 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 - Automação GitHub com CI Java 21, dependency review, CodeQL e Dependabot,
   usando permissões mínimas e actions fixadas a commits imutáveis.
 
+### Alterado
+
+- Documentação de arquitectura, fases e handoff reconciliada com o fecho da
+  Fase 0: zero módulos de produto, primeiro módulo na Fase 1 e RFCs aplicados
+  como gates das fases que afectam.
+
 ### Notas
 
 - O nome de trabalho do produto é **Tuprel**. Continua a ser um nome de

@@ -1,6 +1,7 @@
-# Tuprel ORM - Claude Code Handoff
+# Tuprel ORM - Agent Handoff
 
-Este repositório contém o contexto de engenharia que deve ser entregue ao Claude Code antes de começar a implementação do Tuprel ORM.
+Este repositório contém o contexto de engenharia que Codex, Claude Code ou
+outro agente autorizado deve ler antes de começar implementação do Tuprel ORM.
 
 ## Objectivo deste pacote
 
@@ -22,11 +23,14 @@ O Tuprel deverá ser tratado como uma biblioteca de infraestrutura crítica. Um 
 10. o plano da fase actual
 11. ADRs relacionados com a tarefa
 
-## Como começar com Claude Code
+## Como começar com um agente de desenvolvimento
 
-Começa uma sessão na raiz do repositório. Usa Plan Mode para a primeira análise. Depois cola o conteúdo de `CLAUDE_FIRST_PROMPT.md`.
+Começa uma sessão na raiz do repositório, lê as instruções do agente e confirma
+a fase actual em `plans/MASTER_PLAN.md`. Para Claude Code, o conteúdo de
+`CLAUDE_FIRST_PROMPT.md` continua disponível como prompt de handoff.
 
-Não peças ao Claude para implementar o ORM inteiro de uma vez. A primeira sessão deve tratar apenas da Fase 0.
+Não peças a um agente para implementar o ORM inteiro de uma vez. Trabalha
+apenas na fase actual e numa fatia verificável de cada vez.
 
 ## Regra de ouro
 

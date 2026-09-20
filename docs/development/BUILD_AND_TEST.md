@@ -102,7 +102,7 @@ restrito de ficheiros de build e configuração:
 - `build-logic/src/main/kotlin/*.gradle.kts`;
 - `gradle/libs.versions.toml`;
 - `gradle.properties` e `build-logic/gradle.properties`;
-- workflows em `.github/` (alvo declarado; os ficheiros ainda não existem).
+- workflows activos em `.github/`.
 
 As verificações são apenas: converter tabulações iniciais em espaços, remover
 espaços no fim das linhas e garantir newline final.
@@ -281,8 +281,7 @@ Existem e são executados hoje:
 - dependency locking (secção 8);
 - dependency verification SHA-256 em modo `strict` (secção 9).
 
-Ainda **não** existem, e pertencem a fatias posteriores da Fase 0
-(`plans/PHASE_0_FOUNDATION.md`):
+Continuam fora da fundação actual:
 
 - verificação de assinaturas PGP dos artefactos;
 - publicação, assinatura e verificações de release.

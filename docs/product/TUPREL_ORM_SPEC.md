@@ -3963,9 +3963,15 @@ O ORM deve manter foco.
 
 ---
 
-# 125. Roadmap de desenvolvimento
+# 125. Visão conceptual de milestones
 
-## Fase 0: Fundação
+Esta secção preserva o agrupamento conceptual da visão de produto. Não define
+a numeração nem o calendário das fases de implementação. Para execução, a
+fonte de verdade é `plans/MASTER_PLAN.md`; em particular, a Fase 0 termina com
+a fundação de engenharia e zero módulos de produto, a Fase 1 implementa a
+schema language e a Fase 2 trata code generation.
+
+## Milestone conceptual: Fundação
 
 Objectivo: provar arquitectura.
 
@@ -3982,7 +3988,7 @@ Entregas:
 
 ---
 
-## Fase 1: Schema e generator
+## Milestone conceptual: Schema e generator
 
 Entregas:
 
@@ -4006,7 +4012,7 @@ produz um client Java compilável.
 
 ---
 
-## Fase 2: Query runtime
+## Milestone conceptual: Query runtime
 
 Entregas:
 
@@ -4027,7 +4033,7 @@ Marco: CRUD completo sem migrações.
 
 ---
 
-## Fase 3: Relações e transacções
+## Milestone conceptual: Relações e transacções
 
 Entregas:
 
@@ -4043,7 +4049,7 @@ Entregas:
 
 ---
 
-## Fase 4: Migration engine
+## Milestone conceptual: Migration engine
 
 Entregas:
 
@@ -4061,7 +4067,7 @@ Entregas:
 
 ---
 
-## Fase 5: Introspection
+## Milestone conceptual: Introspection
 
 Entregas:
 
@@ -4072,7 +4078,7 @@ Entregas:
 
 ---
 
-## Fase 6: Spring Boot + build tools
+## Milestone conceptual: Spring Boot + build tools
 
 Entregas:
 
@@ -4085,7 +4091,7 @@ Entregas:
 
 ---
 
-## Fase 7: Production features
+## Milestone conceptual: Production features
 
 Entregas:
 
@@ -4103,7 +4109,7 @@ Entregas:
 
 ---
 
-## Fase 8: Studio
+## Milestone conceptual: Studio
 
 Entregas:
 
@@ -4116,7 +4122,7 @@ Entregas:
 
 ---
 
-## Fase 9: 1.0 hardening
+## Milestone conceptual: 1.0 hardening
 
 Entregas:
 
@@ -4770,7 +4776,7 @@ Exemplos:
 
 ```text
 RFC-001 Schema Language
-RFC-002 Query API
+RFC-002 Java Client API
 RFC-003 Relation Loading
 RFC-004 Migration Format
 RFC-005 Spring Transaction Integration
@@ -6122,21 +6128,26 @@ O Tuprel deverá defender as seguintes ideias:
 
 ---
 
-# 232. Checklist antes da primeira linha de implementação séria
+# 232. Checklist de gates antes da implementação afectada
+
+Estes gates amadurecem por fase; não são todos pré-condições da Fase 0 nem da
+primeira alteração da Fase 1. O plano da fase decide quando cada gate bloqueia
+implementação.
 
 - [ ] confirmar nome final;
 - [ ] confirmar groupId/package root;
-- [ ] criar repositório;
+- [x] criar repositório;
 - [ ] escolher licença;
 - [ ] escrever RFC-001 Schema Language;
 - [ ] escrever grammar inicial;
-- [ ] escrever RFC-002 Generated Java API;
+- [ ] escrever RFC-002 Java Client API;
 - [ ] escrever RFC-003 Relation Loading;
-- [ ] definir Java mínimo;
+- [x] definir Java mínimo;
 - [ ] definir PostgreSQL mínimo suportado;
-- [ ] configurar CI Linux/Windows/macOS;
-- [ ] configurar formatting;
-- [ ] configurar static analysis;
+- [x] configurar CI Linux/Java 21; expandir sistemas/JDKs quando houver uma
+      matriz de compatibilidade aprovada;
+- [x] configurar formatting;
+- [x] configurar static analysis;
 - [ ] criar Testcontainers PostgreSQL suite;
 - [ ] criar primeiro parser fixture;
 - [ ] criar primeiro codegen golden test;
@@ -6254,7 +6265,10 @@ docs/rfcs/RFC-009-studio.md
 docs/rfcs/RFC-010-testing-strategy.md
 ```
 
-A implementação deverá começar apenas depois de pelo menos RFC-001, RFC-002 e RFC-003 estarem suficientemente definidas, porque essas decisões moldam quase toda a API pública futura.
+A Fase 1 começa por definir RFC-001. RFC-002 deve estar suficientemente
+definida antes do generated client da Fase 2, e RFC-003 antes da implementação
+de relation loading. Assim, cada decisão bloqueia o código que realmente
+afecta sem antecipar design de fases posteriores.
 
 ---
 

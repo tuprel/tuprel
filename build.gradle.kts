@@ -126,9 +126,8 @@ spotless {
     }
 
     /*
-     * Workflows de CI. Os ficheiros ainda não existem (CI é um slice
-     * posterior); o alvo fica declarado para que entrem no gate no momento em
-     * que forem criados. Um alvo sem correspondências é ignorado pelo Spotless.
+     * Workflows de CI versionados em `.github/`. O âmbito permanece limitado
+     * à higiene de YAML; não introduz um formatter geral de documentação.
      */
     format("githubWorkflows") {
         target(".github/**/*.yml", ".github/**/*.yaml")
