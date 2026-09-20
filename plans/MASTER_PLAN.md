@@ -36,7 +36,7 @@ CLI madura, Spring Boot starter, Gradle plugin, seed e integração de generated
 
 ## Fase 8 - Introspection e db pull
 
-Catálogos PostgreSQL -> internal schema model -> `schema.jorvia`, com naming e round-trip tests.
+Catálogos PostgreSQL -> internal schema model -> `schema.tuprel`, com naming e round-trip tests.
 
 ## Fase 9 - PostgreSQL avançado e diagnostics
 

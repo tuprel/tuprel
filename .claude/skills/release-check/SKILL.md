@@ -1,6 +1,6 @@
 ---
 name: release-check
-description: Executa a checklist de readiness de uma release Jorvia sem publicar artefactos.
+description: Executa a checklist de readiness de uma release Tuprel sem publicar artefactos.
 disable-model-invocation: true
 ---
 

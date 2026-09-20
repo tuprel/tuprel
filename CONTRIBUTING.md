@@ -1,4 +1,4 @@
-# Contribuir para o Jorvia ORM
+# Contribuir para o Tuprel ORM
 
 ## Fluxo
 
@@ -7,7 +7,7 @@
 3. lê os ADRs relevantes;
 4. cria uma alteração pequena;
 5. adiciona testes apropriados;
-6. executa `./gradlew check` e testes de integração relevantes;
+6. executa `./gradlew check` e testes de integração relevantes (comandos e lifecycle em `docs/development/BUILD_AND_TEST.md`);
 7. actualiza documentação quando o contrato público muda;
 8. submete PR com riscos, compatibilidade e evidência de testes.
 

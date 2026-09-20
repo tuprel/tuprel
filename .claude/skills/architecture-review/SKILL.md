@@ -1,6 +1,6 @@
 ---
 name: architecture-review
-description: Revê uma alteração do Jorvia procurando violações de boundaries, acoplamento, ciclos e contratos instáveis.
+description: Revê uma alteração do Tuprel procurando violações de boundaries, acoplamento, ciclos e contratos instáveis.
 allowed-tools: Read Grep Glob
 ---
 

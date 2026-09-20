@@ -1,6 +1,6 @@
 # Política de Segurança
 
-O Jorvia lida directamente com SQL, credenciais, migrações e dados persistentes. Vulnerabilidades podem ter impacto elevado.
+O Tuprel lida directamente com SQL, credenciais, migrações e dados persistentes. Vulnerabilidades podem ter impacto elevado.
 
 ## Reportar uma vulnerabilidade
 

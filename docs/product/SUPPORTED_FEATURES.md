@@ -2,9 +2,9 @@
 
 Este documento separa o que deve existir no produto estável do que não deve bloquear a primeira release.
 
-## Jorvia 0.1 - Foundation preview
+## Tuprel 0.1 - Foundation preview
 
-- parser e validator básicos de `schema.jorvia`;
+- parser e validator básicos de `schema.tuprel`;
 - models, scalars, enums, ids, unique e indexes básicos;
 - geração de modelos Java e client mínimo;
 - PostgreSQL connection/runtime mínimo;
@@ -14,7 +14,7 @@ Este documento separa o que deve existir no produto estável do que não deve bl
 - testes em PostgreSQL real;
 - nenhum compromisso de compatibilidade binária.
 
-## Jorvia 0.5 - Developer preview
+## Tuprel 0.5 - Developer preview
 
 Inclui 0.1 e acrescenta:
 
@@ -34,7 +34,7 @@ Inclui 0.1 e acrescenta:
 - Gradle integration;
 - seed.
 
-## Jorvia 1.0 - Primeira versão estável
+## Tuprel 1.0 - Primeira versão estável
 
 Além do anterior:
 

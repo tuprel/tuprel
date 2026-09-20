@@ -12,7 +12,7 @@
 
 ## Fronteiras de confiança
 
-1. aplicação consumidora -> Jorvia public API;
+1. aplicação consumidora -> Tuprel public API;
 2. schema/config -> parser/codegen;
 3. query builder -> SQL renderer;
 4. SQL renderer -> JDBC/PostgreSQL;
@@ -73,4 +73,4 @@ Mitigação: limites razoáveis, algoritmos previsíveis, lifecycle explícito, 
 
 ## Fora do âmbito inicial
 
-O Jorvia não é um sistema de autorização de negócio. Não decide se um utilizador pode ver uma linha; fornece primitivas seguras para a aplicação implementar as suas políticas.
+O Tuprel não é um sistema de autorização de negócio. Não decide se um utilizador pode ver uma linha; fornece primitivas seguras para a aplicação implementar as suas políticas.

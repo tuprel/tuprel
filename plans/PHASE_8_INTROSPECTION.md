@@ -2,7 +2,7 @@
 
 ## Comando alvo
 
-`jorvia db pull`
+`tuprel db pull`
 
 ## Entregáveis
 

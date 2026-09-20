@@ -1,6 +1,6 @@
 # Regras de Arquitectura
 
-- O domínio central do Jorvia não depende de Spring, Quarkus, Micronaut, JPA ou Hibernate.
+- O domínio central do Tuprel não depende de Spring, Quarkus, Micronaut, JPA ou Hibernate.
 - Nenhum módulo pode depender de um módulo de integração para funcionar.
 - Parsing, validação semântica, geração de código, runtime SQL e migrations são responsabilidades separadas.
 - PostgreSQL-specific behavior deve ficar num adapter/dialect explícito.

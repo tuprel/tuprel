@@ -1,17 +1,17 @@
-# Jorvia ORM - Claude Code Handoff
+# Tuprel ORM - Claude Code Handoff
 
-Este repositório contém o contexto de engenharia que deve ser entregue ao Claude Code antes de começar a implementação do Jorvia ORM.
+Este repositório contém o contexto de engenharia que deve ser entregue ao Claude Code antes de começar a implementação do Tuprel ORM.
 
 ## Objectivo deste pacote
 
 O pacote existe para evitar que um agente de programação comece a escrever código sem compreender o produto, a arquitectura, os limites de segurança, a estratégia de testes e a ordem de implementação.
 
-O Jorvia deverá ser tratado como uma biblioteca de infraestrutura crítica. Um erro no ORM pode provocar perda de dados, corrupção de migrações, fugas de credenciais, SQL injection ou regressões silenciosas em aplicações de terceiros. Por isso, a implementação deve ser incremental, testada e auditável.
+O Tuprel deverá ser tratado como uma biblioteca de infraestrutura crítica. Um erro no ORM pode provocar perda de dados, corrupção de migrações, fugas de credenciais, SQL injection ou regressões silenciosas em aplicações de terceiros. Por isso, a implementação deve ser incremental, testada e auditável.
 
 ## Ordem de leitura obrigatória
 
 1. `CLAUDE.md`
-2. `docs/product/JORVIA_ORM_SPEC.md`
+2. `docs/product/TUPREL_ORM_SPEC.md`
 3. `docs/product/PRODUCT_PRINCIPLES.md`
 4. `docs/architecture/ARCHITECTURE.md`
 5. `docs/architecture/MODULE_BOUNDARIES.md`
@@ -34,4 +34,4 @@ Nenhuma funcionalidade é considerada pronta porque compila. Uma funcionalidade 
 
 ## Nome do projecto
 
-`Jorvia ORM` é o nome de trabalho utilizado neste pacote. Antes de publicação pública, artefactos Maven, domínio, marca ou lançamento comercial, é obrigatória uma verificação de disponibilidade do nome. Consulta `docs/product/NAMING_AND_LEGAL.md`.
+`Tuprel ORM` é o nome de trabalho utilizado neste pacote. Antes de publicação pública, artefactos Maven, domínio, marca ou lançamento comercial, é obrigatória uma verificação de disponibilidade do nome. Consulta `docs/product/NAMING_AND_LEGAL.md`.

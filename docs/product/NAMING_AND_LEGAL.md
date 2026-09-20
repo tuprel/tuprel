@@ -2,7 +2,9 @@
 
 ## Estado
 
-`Jorvia ORM` é um nome de trabalho. Não deve ser tratado como marca legalmente validada.
+`Tuprel ORM` é o nome de trabalho actual. Não deve ser tratado como marca legalmente validada.
+
+O nome deriva conceptualmente de **TUP**le + **REL**ation. Essa origem é apenas descritiva e não constitui, por si só, qualquer avaliação de disponibilidade ou de risco de marca.
 
 Antes da primeira publicação pública devem ser verificados:
 
@@ -13,13 +15,21 @@ Antes da primeira publicação pública devem ser verificados:
 - disponibilidade de Maven group/artifact coordinates;
 - handles sociais, se necessários.
 
-## Colisões já observadas durante a preparação
+## Estado da verificação
 
-Existe utilização pública actual do nome Jorvia por entidades não relacionadas. Isso não determina por si só se o nome pode ou não ser usado para este ORM, mas torna obrigatória uma pesquisa profissional de naming/trademark antes da release.
+Nenhuma pesquisa profissional de naming/trademark foi realizada para o nome actual. Enquanto isso não acontecer, o nome não pode ser apresentado como legalmente validado, livre de conflito ou seguro para uso comercial.
+
+Registar ou controlar um domínio não constitui clearance de marca. São questões independentes: um domínio disponível não garante ausência de marcas registadas em conflito nos mercados alvo.
 
 ## Maven coordinates
 
-Até a decisão final de nome/domínio, qualquer `groupId` como `dev.jorvia` é provisório e não deve ser publicado no Maven Central.
+Até a decisão final de nome/domínio, qualquer `groupId` como `dev.tuprel` é provisório e não deve ser publicado no Maven Central.
+
+`dev.tuprel` é um marcador de trabalho. Não é a coordenada final aprovada. Alternativas como `com.tuprel` só podem ser consideradas depois de confirmadas a titularidade do domínio e a verificação de naming/trademark.
+
+## Publicação
+
+A publicação permanece desactivada. Nenhum `publishing`, assinatura ou repositório de distribuição está configurado no build, e nenhum artefacto pode ser publicado antes de as verificações acima estarem fechadas.
 
 ## Licença
 

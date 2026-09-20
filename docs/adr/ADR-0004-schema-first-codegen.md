@@ -4,7 +4,7 @@ Estado: Aceite
 
 ## Contexto e decisão
 
-`schema.jorvia` produz um modelo validado que alimenta geração de Java. O developer não precisa manter manualmente entidade + repository + metadata redundantes para cada model.
+`schema.tuprel` produz um modelo validado que alimenta geração de Java. O developer não precisa manter manualmente entidade + repository + metadata redundantes para cada model.
 
 ## Consequências
 
