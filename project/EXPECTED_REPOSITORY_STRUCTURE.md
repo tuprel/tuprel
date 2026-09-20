@@ -1,7 +1,7 @@
 # Estrutura Esperada do Repositório depois da Fase 0
 
 ```text
-jorvia/
+tuprel/
 ├── .claude/
 ├── .github/
 ├── docs/
@@ -11,19 +11,19 @@ jorvia/
 │   └── libs.versions.toml
 ├── build-logic/
 │   └── ... convention plugins, se justificados
-├── jorvia-schema/
+├── tuprel-schema/
 │   └── src/{main,test}/java/...
-├── jorvia-codegen-java/
-├── jorvia-sql/
-├── jorvia-runtime/
-├── jorvia-postgresql/
-├── jorvia-migrate/
-├── jorvia-introspection-postgresql/
-├── jorvia-cli/
-├── jorvia-spring-boot-starter/
-├── jorvia-gradle-plugin/
-├── jorvia-maven-plugin/
-├── jorvia-testkit/
+├── tuprel-codegen-java/
+├── tuprel-sql/
+├── tuprel-runtime/
+├── tuprel-postgresql/
+├── tuprel-migrate/
+├── tuprel-introspection-postgresql/
+├── tuprel-cli/
+├── tuprel-spring-boot-starter/
+├── tuprel-gradle-plugin/
+├── tuprel-maven-plugin/
+├── tuprel-testkit/
 ├── examples/
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -39,13 +39,13 @@ A Fase 0 deve evitar módulos vazios sem valor. Pode começar com subconjunto m�
 Gradle:
 
 ```text
-build/generated/sources/jorvia/main/
+build/generated/sources/tuprel/main/
 ```
 
 Maven:
 
 ```text
-target/generated-sources/jorvia/
+target/generated-sources/tuprel/
 ```
 
 Nunca gerar por omissão em `src/main/java`.

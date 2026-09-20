@@ -1,10 +1,14 @@
-# Jorvia ORM
+# Tuprel ORM
+
+> Modern relational data toolkit for Java.
 
 > Estado: especificação e bootstrap de engenharia. Ainda não é uma release utilizável.
 
-Jorvia ORM é uma plataforma de persistência para Java orientada a schema, geração de código type-safe, queries explícitas, migrações auditáveis e integração profissional com o ecossistema Java.
+Tuprel ORM é uma plataforma de persistência para Java orientada a schema, geração de código type-safe, queries explícitas, migrações auditáveis e integração profissional com o ecossistema Java.
 
 Este repositório encontra-se preparado para desenvolvimento assistido por Claude Code. Começa por `START_HERE.md`.
+
+Para construir e verificar o repositório, consulta `docs/development/BUILD_AND_TEST.md`.
 
 ## Objectivos de engenharia
 
@@ -18,4 +22,4 @@ Este repositório encontra-se preparado para desenvolvimento assistido por Claud
 
 ## Estado do nome
 
-Jorvia é um nome de trabalho. Nenhuma publicação pública deve acontecer antes das verificações descritas em `docs/product/NAMING_AND_LEGAL.md`.
+Tuprel é um nome de trabalho. Nenhuma publicação pública deve acontecer antes das verificações descritas em `docs/product/NAMING_AND_LEGAL.md`.

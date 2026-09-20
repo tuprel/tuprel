@@ -14,7 +14,7 @@ Gerar Java determinístico a partir do schema validado.
 - naming collision handling;
 - generated source marker/header;
 - incremental-safe output/cleaning sem apagar ficheiros externos;
-- `jorvia generate`.
+- `tuprel generate`.
 
 ## Segurança
 

@@ -1,6 +1,6 @@
 # Agent Instructions
 
-Este projecto é o Jorvia ORM, uma infraestrutura de persistência Java.
+Este projecto é o Tuprel ORM, uma infraestrutura de persistência Java.
 
 As instruções canónicas para agentes estão em `CLAUDE.md`. Antes de implementar código, lê também `START_HERE.md`, `plans/MASTER_PLAN.md`, o plano da fase actual, os ADRs relevantes e as regras em `.claude/rules/`.
 

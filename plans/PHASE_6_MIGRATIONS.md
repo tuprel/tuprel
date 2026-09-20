@@ -2,10 +2,10 @@
 
 ## Comandos alvo
 
-- `jorvia migrate dev --name <nome>`
-- `jorvia migrate deploy`
-- `jorvia migrate status`
-- `jorvia migrate reset` apenas para ambientes de desenvolvimento e com confirmação forte
+- `tuprel migrate dev --name <nome>`
+- `tuprel migrate deploy`
+- `tuprel migrate status`
+- `tuprel migrate reset` apenas para ambientes de desenvolvimento e com confirmação forte
 
 ## Entregáveis
 

@@ -1,11 +1,12 @@
-# Jorvia ORM - Project Instructions
+# Tuprel ORM - Project Instructions
 
 ## Missão
 
-Construir um ORM Java robusto, explícito, type-safe, seguro e simples de utilizar. O Jorvia deve reduzir boilerplate e fragmentação sem esconder o comportamento da base de dados.
+Construir um ORM Java robusto, explícito, type-safe, seguro e simples de utilizar. O Tuprel deve reduzir boilerplate e fragmentação sem esconder o comportamento da base de dados.
 
 ## Antes de trabalhar
 
+- `docs/product/TUPREL_ORM_SPEC.md` é a especificação canónica do produto e a fonte de verdade sobre o que o Tuprel é. Os documentos de arquitectura definem como o Tuprel está estruturado, os ADRs explicam porque foram tomadas as decisões importantes e os planos definem quando cada trabalho é implementado.
 - Lê `START_HERE.md`, `plans/MASTER_PLAN.md` e o plano da fase actual.
 - Lê os ADRs e regras relevantes antes de alterar arquitectura ou API pública.
 - Para tarefas complexas, investiga primeiro e usa Plan Mode antes de editar.
@@ -17,7 +18,7 @@ Construir um ORM Java robusto, explícito, type-safe, seguro e simples de utiliz
 - PostgreSQL é a primeira base de dados suportada.
 - O core não depende de Spring, Jakarta Persistence, Hibernate ou outro ORM.
 - Integrações com frameworks são módulos separados.
-- O schema Jorvia é a fonte declarativa principal dos modelos.
+- O schema Tuprel é a fonte declarativa principal dos modelos.
 - Código gerado nunca é editado manualmente.
 
 ## Princípios de produto

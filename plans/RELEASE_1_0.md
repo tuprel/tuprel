@@ -1,4 +1,4 @@
-# Release Gate - Jorvia 1.0
+# Release Gate - Tuprel 1.0
 
 Nenhum item é presumido. Se não foi verificado, marca como não verificado.
 

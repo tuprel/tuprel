@@ -4,7 +4,7 @@ Data de revisão: 2026-09-19.
 
 ## SQL
 
-OWASP recomenda prepared statements/parameterized queries como defesa primária contra SQL injection. O Jorvia transforma isto num invariant arquitectural: SQL estrutural e valores via bind permanecem separados.
+OWASP recomenda prepared statements/parameterized queries como defesa primária contra SQL injection. O Tuprel transforma isto num invariant arquitectural: SQL estrutural e valores via bind permanecem separados.
 
 Referências:
 
@@ -13,7 +13,7 @@ Referências:
 
 ## Gradle supply chain
 
-A documentação Gradle recomenda dependency locking para builds reproduzíveis e dependency verification para verificar integridade/proveniência de artefactos. A baseline do Jorvia exige lockfiles versionados e verification metadata revisto antes da release.
+A documentação Gradle recomenda dependency locking para builds reproduzíveis e dependency verification para verificar integridade/proveniência de artefactos. A baseline do Tuprel exige lockfiles versionados e verification metadata revisto antes da release.
 
 Referências:
 

@@ -2,7 +2,7 @@
 
 ## Scope
 
-Definir formalmente `schema.jorvia`: lexer, parser, AST, diagnostics, validator e formatter.
+Definir formalmente `schema.tuprel`: lexer, parser, AST, diagnostics, validator e formatter.
 
 ## Mínimo funcional
 
@@ -15,7 +15,7 @@ Definir formalmente `schema.jorvia`: lexer, parser, AST, diagnostics, validator 
 - `@@index`, `@@unique`;
 - relações apenas no nível sintáctico/semântico necessário para preparar a fase seguinte;
 - source spans e mensagens de erro úteis;
-- `jorvia validate` e `jorvia format` numa CLI inicial.
+- `tuprel validate` e `tuprel format` numa CLI inicial.
 
 ## Testes obrigatórios
 

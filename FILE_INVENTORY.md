@@ -1,5 +1,8 @@
 # Inventário de Ficheiros
 
+Ficheiros versionados do repositório. Outputs de build (`build/`, `.gradle/`) e
+configuração local não versionada ficam de fora.
+
 - `.claude/README.md`
 - `.claude/agents/architect.md`
 - `.claude/agents/docs-reviewer.md`
@@ -29,13 +32,21 @@
 - `.gitattributes`
 - `.gitignore`
 - `AGENTS.md`
+- `CHANGELOG.md`
 - `CLAUDE.md`
 - `CLAUDE_FIRST_PROMPT.md`
 - `CONTRIBUTING.md`
+- `FILE_INVENTORY.md`
 - `HANDOFF_CHECKLIST.md`
 - `README.md`
 - `SECURITY.md`
 - `START_HERE.md`
+- `build-logic/build.gradle.kts`
+- `build-logic/gradle.properties`
+- `build-logic/settings.gradle.kts`
+- `build-logic/src/main/kotlin/tuprel.java-conventions.gradle.kts`
+- `build-logic/src/test/kotlin/dev/tuprel/buildlogic/JavaConventionsPluginTest.kt`
+- `build.gradle.kts`
 - `docs/adr/ADR-0001-gradle-multi-project.md`
 - `docs/adr/ADR-0002-java-21-baseline.md`
 - `docs/adr/ADR-0003-postgresql-first.md`
@@ -47,13 +58,14 @@
 - `docs/architecture/ARCHITECTURE.md`
 - `docs/architecture/MODULE_BOUNDARIES.md`
 - `docs/development/API_STYLE.md`
+- `docs/development/BUILD_AND_TEST.md`
 - `docs/development/DEFINITION_OF_DONE.md`
 - `docs/development/ERROR_MODEL.md`
 - `docs/development/VERSIONING.md`
-- `docs/product/JORVIA_ORM_SPEC.md`
 - `docs/product/NAMING_AND_LEGAL.md`
 - `docs/product/PRODUCT_PRINCIPLES.md`
 - `docs/product/SUPPORTED_FEATURES.md`
+- `docs/product/TUPREL_ORM_SPEC.md`
 - `docs/research/CLAUDE_CODE_SETUP.md`
 - `docs/research/ENGINEERING_SECURITY_BASELINE.md`
 - `docs/security/SECURITY_REQUIREMENTS.md`
@@ -61,6 +73,12 @@
 - `docs/security/THREAT_MODEL.md`
 - `docs/testing/COMPATIBILITY_MATRIX.md`
 - `docs/testing/TEST_STRATEGY.md`
+- `gradle.properties`
+- `gradle/libs.versions.toml`
+- `gradle/wrapper/gradle-wrapper.jar`
+- `gradle/wrapper/gradle-wrapper.properties`
+- `gradlew`
+- `gradlew.bat`
 - `plans/MASTER_PLAN.md`
 - `plans/PHASE_0_FOUNDATION.md`
 - `plans/PHASE_10_HARDENING.md`
@@ -77,6 +95,7 @@
 - `project/BUILD_CONVENTIONS.md`
 - `project/EXPECTED_REPOSITORY_STRUCTURE.md`
 - `project/MODULE_CATALOG.md`
+- `settings.gradle.kts`
 - `templates/GITHUB_SETUP.md`
 - `templates/github/ci.yml`
 - `templates/github/codeql.yml`

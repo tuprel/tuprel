@@ -3,20 +3,20 @@
 ## Estrutura alvo do monorepo
 
 ```text
-jorvia/
-├── jorvia-schema
-├── jorvia-codegen-java
-├── jorvia-runtime
-├── jorvia-sql
-├── jorvia-postgresql
-├── jorvia-migrate
-├── jorvia-introspection-postgresql
-├── jorvia-cli
-├── jorvia-spring-boot-starter
-├── jorvia-gradle-plugin
-├── jorvia-maven-plugin
-├── jorvia-testkit
-├── jorvia-bom
+tuprel/
+├── tuprel-schema
+├── tuprel-codegen-java
+├── tuprel-runtime
+├── tuprel-sql
+├── tuprel-postgresql
+├── tuprel-migrate
+├── tuprel-introspection-postgresql
+├── tuprel-cli
+├── tuprel-spring-boot-starter
+├── tuprel-gradle-plugin
+├── tuprel-maven-plugin
+├── tuprel-testkit
+├── tuprel-bom
 ├── examples/
 ├── docs/
 └── .claude/
@@ -26,49 +26,49 @@ A Fase 0 pode criar apenas os módulos necessários para estabelecer o grafo e d
 
 ## Responsabilidades
 
-### `jorvia-schema`
+### `tuprel-schema`
 
 Lexer, parser, AST, source spans, diagnostics, validated schema model.
 
 Não depende de runtime, JDBC, PostgreSQL ou frameworks.
 
-### `jorvia-codegen-java`
+### `tuprel-codegen-java`
 
 Geração determinística de Java a partir de validated schema.
 
-Depende de `jorvia-schema`. Não depende de PostgreSQL JDBC.
+Depende de `tuprel-schema`. Não depende de PostgreSQL JDBC.
 
-### `jorvia-sql`
+### `tuprel-sql`
 
 Representação de query/SQL AST, bind model e contratos de dialect.
 
 Não contém código específico Spring.
 
-### `jorvia-runtime`
+### `tuprel-runtime`
 
 Lifecycle, query execution abstractions, mapping, transactions, streaming, errors e public client contracts.
 
-Pode depender de `jorvia-sql`; não depende de Spring.
+Pode depender de `tuprel-sql`; não depende de Spring.
 
-### `jorvia-postgresql`
+### `tuprel-postgresql`
 
 Renderer/dialect PostgreSQL, bindings de tipos e comportamento específico.
 
-Depende dos contratos de `jorvia-sql` e runtime necessários.
+Depende dos contratos de `tuprel-sql` e runtime necessários.
 
-### `jorvia-migrate`
+### `tuprel-migrate`
 
 Migration model, history, checksums, locking, planner/applier e safety analysis. Integra com dialect/introspection por interfaces explícitas.
 
-### `jorvia-introspection-postgresql`
+### `tuprel-introspection-postgresql`
 
 Leitura de catálogos PostgreSQL e transformação no modelo de schema.
 
-### `jorvia-cli`
+### `tuprel-cli`
 
 Orquestra comandos. Não deve duplicar lógica do parser, codegen ou migrate.
 
-### `jorvia-spring-boot-starter`
+### `tuprel-spring-boot-starter`
 
 Auto-configuration e integração com `DataSource`, lifecycle e transactions conforme contrato aprovado.
 
@@ -76,7 +76,7 @@ Auto-configuration e integração com `DataSource`, lifecycle e transactions con
 
 Integram geração e validação no lifecycle de build. Não implementam ORM.
 
-### `jorvia-testkit`
+### `tuprel-testkit`
 
 Fixtures, helpers e contract suites reutilizáveis. Nunca vira uma dependência runtime de produção.
 

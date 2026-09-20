@@ -21,4 +21,4 @@ A matriz de versões será definida na fase de integração. O core não depende
 
 ## Gradle/Maven
 
-Plugins devem declarar e testar versões mínimas/máximas razoáveis antes de 1.0. O runtime Jorvia não depende do build tool usado pela aplicação.
+Plugins devem declarar e testar versões mínimas/máximas razoáveis antes de 1.0. O runtime Tuprel não depende do build tool usado pela aplicação.

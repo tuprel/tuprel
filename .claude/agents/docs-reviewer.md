@@ -1,6 +1,6 @@
 ---
 name: docs-reviewer
-description: Revisor read-only da documentação pública e exemplos do Jorvia quanto a precisão, consistência e compilabilidade.
+description: Revisor read-only da documentação pública e exemplos do Tuprel quanto a precisão, consistência e compilabilidade.
 tools: Read, Grep, Glob
 model: sonnet
 permissionMode: plan

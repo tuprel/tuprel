@@ -1,4 +1,4 @@
-# Princípios de Produto do Jorvia ORM
+# Princípios de Produto do Tuprel ORM
 
 ## 1. Simples no caso comum, explícito no caso complexo
 
@@ -10,7 +10,7 @@ O schema deve gerar tipos Java, inputs, filtros, selectors e metadata que desloc
 
 ## 3. Sem magia escondida
 
-O Jorvia não deve disparar queries porque um getter foi acedido. Não deve escrever alterações apenas porque um objecto em memória mudou. Não deve carregar relações sem pedido explícito.
+O Tuprel não deve disparar queries porque um getter foi acedido. Não deve escrever alterações apenas porque um objecto em memória mudou. Não deve carregar relações sem pedido explícito.
 
 ## 4. SQL continua visível
 
@@ -26,7 +26,7 @@ Migrações precisam de revisão, history, checksum, locking, drift detection e 
 
 ## 7. Framework-agnostic core
 
-Spring Boot deve ter integração excelente, mas o runtime Jorvia deve poder ser usado numa aplicação Java sem Spring.
+Spring Boot deve ter integração excelente, mas o runtime Tuprel deve poder ser usado numa aplicação Java sem Spring.
 
 ## 8. Safe by default
 

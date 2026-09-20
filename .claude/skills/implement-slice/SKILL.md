@@ -1,6 +1,6 @@
 ---
 name: implement-slice
-description: Implementa uma pequena fatia previamente planeada do Jorvia, com testes e validação completa.
+description: Implementa uma pequena fatia previamente planeada do Tuprel, com testes e validação completa.
 disable-model-invocation: true
 ---
 

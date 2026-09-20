@@ -2,7 +2,7 @@
 
 A hierarquia final será desenhada antes do runtime público, mas deve cobrir:
 
-- `JorviaException` como base de falhas da biblioteca;
+- `TuprelException` como base de falhas da biblioteca;
 - schema parse/validation diagnostics com source spans;
 - code generation failures;
 - configuration errors;

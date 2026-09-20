@@ -4,7 +4,7 @@ Estado: Aceite
 
 ## Contexto e decisão
 
-Gradle: `build/generated/sources/jorvia/main`. Maven: `target/generated-sources/jorvia`. O build integra esses caminhos como generated sources. Ficheiros gerados não são fonte manual.
+Gradle: `build/generated/sources/tuprel/main`. Maven: `target/generated-sources/tuprel`. O build integra esses caminhos como generated sources. Ficheiros gerados não são fonte manual.
 
 ## Consequências
 

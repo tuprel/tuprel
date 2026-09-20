@@ -1,0 +1,23 @@
+# Catálogo de versões central do Tuprel.
+#
+# Fonte única de verdade para versões de dependências e plugins em todos os
+# módulos futuros.
+#
+# Regras para entradas:
+# - versões exactas; sem ranges, sem `+`, sem versões dinâmicas, sem snapshots,
+#   sem RC/milestone/nightly;
+# - cada dependência nova exige justificação de licença, CVEs, manutenção,
+#   superfície transitiva e peso (ver CLAUDE.md e .claude/rules/security.md).
+
+[versions]
+# Spotless 8.10.2 (release estável, 2026-09-04). Licença Apache-2.0.
+# Requer Gradle >= 8.1; compatibilidade com Gradle 9.7.1 verificada
+# empiricamente neste repositório.
+spotless = "8.10.2"
+
+[libraries]
+
+[bundles]
+
+[plugins]
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

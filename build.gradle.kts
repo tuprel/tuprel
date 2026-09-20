@@ -1,0 +1,117 @@
+/*
+ * Projecto raiz do Tuprel.
+ *
+ * Este projecto é agregador/fundação, não um módulo Java de produto. Não
+ * aplica `java`, `java-library`, `application`, publicação nem assinatura:
+ * essas decisões pertencem a slices e fases posteriores, algumas com ADR
+ * próprio.
+ */
+
+plugins {
+    /*
+     * Fornece o lifecycle base do build: clean, assemble, check e build.
+     * Deliberadamente sem `java`: a Fase 0 não introduz código de produto.
+     */
+    base
+
+    // Gate de formatação determinística para ficheiros de build/configuração.
+    alias(libs.plugins.spotless)
+}
+
+/*
+ * Coordenada PROVISÓRIA.
+ *
+ * `dev.tuprel` é um marcador de trabalho enquanto a revisão de nome, domínio e
+ * enquadramento legal está pendente (ver docs/product/NAMING_AND_LEGAL.md).
+ *
+ * NÃO deve ser interpretada como coordenada de publicação aprovada. Nenhum
+ * artefacto pode ser publicado com esta coordenada antes dessa decisão estar
+ * fechada.
+ */
+group = "dev.tuprel"
+
+/*
+ * `version` é intencionalmente omitida neste slice. O baseline de versionamento
+ * e changelog é um item próprio da Fase 0 e será definido quando existir algo
+ * versionável.
+ */
+
+/*
+ * Agregação do lifecycle: `check` da raiz tem de verificar também o included
+ * build `build-logic`.
+ *
+ * Um included build NÃO é verificado só por estar incluído. Sem esta ligação
+ * explícita, `./gradlew check` na raiz passaria sem nunca compilar nem testar
+ * os convention plugins, e uma regressão em `tuprel.java-conventions` só
+ * apareceria quando o primeiro módulo de produto a aplicasse.
+ *
+ * `base` também faz `build` depender de `check`, por isso `build` na raiz
+ * herda a mesma verificação.
+ */
+tasks.named("check") {
+    dependsOn(gradle.includedBuild("build-logic").task(":check"))
+}
+
+/*
+ * Spotless com âmbito deliberadamente conservador.
+ *
+ * O objectivo desta fase NÃO é reformatar o corpus de documentação existente
+ * (docs/, plans/, project/, templates/, Markdown na raiz). O objectivo é ter um
+ * gate determinístico sobre os ficheiros de engenharia criados pela fundação.
+ *
+ * Apenas passos de higiene de texto são usados. Nenhum motor de formatação
+ * adicional (ktlint, ktfmt, detekt, google-java-format, palantir-java-format) é
+ * introduzido: a formatação de Java será uma decisão explícita quando existir
+ * código Java.
+ */
+spotless {
+    // Codificação explícita, para o resultado não depender do locale da máquina.
+    encoding("UTF-8")
+
+    /*
+     * Ficheiros Gradle Kotlin DSL da raiz e do included build `build-logic`,
+     * incluindo o convention plugin precompilado. Expansão deliberadamente
+     * limitada aos ficheiros de build criados pela fundação: as fontes Kotlin
+     * de teste de build-logic ficam fora, porque não são Gradle DSL e
+     * exigiriam uma decisão própria sobre motor de formatação Kotlin.
+     */
+    format("gradleKotlinDsl") {
+        target(
+            "settings.gradle.kts",
+            "build.gradle.kts",
+            "build-logic/settings.gradle.kts",
+            "build-logic/build.gradle.kts",
+            "build-logic/src/main/kotlin/*.gradle.kts",
+        )
+        leadingTabsToSpaces(4)
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    format("versionCatalog") {
+        target("gradle/libs.versions.toml")
+        leadingTabsToSpaces(2)
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    format("gradleProperties") {
+        target("gradle.properties", "build-logic/gradle.properties")
+        // Sem normalização de indentação: em ficheiros .properties o espaço
+        // inicial tem significado para o parser.
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    /*
+     * Workflows de CI. Os ficheiros ainda não existem (CI é um slice
+     * posterior); o alvo fica declarado para que entrem no gate no momento em
+     * que forem criados. Um alvo sem correspondências é ignorado pelo Spotless.
+     */
+    format("githubWorkflows") {
+        target(".github/**/*.yml", ".github/**/*.yaml")
+        leadingTabsToSpaces(2)
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}

@@ -1,6 +1,6 @@
 ---
 name: test-matrix
-description: Desenha ou revê a matriz de testes para uma funcionalidade ou release do Jorvia.
+description: Desenha ou revê a matriz de testes para uma funcionalidade ou release do Tuprel.
 allowed-tools: Read Grep Glob
 ---
 

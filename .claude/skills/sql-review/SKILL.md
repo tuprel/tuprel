@@ -1,6 +1,6 @@
 ---
 name: sql-review
-description: Revê SQL generation e query behavior do Jorvia para correcção, parametrização, PostgreSQL e desempenho.
+description: Revê SQL generation e query behavior do Tuprel para correcção, parametrização, PostgreSQL e desempenho.
 allowed-tools: Read Grep Glob
 ---
 

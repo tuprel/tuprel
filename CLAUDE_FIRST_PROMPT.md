@@ -1,13 +1,13 @@
 # Primeiro prompt para Claude Code
 
-Quero que trabalhes neste repositório como engenheiro principal responsável por construir o Jorvia ORM.
+Quero que trabalhes neste repositório como engenheiro principal responsável por construir o Tuprel ORM.
 
 Antes de alterar qualquer ficheiro:
 
 1. entra em Plan Mode;
 2. lê `CLAUDE.md`;
 3. lê `START_HERE.md`;
-4. lê `docs/product/JORVIA_ORM_SPEC.md`;
+4. lê `docs/product/TUPREL_ORM_SPEC.md`;
 5. lê `docs/architecture/ARCHITECTURE.md` e `docs/architecture/MODULE_BOUNDARIES.md`;
 6. lê `docs/security/THREAT_MODEL.md` e `docs/security/SECURITY_REQUIREMENTS.md`;
 7. lê `docs/testing/TEST_STRATEGY.md`;

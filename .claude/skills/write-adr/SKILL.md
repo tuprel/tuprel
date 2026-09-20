@@ -1,6 +1,6 @@
 ---
 name: write-adr
-description: Cria um Architecture Decision Record para uma decisão técnica relevante do Jorvia.
+description: Cria um Architecture Decision Record para uma decisão técnica relevante do Tuprel.
 disable-model-invocation: true
 allowed-tools: Read Grep Glob
 ---

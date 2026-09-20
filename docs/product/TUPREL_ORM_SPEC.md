@@ -1,22 +1,22 @@
-# Jorvia ORM
+# Tuprel ORM
 
 > Nota de documentação: os exemplos Java usam tipos explícitos por omissão. Nomes de tipos em funcionalidades ainda não implementadas são contratos propostos e devem ser confirmados na fase/ADR correspondente.
 
 ## Documento de Visão, Produto, Arquitectura e Especificação Técnica
 
 **Estado:** proposta de arquitectura para desenvolvimento  
-**Nome do produto:** Jorvia ORM  
-**Comando principal:** `jorvia`  
+**Nome do produto:** Tuprel ORM  
+**Comando principal:** `tuprel`  
 **Ecossistema:** Java  
 **Primeira base de dados alvo:** PostgreSQL  
 **Requisito mínimo proposto:** Java 21  
-**Objectivo da primeira versão estável:** Jorvia ORM 1.0
+**Objectivo da primeira versão estável:** Tuprel ORM 1.0
 
 ---
 
 ## 1. Resumo executivo
 
-O Jorvia ORM é uma plataforma moderna de persistência de dados para Java, concebida para tornar o acesso a bases de dados relacionais mais simples, previsível, seguro e produtivo, sem esconder o funcionamento fundamental da base de dados.
+O Tuprel ORM é uma plataforma moderna de persistência de dados para Java, concebida para tornar o acesso a bases de dados relacionais mais simples, previsível, seguro e produtivo, sem esconder o funcionamento fundamental da base de dados.
 
 O produto não deverá ser apenas uma pequena biblioteca de mapeamento objecto-relacional. O objectivo é oferecer um conjunto coerente de ferramentas para todo o ciclo de vida da persistência de uma aplicação Java:
 
@@ -55,7 +55,7 @@ queries previsíveis
 aplicação Java
 ```
 
-O Jorvia deverá reduzir a quantidade de código repetitivo que normalmente existe na camada de dados sem retirar ao programador o controlo sobre SQL, transacções, índices, constraints e performance.
+O Tuprel deverá reduzir a quantidade de código repetitivo que normalmente existe na camada de dados sem retirar ao programador o controlo sobre SQL, transacções, índices, constraints e performance.
 
 A promessa central do produto é:
 
@@ -63,7 +63,7 @@ A promessa central do produto é:
 
 ---
 
-# 2. O problema que o Jorvia vem resolver
+# 2. O problema que o Tuprel vem resolver
 
 ## 2.1 Fragmentação da camada de persistência
 
@@ -85,10 +85,10 @@ Ferramentas externas de base de dados
 
 Cada componente pode ser bom individualmente, mas o programador é obrigado a aprender, configurar e manter vários mecanismos ao mesmo tempo.
 
-O Jorvia pretende oferecer uma experiência integrada.
+O Tuprel pretende oferecer uma experiência integrada.
 
 ```text
-Jorvia
+Tuprel
 ├── Schema
 ├── Code Generator
 ├── Query Client
@@ -109,11 +109,11 @@ Jorvia
 
 Uma operação simples não deveria obrigar o developer a criar uma grande quantidade de código cerimonial.
 
-O Jorvia deverá evitar que um modelo simples obrigue o developer a repetir a mesma informação em vários locais.
+O Tuprel deverá evitar que um modelo simples obrigue o developer a repetir a mesma informação em vários locais.
 
 Exemplo conceptual:
 
-```jorvia
+```tuprel
 model User {
     id        UUID      @id @default(uuid())
     name      String
@@ -124,7 +124,7 @@ model User {
 }
 ```
 
-A partir desta definição, o Jorvia pode conhecer:
+A partir desta definição, o Tuprel pode conhecer:
 
 - o nome do modelo;
 - a tabela correspondente;
@@ -159,7 +159,7 @@ Muitos erros de persistência só aparecem em runtime:
 - valor obrigatório em falta;
 - query construída através de strings incorrectas.
 
-O Jorvia deverá deslocar o máximo possível desses erros para:
+O Tuprel deverá deslocar o máximo possível desses erros para:
 
 1. validação do schema;
 2. geração de código;
@@ -183,7 +183,7 @@ Um developer Java deve conseguir criar uma aplicação pequena sem ser obrigado 
 - detalhes internos de uma framework de persistência;
 - múltiplas ferramentas de migração.
 
-O Jorvia deverá começar com uma API pequena e explícita.
+O Tuprel deverá começar com uma API pequena e explícita.
 
 ```java
 List<User> users = db.user()
@@ -194,13 +194,13 @@ List<User> users = db.user()
     );
 ```
 
-O developer pode aprofundar os conceitos de base de dados à medida que precisa deles, sem que o Jorvia esconda o SQL e o comportamento real.
+O developer pode aprofundar os conceitos de base de dados à medida que precisa deles, sem que o Tuprel esconda o SQL e o comportamento real.
 
 ---
 
 ## 2.5 Comportamentos implícitos difíceis de diagnosticar
 
-O Jorvia deverá evitar por omissão:
+O Tuprel deverá evitar por omissão:
 
 - lazy loading invisível;
 - queries adicionais disparadas por um getter;
@@ -217,12 +217,12 @@ A regra é:
 
 # 3. Visão do produto
 
-O Jorvia deverá tornar-se uma camada de persistência Java que um developer possa escolher tanto para uma API pequena como para uma aplicação empresarial, mantendo a mesma experiência conceptual.
+O Tuprel deverá tornar-se uma camada de persistência Java que um developer possa escolher tanto para uma API pequena como para uma aplicação empresarial, mantendo a mesma experiência conceptual.
 
 A visão é permitir que um projecto comece assim:
 
 ```bash
-jorvia init
+tuprel init
 ```
 
 E evolua até produção sem ter de substituir a camada de dados quando a aplicação crescer.
@@ -260,13 +260,13 @@ Sempre que possível, uma query inválida deve falhar durante compilação ou ge
 
 ## 4.3 Sem magia escondida
 
-O Jorvia pode automatizar trabalho repetitivo, mas não deverá executar operações importantes de forma invisível.
+O Tuprel pode automatizar trabalho repetitivo, mas não deverá executar operações importantes de forma invisível.
 
 ---
 
 ## 4.4 SQL continua a ser importante
 
-O Jorvia não deverá tratar SQL como algo que deve ser escondido do developer.
+O Tuprel não deverá tratar SQL como algo que deve ser escondido do developer.
 
 O produto deverá permitir:
 
@@ -289,7 +289,7 @@ Casos avançados devem ser possíveis sem transformar a experiência básica num
 
 ## 4.6 Framework-agnostic no núcleo
 
-O Jorvia Core não deverá depender de Spring Boot.
+O Tuprel Core não deverá depender de Spring Boot.
 
 Spring Boot será uma integração de primeira classe, mas o motor deve funcionar sozinho.
 
@@ -317,9 +317,9 @@ Outros dialectos podem ser adicionados posteriormente através de uma SPI de dia
 
 ---
 
-# 5. O que o Jorvia não deve ser
+# 5. O que o Tuprel não deve ser
 
-O Jorvia 1.0 não deverá tentar ser tudo ao mesmo tempo.
+O Tuprel 1.0 não deverá tentar ser tudo ao mesmo tempo.
 
 Não é objectivo inicial:
 
@@ -373,7 +373,7 @@ Precisam de:
 
 ## 6.5 Projectos existentes
 
-O `jorvia db pull` deverá permitir adoptar Jorvia a partir de uma base de dados PostgreSQL já existente.
+O `tuprel db pull` deverá permitir adoptar Tuprel a partir de uma base de dados PostgreSQL já existente.
 
 ---
 
@@ -381,21 +381,25 @@ O `jorvia db pull` deverá permitir adoptar Jorvia a partir de uma base de dados
 
 ## 7.1 Nome
 
-O nome proposto é **Jorvia ORM**.
+O nome proposto é **Tuprel ORM**.
+
+Descrição preferencial: *Modern relational data toolkit for Java*.
+
+O nome deriva conceptualmente de **TUP**le + **REL**ation, os dois conceitos centrais do modelo relacional.
 
 A CLI é:
 
 ```bash
-jorvia
+tuprel
 ```
 
 Os artefactos Maven propostos podem utilizar:
 
 ```text
-dev.jorvia:jorvia-core
-dev.jorvia:jorvia-runtime
-dev.jorvia:jorvia-postgresql
-dev.jorvia:jorvia-spring-boot-starter
+dev.tuprel:tuprel-core
+dev.tuprel:tuprel-runtime
+dev.tuprel:tuprel-postgresql
+dev.tuprel:tuprel-spring-boot-starter
 ```
 
 Os nomes finais de domínio, groupId e packages devem ser confirmados antes da publicação pública.
@@ -435,19 +439,19 @@ my-app/
 Depois executa:
 
 ```bash
-jorvia init
+tuprel init
 ```
 
 Resultado:
 
 ```text
 my-app/
-├── jorvia/
-│   └── schema.jorvia
+├── tuprel/
+│   └── schema.tuprel
 ├── src/
 ├── build.gradle.kts
 ├── settings.gradle.kts
-├── jorvia.toml
+├── tuprel.toml
 └── README.md
 ```
 
@@ -458,8 +462,8 @@ my-app/
 ```text
 my-app/
 │
-├── jorvia/
-│   ├── schema.jorvia
+├── tuprel/
+│   ├── schema.tuprel
 │   ├── migrations/
 │   │   ├── 20260919_001_init/
 │   │   │   └── migration.sql
@@ -478,12 +482,12 @@ my-app/
 ├── build/
 │   └── generated/
 │       └── sources/
-│           └── jorvia/
+│           └── tuprel/
 │               └── main/
 │
 ├── build.gradle.kts
 ├── settings.gradle.kts
-├── jorvia.toml
+├── tuprel.toml
 ├── .env
 ├── .gitignore
 └── README.md
@@ -499,8 +503,8 @@ O schema e as migrações devem ser versionados.
 
 ```text
 my-app/
-├── jorvia/
-│   ├── schema.jorvia
+├── tuprel/
+│   ├── schema.tuprel
 │   └── migrations/
 ├── src/
 │   ├── main/java/
@@ -508,19 +512,19 @@ my-app/
 │   └── test/java/
 ├── target/
 │   └── generated-sources/
-│       └── jorvia/
+│       └── tuprel/
 ├── pom.xml
-└── jorvia.toml
+└── tuprel.toml
 ```
 
 ---
 
 # 11. Configuração do projecto
 
-Exemplo de `jorvia.toml`:
+Exemplo de `tuprel.toml`:
 
 ```toml
-schema = "jorvia/schema.jorvia"
+schema = "tuprel/schema.tuprel"
 
 [generator]
 package = "com.example.app.db"
@@ -530,7 +534,7 @@ provider = "postgresql"
 urlEnv = "DATABASE_URL"
 
 [migrations]
-directory = "jorvia/migrations"
+directory = "tuprel/migrations"
 
 [logging]
 queries = false
@@ -547,7 +551,7 @@ A configuração deverá referenciar variáveis de ambiente.
 
 ## 12.1 Exemplo básico
 
-```jorvia
+```tuprel
 datasource db {
     provider = "postgresql"
     url      = env("DATABASE_URL")
@@ -573,7 +577,7 @@ model User {
 
 A primeira versão deverá suportar pelo menos:
 
-| Tipo Jorvia | Java gerado | PostgreSQL padrão |
+| Tipo Tuprel | Java gerado | PostgreSQL padrão |
 |---|---|---|
 | `String` | `String` | `VARCHAR` ou `TEXT` |
 | `Boolean` | `boolean` / `Boolean` | `BOOLEAN` |
@@ -589,7 +593,7 @@ A primeira versão deverá suportar pelo menos:
 | `LocalDate` | `LocalDate` | `DATE` |
 | `LocalTime` | `LocalTime` | `TIME` |
 | `Bytes` | `byte[]` | `BYTEA` |
-| `Json` | `JorviaJson` ou tipo configurável | `JSONB` |
+| `Json` | `TuprelJson` ou tipo configurável | `JSONB` |
 
 Tipos nativos PostgreSQL devem poder ser seleccionados através de atributos específicos quando necessário.
 
@@ -597,7 +601,7 @@ Tipos nativos PostgreSQL devem poder ser seleccionados através de atributos esp
 
 ## 12.3 Campos opcionais
 
-```jorvia
+```tuprel
 model User {
     id        UUID    @id @default(uuid())
     name      String
@@ -612,7 +616,7 @@ O `?` representa nulabilidade na base de dados.
 
 ## 12.4 Enums
 
-```jorvia
+```tuprel
 enum UserStatus {
     ACTIVE
     SUSPENDED
@@ -631,7 +635,7 @@ O generator cria um enum Java correspondente.
 
 ## 12.5 Valores por omissão
 
-```jorvia
+```tuprel
 id        UUID    @id @default(uuid())
 active    Boolean @default(true)
 createdAt Instant @default(now())
@@ -644,7 +648,7 @@ Deverá existir uma forma controlada de expressar defaults nativos da base de da
 
 ## 12.6 Mapeamento de nomes
 
-```jorvia
+```tuprel
 model User {
     id        UUID    @id @default(uuid())
     firstName String  @map("first_name")
@@ -659,7 +663,7 @@ O código Java pode manter camelCase e a base de dados usar snake_case.
 
 ## 12.7 Índices
 
-```jorvia
+```tuprel
 model User {
     id        UUID    @id @default(uuid())
     email     String
@@ -686,7 +690,7 @@ A API deve permitir evolução sem quebrar schemas antigos.
 
 ## 12.8 Chaves compostas
 
-```jorvia
+```tuprel
 model Membership {
     userId UUID
     teamId UUID
@@ -700,7 +704,7 @@ model Membership {
 
 ## 12.9 Constraints de check
 
-```jorvia
+```tuprel
 model Product {
     id    UUID    @id @default(uuid())
     price Decimal
@@ -719,7 +723,7 @@ Deverá existir uma representação mais estruturada no futuro, mas SQL explíci
 
 ## 13.1 Um para muitos
 
-```jorvia
+```tuprel
 model User {
     id       UUID      @id @default(uuid())
     name     String
@@ -739,7 +743,7 @@ model Product {
 
 ## 13.2 Um para um
 
-```jorvia
+```tuprel
 model User {
     id      UUID     @id @default(uuid())
     profile Profile?
@@ -756,7 +760,7 @@ model Profile {
 
 ## 13.3 Muitos para muitos
 
-O Jorvia deverá suportar duas abordagens.
+O Tuprel deverá suportar duas abordagens.
 
 ### Relação implícita
 
@@ -766,7 +770,7 @@ Adequada quando a tabela intermédia não tem dados próprios.
 
 Preferível quando a relação tem atributos.
 
-```jorvia
+```tuprel
 model User {
     id          UUID         @id @default(uuid())
     memberships Membership[]
@@ -794,7 +798,7 @@ model Membership {
 
 ## 13.4 Acções referenciais
 
-```jorvia
+```tuprel
 user User @relation(
     fields: [userId],
     references: [id],
@@ -819,7 +823,7 @@ As acções destrutivas deverão ser mostradas claramente durante a criação de
 Comando:
 
 ```bash
-jorvia generate
+tuprel generate
 ```
 
 O generator lê o schema, valida-o e produz código Java.
@@ -827,8 +831,8 @@ O generator lê o schema, valida-o e produz código Java.
 Exemplo de saída Gradle:
 
 ```text
-build/generated/sources/jorvia/main/com/example/app/db/
-├── JorviaClient.java
+build/generated/sources/tuprel/main/com/example/app/db/
+├── TuprelClient.java
 ├── model/
 │   ├── User.java
 │   └── Product.java
@@ -874,7 +878,7 @@ O código gerado deverá ser:
 O comando deverá oferecer:
 
 ```bash
-jorvia generate --check
+tuprel generate --check
 ```
 
 Em CI, este modo valida que o código gerado corresponde ao schema sem modificar ficheiros.
@@ -882,7 +886,7 @@ Em CI, este modo valida que o código gerado corresponde ao schema sem modificar
 Também poderá existir:
 
 ```bash
-jorvia generate --watch
+tuprel generate --watch
 ```
 
 para desenvolvimento local.
@@ -891,12 +895,12 @@ para desenvolvimento local.
 
 # 16. Modelo de runtime
 
-O Jorvia não deverá utilizar um Entity Manager global nem depender de proxies de entidades.
+O Tuprel não deverá utilizar um Entity Manager global nem depender de proxies de entidades.
 
 A proposta é uma API Data Mapper com operações explícitas.
 
 ```java
-JorviaClient db = ...;
+TuprelClient db = ...;
 ```
 
 Depois:
@@ -1068,7 +1072,7 @@ List<User> users = db.user().findMany(q -> q
 
 ## 22.2 Página estruturada
 
-O Jorvia deverá fornecer um helper opcional:
+O Tuprel deverá fornecer um helper opcional:
 
 ```java
 Page<User> page = db.user().paginate(q -> q
@@ -1173,7 +1177,7 @@ Sempre que possível, o dialecto deverá utilizar capacidades atómicas da base 
 
 # 26. Relações na API de queries
 
-O Jorvia não deverá fazer lazy loading implícito.
+O Tuprel não deverá fazer lazy loading implícito.
 
 Uma relação deve ser pedida de forma explícita:
 
@@ -1214,7 +1218,7 @@ Possibilidades:
 - batching de foreign keys;
 - limite configurável.
 
-O Jorvia deverá evitar executar uma query por linha sem que o developer tenha pedido esse comportamento.
+O Tuprel deverá evitar executar uma query por linha sem que o developer tenha pedido esse comportamento.
 
 Em modo de desenvolvimento, poderá detectar padrões suspeitos de N+1 e produzir warnings.
 
@@ -1312,7 +1316,7 @@ Deverão existir limites configuráveis para evitar payloads excessivos.
 Para grandes volumes:
 
 ```java
-try (JorviaStream<User> users = db.user().stream(q -> q
+try (TuprelStream<User> users = db.user().stream(q -> q
     .where(UserWhere.active().eq(true))
     .fetchSize(500)
 )) {
@@ -1376,7 +1380,7 @@ O comportamento deve ser documentado e nunca simular uma semântica que a base d
 
 # 34. Integração com `@Transactional`
 
-No módulo Spring Boot, o Jorvia deverá integrar-se com o sistema de transacções do Spring.
+No módulo Spring Boot, o Tuprel deverá integrar-se com o sistema de transacções do Spring.
 
 Exemplo desejado:
 
@@ -1384,9 +1388,9 @@ Exemplo desejado:
 @Service
 public class CheckoutService {
 
-    private final JorviaClient db;
+    private final TuprelClient db;
 
-    public CheckoutService(JorviaClient db) {
+    public CheckoutService(TuprelClient db) {
         this.db = db;
     }
 
@@ -1409,7 +1413,7 @@ Isto é um requisito importante para adopção por equipas Spring.
 
 O schema poderá marcar um campo de versão:
 
-```jorvia
+```tuprel
 model Product {
     id      UUID @id @default(uuid())
     stock   Int
@@ -1419,7 +1423,7 @@ model Product {
 
 O update deverá incluir a versão esperada.
 
-Se outro processo alterou o registo, o Jorvia lança:
+Se outro processo alterou o registo, o Tuprel lança:
 
 ```text
 OptimisticLockException
@@ -1435,7 +1439,7 @@ Soft delete não deve ser comportamento implícito global.
 
 Pode ser activado por modelo:
 
-```jorvia
+```tuprel
 model User {
     id        UUID     @id @default(uuid())
     deletedAt Instant?
@@ -1460,12 +1464,12 @@ A documentação deverá destacar este comportamento claramente.
 
 # 37. Campos automáticos
 
-```jorvia
+```tuprel
 createdAt Instant @default(now())
 updatedAt Instant @updatedAt
 ```
 
-O Jorvia deverá definir claramente se o valor é produzido pela base de dados ou pelo runtime.
+O Tuprel deverá definir claramente se o valor é produzido pela base de dados ou pelo runtime.
 
 Preferência: valores que afectam integridade devem ser gerados pela base de dados sempre que possível.
 
@@ -1475,7 +1479,7 @@ Preferência: valores que afectam integridade devem ser gerados pela base de dad
 
 Nenhum ORM cobre todos os casos.
 
-O Jorvia deverá oferecer uma escape hatch segura.
+O Tuprel deverá oferecer uma escape hatch segura.
 
 ```java
 List<SqlRow> rows = db.sql().query(
@@ -1504,7 +1508,7 @@ Prepared statements devem ser o comportamento normal.
 Uma funcionalidade posterior à base do 1.0, mas altamente interessante, é permitir ficheiros SQL compilados.
 
 ```text
-src/main/jorvia-sql/find_active_users.sql
+src/main/tuprel-sql/find_active_users.sql
 ```
 
 ```sql
@@ -1518,7 +1522,7 @@ ORDER BY created_at DESC;
 Comando:
 
 ```bash
-jorvia sql generate
+tuprel sql generate
 ```
 
 Resultado conceptual:
@@ -1559,7 +1563,7 @@ Em produção, valores sensíveis devem poder ser mascarados.
 
 # 41. Explain e análise de queries
 
-O Jorvia deverá facilitar performance tuning.
+O Tuprel deverá facilitar performance tuning.
 
 ```java
 ExplainPlan plan = query.explain();
@@ -1582,13 +1586,13 @@ O Studio poderá apresentar o plano visualmente.
 A pasta:
 
 ```text
-jorvia/migrations/
+tuprel/migrations/
 ```
 
 Exemplo:
 
 ```text
-jorvia/migrations/
+tuprel/migrations/
 ├── 20260919_203421_init/
 │   └── migration.sql
 ├── 20260920_101502_add_user_status/
@@ -1601,10 +1605,10 @@ jorvia/migrations/
 
 # 43. Tabela interna de migrações
 
-O Jorvia deverá manter uma tabela interna, por exemplo:
+O Tuprel deverá manter uma tabela interna, por exemplo:
 
 ```text
-_jorvia_migrations
+_tuprel_migrations
 ```
 
 Campos mínimos:
@@ -1621,10 +1625,10 @@ Campos mínimos:
 
 ---
 
-# 44. `jorvia migrate dev`
+# 44. `tuprel migrate dev`
 
 ```bash
-jorvia migrate dev --name add-products
+tuprel migrate dev --name add-products
 ```
 
 Fluxo:
@@ -1652,7 +1656,7 @@ regenerar client
 Saída:
 
 ```text
-Jorvia ORM
+Tuprel ORM
 
 ✓ Schema valid
 ✓ Database connection established
@@ -1692,24 +1696,24 @@ Em CI, flags explícitas devem controlar o comportamento.
 
 ---
 
-# 46. `jorvia migrate create`
+# 46. `tuprel migrate create`
 
 Cria a migração mas não a aplica:
 
 ```bash
-jorvia migrate create --name add-orders
+tuprel migrate create --name add-orders
 ```
 
 Útil quando o developer quer rever ou editar o SQL primeiro.
 
 ---
 
-# 47. `jorvia migrate deploy`
+# 47. `tuprel migrate deploy`
 
 Comando para produção:
 
 ```bash
-jorvia migrate deploy
+tuprel migrate deploy
 ```
 
 Deverá:
@@ -1752,12 +1756,12 @@ Isto protege ambientes partilhados.
 
 # 50. Drift detection
 
-O Jorvia deverá conseguir detectar quando a estrutura real da base de dados já não corresponde ao histórico de migrações.
+O Tuprel deverá conseguir detectar quando a estrutura real da base de dados já não corresponde ao histórico de migrações.
 
 Comando:
 
 ```bash
-jorvia migrate status
+tuprel migrate status
 ```
 
 Saída possível:
@@ -1774,15 +1778,15 @@ Drift:
 
 ---
 
-# 51. `jorvia migrate diff`
+# 51. `tuprel migrate diff`
 
 ```bash
-jorvia migrate diff
+tuprel migrate diff
 ```
 
 Pode comparar:
 
-- schema Jorvia vs base de dados;
+- schema Tuprel vs base de dados;
 - duas bases de dados;
 - migration history vs base actual;
 - dois schemas.
@@ -1790,37 +1794,37 @@ Pode comparar:
 Saída opcional:
 
 ```bash
-jorvia migrate diff --script
+tuprel migrate diff --script
 ```
 
 para imprimir SQL.
 
 ---
 
-# 52. `jorvia migrate resolve`
+# 52. `tuprel migrate resolve`
 
 Para recuperação operacional:
 
 ```bash
-jorvia migrate resolve --applied 20260919_...
+tuprel migrate resolve --applied 20260919_...
 ```
 
 ou:
 
 ```bash
-jorvia migrate resolve --failed 20260919_...
+tuprel migrate resolve --failed 20260919_...
 ```
 
 O comando deve ser avançado, documentado e protegido contra utilização acidental.
 
 ---
 
-# 53. `jorvia migrate reset`
+# 53. `tuprel migrate reset`
 
 Somente desenvolvimento e testes.
 
 ```bash
-jorvia migrate reset
+tuprel migrate reset
 ```
 
 Deverá exigir confirmação forte e recusar por omissão ambientes classificados como production.
@@ -1839,12 +1843,12 @@ gerar client
 
 ---
 
-# 54. `jorvia db push`
+# 54. `tuprel db push`
 
 Sincronização rápida para prototipagem:
 
 ```bash
-jorvia db push
+tuprel db push
 ```
 
 Não cria histórico de migração normal.
@@ -1860,17 +1864,17 @@ Não deve ser recomendado como estratégia principal de produção.
 Alterações destrutivas exigem:
 
 ```bash
-jorvia db push --accept-data-loss
+tuprel db push --accept-data-loss
 ```
 
 ---
 
-# 55. Introspecção com `jorvia db pull`
+# 55. Introspecção com `tuprel db pull`
 
 Para uma base existente:
 
 ```bash
-jorvia db pull
+tuprel db pull
 ```
 
 O engine deverá ler:
@@ -1891,7 +1895,7 @@ O engine deverá ler:
 Depois actualiza ou cria:
 
 ```text
-jorvia/schema.jorvia
+tuprel/schema.tuprel
 ```
 
 O comando deve preservar formatting e comentários do schema sempre que tecnicamente possível.
@@ -1905,10 +1909,10 @@ O seed deve ser Java-native.
 Exemplo:
 
 ```java
-@JorviaSeed
+@TuprelSeed
 public final class DatabaseSeed {
 
-    public void run(JorviaClient db) {
+    public void run(TuprelClient db) {
         db.user().create(data -> data
             .name("Administrator")
             .email("admin@example.com")
@@ -1927,19 +1931,19 @@ class = "com.example.app.database.DatabaseSeed"
 Execução:
 
 ```bash
-jorvia db seed
+tuprel db seed
 ```
 
 O seed deve ser opcional.
 
 ---
 
-# 57. Jorvia Studio
+# 57. Tuprel Studio
 
 Comando:
 
 ```bash
-jorvia studio
+tuprel studio
 ```
 
 Por omissão:
@@ -2005,13 +2009,13 @@ Requisitos:
 Dependência proposta:
 
 ```gradle
-implementation("dev.jorvia:jorvia-spring-boot-starter:<version>")
+implementation("dev.tuprel:tuprel-spring-boot-starter:<version>")
 ```
 
 O starter deverá:
 
 - detectar o `DataSource`;
-- criar `JorviaClient` como bean;
+- criar `TuprelClient` como bean;
 - reutilizar o connection pool configurado pelo Spring;
 - participar em `@Transactional`;
 - integrar logging;
@@ -2025,9 +2029,9 @@ Exemplo:
 @Service
 public final class UserService {
 
-    private final JorviaClient db;
+    private final TuprelClient db;
 
-    public UserService(JorviaClient db) {
+    public UserService(TuprelClient db) {
         this.db = db;
     }
 
@@ -2046,7 +2050,7 @@ public final class UserService {
 O core deve funcionar sem framework.
 
 ```java
-try (JorviaClient db = JorviaClient.builder()
+try (TuprelClient db = TuprelClient.builder()
     .url(System.getenv("DATABASE_URL"))
     .build()) {
 
@@ -2060,7 +2064,7 @@ A API exacta de bootstrap dependerá do módulo de datasource escolhido.
 
 # 62. Connection pool
 
-O Jorvia não deverá obrigar uma implementação específica quando a aplicação já fornece `DataSource`.
+O Tuprel não deverá obrigar uma implementação específica quando a aplicação já fornece `DataSource`.
 
 Estratégia:
 
@@ -2091,23 +2095,23 @@ Plugin proposto:
 
 ```kotlin
 plugins {
-    id("dev.jorvia") version "<version>"
+    id("dev.tuprel") version "<version>"
 }
 ```
 
 Tasks:
 
 ```bash
-./gradlew jorviaValidate
-./gradlew jorviaGenerate
-./gradlew jorviaMigrateDev
-./gradlew jorviaMigrateDeploy
-./gradlew jorviaFormat
+./gradlew tuprelValidate
+./gradlew tuprelGenerate
+./gradlew tuprelMigrateDev
+./gradlew tuprelMigrateDeploy
+./gradlew tuprelFormat
 ```
 
 O plugin deverá registar automaticamente generated sources.
 
-`compileJava` deve depender de `jorviaGenerate` quando configurado.
+`compileJava` deve depender de `tuprelGenerate` quando configurado.
 
 ---
 
@@ -2116,14 +2120,14 @@ O plugin deverá registar automaticamente generated sources.
 Goals propostos:
 
 ```bash
-./mvnw jorvia:validate
-./mvnw jorvia:generate
-./mvnw jorvia:migrate-dev
-./mvnw jorvia:migrate-deploy
-./mvnw jorvia:format
+./mvnw tuprel:validate
+./mvnw tuprel:generate
+./mvnw tuprel:migrate-dev
+./mvnw tuprel:migrate-deploy
+./mvnw tuprel:format
 ```
 
-O plugin deverá adicionar `target/generated-sources/jorvia` ao compile source path.
+O plugin deverá adicionar `target/generated-sources/tuprel` ao compile source path.
 
 ---
 
@@ -2134,89 +2138,89 @@ A CLI deverá ser consistente, scriptable e adequada a CI.
 ## Inicialização
 
 ```bash
-jorvia init
+tuprel init
 ```
 
 ## Diagnóstico
 
 ```bash
-jorvia doctor
+tuprel doctor
 ```
 
 ## Schema
 
 ```bash
-jorvia validate
-jorvia format
-jorvia schema print
-jorvia schema graph
+tuprel validate
+tuprel format
+tuprel schema print
+tuprel schema graph
 ```
 
 ## Code generation
 
 ```bash
-jorvia generate
-jorvia generate --check
-jorvia generate --watch
+tuprel generate
+tuprel generate --check
+tuprel generate --watch
 ```
 
 ## Base de dados
 
 ```bash
-jorvia db pull
-jorvia db push
-jorvia db seed
-jorvia db execute --file script.sql
+tuprel db pull
+tuprel db push
+tuprel db seed
+tuprel db execute --file script.sql
 ```
 
 ## Migrações
 
 ```bash
-jorvia migrate dev --name init
-jorvia migrate create --name add-users
-jorvia migrate deploy
-jorvia migrate status
-jorvia migrate diff
-jorvia migrate resolve ...
-jorvia migrate reset
+tuprel migrate dev --name init
+tuprel migrate create --name add-users
+tuprel migrate deploy
+tuprel migrate status
+tuprel migrate diff
+tuprel migrate resolve ...
+tuprel migrate reset
 ```
 
 ## Studio
 
 ```bash
-jorvia studio
-jorvia studio --read-only
+tuprel studio
+tuprel studio --read-only
 ```
 
 ## Informação
 
 ```bash
-jorvia version
-jorvia info
-jorvia completions bash
-jorvia completions zsh
-jorvia completions fish
+tuprel version
+tuprel info
+tuprel completions bash
+tuprel completions zsh
+tuprel completions fish
 ```
 
 ---
 
-# 67. `jorvia doctor`
+# 67. `tuprel doctor`
 
 Este comando é importante para reduzir problemas de setup.
 
 ```bash
-jorvia doctor
+tuprel doctor
 ```
 
 Exemplo de saída:
 
 ```text
-Jorvia Doctor
+Tuprel Doctor
 
 ✓ Java 21 detected
 ✓ Gradle project detected
 ✓ PostgreSQL driver detected
-✓ schema.jorvia found
+✓ schema.tuprel found
 ✓ schema valid
 ✓ DATABASE_URL defined
 ✓ database connection successful
@@ -2230,7 +2234,7 @@ Problemas devem incluir solução:
 
 ```text
 ✗ DATABASE_URL is not defined
-  Set DATABASE_URL or configure database.urlEnv in jorvia.toml.
+  Set DATABASE_URL or configure database.urlEnv in tuprel.toml.
 ```
 
 ---
@@ -2248,13 +2252,13 @@ NullPointerException at SqlBuilder.java:183
 Erro esperado:
 
 ```text
-JORVIA-SCHEMA-104
+TUPREL-SCHEMA-104
 Invalid relation Product.seller
 
 Field sellerId is UUID?, but User.id is UUID.
 The relation requires compatible nullability.
 
-jorvia/schema.jorvia:42:5
+tuprel/schema.tuprel:42:5
 
 40 | seller   User @relation(fields: [sellerId], references: [id])
 41 | sellerId UUID?
@@ -2279,7 +2283,7 @@ Todos os erros importantes deverão ter:
 
 ```text
                         ┌─────────────────────┐
-                        │   schema.jorvia     │
+                        │   schema.tuprel     │
                         └──────────┬──────────┘
                                    │
                                    ▼
@@ -2308,7 +2312,7 @@ Todos os erros importantes deverão ter:
                 │
                 ▼
        ┌──────────────────┐
-       │  Jorvia Runtime  │
+       │  Tuprel Runtime  │
        └────────┬─────────┘
                 │
                 ▼
@@ -2332,42 +2336,42 @@ Todos os erros importantes deverão ter:
 
 ---
 
-# 70. Estrutura interna do repositório Jorvia
+# 70. Estrutura interna do repositório Tuprel
 
 Proposta de monorepo:
 
 ```text
-jorvia/
-├── jorvia-schema-ast/
-├── jorvia-schema-parser/
-├── jorvia-schema-validator/
-├── jorvia-schema-formatter/
+tuprel/
+├── tuprel-schema-ast/
+├── tuprel-schema-parser/
+├── tuprel-schema-validator/
+├── tuprel-schema-formatter/
 │
-├── jorvia-codegen/
-├── jorvia-codegen-java/
+├── tuprel-codegen/
+├── tuprel-codegen-java/
 │
-├── jorvia-sql-ast/
-├── jorvia-query-engine/
-├── jorvia-runtime/
-├── jorvia-jdbc/
+├── tuprel-sql-ast/
+├── tuprel-query-engine/
+├── tuprel-runtime/
+├── tuprel-jdbc/
 │
-├── jorvia-dialect-api/
-├── jorvia-postgresql/
+├── tuprel-dialect-api/
+├── tuprel-postgresql/
 │
-├── jorvia-migrations/
-├── jorvia-introspection/
+├── tuprel-migrations/
+├── tuprel-introspection/
 │
-├── jorvia-cli/
-├── jorvia-gradle-plugin/
-├── jorvia-maven-plugin/
+├── tuprel-cli/
+├── tuprel-gradle-plugin/
+├── tuprel-maven-plugin/
 │
-├── jorvia-spring/
-├── jorvia-spring-boot-starter/
+├── tuprel-spring/
+├── tuprel-spring-boot-starter/
 │
-├── jorvia-testing/
+├── tuprel-testing/
 │
-├── jorvia-studio-server/
-├── jorvia-studio-web/
+├── tuprel-studio-server/
+├── tuprel-studio-web/
 │
 ├── integration-tests/
 ├── benchmarks/
@@ -2377,7 +2381,7 @@ jorvia/
 
 ---
 
-# 71. `jorvia-schema-ast`
+# 71. `tuprel-schema-ast`
 
 Responsabilidades:
 
@@ -2396,7 +2400,7 @@ Este módulo não deve conhecer JDBC.
 
 ---
 
-# 72. `jorvia-schema-parser`
+# 72. `tuprel-schema-parser`
 
 Responsabilidades:
 
@@ -2411,7 +2415,7 @@ O parser deverá produzir AST, não código Java directamente.
 
 ---
 
-# 73. `jorvia-schema-validator`
+# 73. `tuprel-schema-validator`
 
 Validações:
 
@@ -2432,7 +2436,7 @@ Validações:
 
 ---
 
-# 74. `jorvia-codegen`
+# 74. `tuprel-codegen`
 
 O generator deverá usar um intermediate representation validado.
 
@@ -2456,7 +2460,7 @@ Formatter
 
 ---
 
-# 75. `jorvia-query-engine`
+# 75. `tuprel-query-engine`
 
 Responsabilidades:
 
@@ -2592,20 +2596,20 @@ Requisitos:
 Hierarquia proposta:
 
 ```text
-JorviaException
-├── JorviaConfigurationException
-├── JorviaSchemaException
-├── JorviaConnectionException
-├── JorviaQueryException
+TuprelException
+├── TuprelConfigurationException
+├── TuprelSchemaException
+├── TuprelConnectionException
+├── TuprelQueryException
 │   ├── UniqueConstraintViolationException
 │   ├── ForeignKeyViolationException
 │   ├── NotNullViolationException
 │   ├── RecordNotFoundException
 │   ├── OptimisticLockException
 │   └── RelationNotLoadedException
-├── JorviaTransactionException
-├── JorviaMigrationException
-└── JorviaIntrospectionException
+├── TuprelTransactionException
+├── TuprelMigrationException
+└── TuprelIntrospectionException
 ```
 
 A excepção deverá preservar:
@@ -2623,7 +2627,7 @@ Segredos e parâmetros sensíveis não devem aparecer por omissão.
 
 # 82. Observabilidade
 
-O Jorvia 1.0 deverá ter observabilidade desde o início.
+O Tuprel 1.0 deverá ter observabilidade desde o início.
 
 ## Logs
 
@@ -2653,7 +2657,7 @@ slowQueryThresholdMs = 500
 Log:
 
 ```text
-JORVIA SLOW QUERY 812 ms
+TUPREL SLOW QUERY 812 ms
 Model: Order
 Operation: findMany
 SQL: SELECT ...
@@ -2690,9 +2694,9 @@ Nunca usar SQL completo como label de métrica.
 Uma integração opcional poderá gerar spans:
 
 ```text
-jorvia.user.findMany
-jorvia.order.create
-jorvia.transaction
+tuprel.user.findMany
+tuprel.order.create
+tuprel.transaction
 ```
 
 A instrumentação deve seguir convenções de database spans e não vazar valores sensíveis.
@@ -2735,7 +2739,7 @@ benchmarks/
 └── startup/
 ```
 
-Comparar internamente com JDBC directo para medir overhead do próprio Jorvia.
+Comparar internamente com JDBC directo para medir overhead do próprio Tuprel.
 
 O objectivo é encontrar regressões, não produzir marketing enganador.
 
@@ -2743,7 +2747,7 @@ O objectivo é encontrar regressões, não produzir marketing enganador.
 
 # 88. Thread safety
 
-`JorviaClient` deverá ser thread-safe quando partilhado como singleton.
+`TuprelClient` deverá ser thread-safe quando partilhado como singleton.
 
 Delegates gerados também devem ser thread-safe.
 
@@ -2780,7 +2784,7 @@ A decisão final deverá privilegiar API clara e compatibilidade futura.
 
 O generator deverá distinguir:
 
-```jorvia
+```tuprel
 name String
 bio  String?
 ```
@@ -2793,12 +2797,12 @@ O design pode utilizar JSpecify ou uma abstraction própria mínima, desde que n
 
 # 91. Validação de input
 
-O Jorvia é responsável por constraints de persistência, não por todas as regras de negócio.
+O Tuprel é responsável por constraints de persistência, não por todas as regras de negócio.
 
 Exemplo:
 
-- `NOT NULL`: Jorvia pode validar;
-- comprimento máximo: Jorvia pode validar opcionalmente e a base valida definitivamente;
+- `NOT NULL`: Tuprel pode validar;
+- comprimento máximo: Tuprel pode validar opcionalmente e a base valida definitivamente;
 - `UNIQUE`: base de dados é autoridade final;
 - idade mínima de cliente: regra de domínio, não do ORM.
 
@@ -2828,7 +2832,7 @@ Isto simplifica tratamento de erros de API.
 Módulo:
 
 ```text
-jorvia-testing
+tuprel-testing
 ```
 
 Deverá facilitar testes reais contra PostgreSQL.
@@ -2836,11 +2840,11 @@ Deverá facilitar testes reais contra PostgreSQL.
 Com Testcontainers:
 
 ```java
-@JorviaTest
+@TuprelTest
 class UserRepositoryTest {
 
-    @InjectJorvia
-    JorviaClient db;
+    @InjectTuprel
+    TuprelClient db;
 
     @Test
     void createsUser() {
@@ -2876,7 +2880,7 @@ Tipos:
 Entrada:
 
 ```text
-fixtures/schema/user.jorvia
+fixtures/schema/user.tuprel
 ```
 
 Saída esperada:
@@ -2918,15 +2922,15 @@ Casos mínimos:
 Pipeline recomendado:
 
 ```bash
-jorvia validate
-jorvia generate --check
+tuprel validate
+tuprel generate --check
 ./gradlew test
 ```
 
 No deployment:
 
 ```bash
-jorvia migrate deploy
+tuprel migrate deploy
 java -jar app.jar
 ```
 
@@ -2956,14 +2960,14 @@ Mas pode detectar padrões perigosos e avisar.
 # 99. Schema format
 
 ```bash
-jorvia format
+tuprel format
 ```
 
 Deverá produzir formatação determinística.
 
 Exemplo:
 
-```jorvia
+```tuprel
 model User {
     id    UUID   @id @default(uuid())
     name  String
@@ -2978,7 +2982,7 @@ Não deverá reordenar models ou fields de forma surpreendente sem configuraçã
 # 100. Schema validation
 
 ```bash
-jorvia validate
+tuprel validate
 ```
 
 Deve funcionar sem ligação à base de dados quando só estiver a validar sintaxe e semântica local.
@@ -2986,7 +2990,7 @@ Deve funcionar sem ligação à base de dados quando só estiver a validar sinta
 Com flag opcional:
 
 ```bash
-jorvia validate --database
+tuprel validate --database
 ```
 
 pode também verificar compatibilidade com a base real.
@@ -3000,25 +3004,25 @@ Projectos grandes não devem ser obrigados a manter tudo num único ficheiro.
 Estrutura:
 
 ```text
-jorvia/
-├── schema.jorvia
+tuprel/
+├── schema.tuprel
 ├── models/
-│   ├── auth.jorvia
-│   ├── users.jorvia
-│   ├── products.jorvia
-│   ├── orders.jorvia
-│   └── payments.jorvia
+│   ├── auth.tuprel
+│   ├── users.tuprel
+│   ├── products.tuprel
+│   ├── orders.tuprel
+│   └── payments.tuprel
 └── migrations/
 ```
 
-`schema.jorvia`:
+`schema.tuprel`:
 
-```jorvia
-import "./models/auth.jorvia"
-import "./models/users.jorvia"
-import "./models/products.jorvia"
-import "./models/orders.jorvia"
-import "./models/payments.jorvia"
+```tuprel
+import "./models/auth.tuprel"
+import "./models/users.tuprel"
+import "./models/products.tuprel"
+import "./models/orders.tuprel"
+import "./models/payments.tuprel"
 ```
 
 Imports devem ser resolvidos de forma determinística e ciclos devem ser detectados.
@@ -3039,7 +3043,7 @@ O schema mantém Java-friendly names.
 
 Exemplo:
 
-```jorvia
+```tuprel
 createdAt Instant
 ```
 
@@ -3055,9 +3059,9 @@ O developer deve poder sobrescrever com `@map`.
 
 # 103. Multi-schema PostgreSQL
 
-O Jorvia 1.0 deverá considerar suporte a schemas PostgreSQL:
+O Tuprel 1.0 deverá considerar suporte a schemas PostgreSQL:
 
-```jorvia
+```tuprel
 model AuditLog {
     ...
     @@schema("audit")
@@ -3074,9 +3078,9 @@ Esta funcionalidade é importante em aplicações empresariais.
 
 PostgreSQL utiliza JSONB em muitos projectos modernos.
 
-O Jorvia deverá oferecer:
+O Tuprel deverá oferecer:
 
-```jorvia
+```tuprel
 metadata Json?
 ```
 
@@ -3095,7 +3099,7 @@ A API avançada pode evoluir, mas leitura/escrita JSONB deve existir em 1.0.
 
 Suporte recomendado:
 
-```jorvia
+```tuprel
 tags String[]
 ```
 
@@ -3156,7 +3160,7 @@ Pode também existir timeout global.
 
 # 109. Cancellation
 
-Quando tecnicamente suportado pelo driver, o Jorvia deverá permitir cancelamento de operação longa.
+Quando tecnicamente suportado pelo driver, o Tuprel deverá permitir cancelamento de operação longa.
 
 Isto é particularmente útil para requests cancelados e jobs.
 
@@ -3182,12 +3186,12 @@ Só erros seguros e documentados devem ser elegíveis.
 
 # 111. Auditabilidade
 
-O Jorvia deverá conseguir emitir eventos de lifecycle sem obrigar o developer a interceptar JDBC.
+O Tuprel deverá conseguir emitir eventos de lifecycle sem obrigar o developer a interceptar JDBC.
 
 Possível SPI:
 
 ```java
-interface JorviaQueryListener {
+interface TuprelQueryListener {
     void before(QueryEvent event);
     void after(QueryResultEvent event);
     void error(QueryErrorEvent event);
@@ -3231,7 +3235,7 @@ Se forem introduzidos, devem ser opt-in e muito visíveis.
 
 # 113. Cache
 
-O Jorvia 1.0 não deve ter second-level cache automático.
+O Tuprel 1.0 não deve ter second-level cache automático.
 
 Motivos:
 
@@ -3248,7 +3252,7 @@ Cache de dados de negócio deve ficar fora do core inicialmente.
 
 # 114. Reactive API
 
-Não deverá ser requisito do Jorvia 1.0.
+Não deverá ser requisito do Tuprel 1.0.
 
 A prioridade é construir um runtime JDBC síncrono excelente, compatível com virtual threads.
 
@@ -3258,7 +3262,7 @@ Uma API R2DBC pode surgir numa versão posterior se houver procura real e capaci
 
 # 115. GraalVM Native Image
 
-Como o design privilegia code generation e pouco reflection, o Jorvia deve ser arquitectado para compatibilidade com native image.
+Como o design privilegia code generation e pouco reflection, o Tuprel deve ser arquitectado para compatibilidade com native image.
 
 Não é necessário prometer suporte completo antes de existir uma suíte de testes real.
 
@@ -3270,7 +3274,7 @@ Quando suportado, deverá existir um exemplo oficial.
 
 ## RF-001: Inicialização
 
-O sistema deve criar a estrutura base com `jorvia init`.
+O sistema deve criar a estrutura base com `tuprel init`.
 
 ## RF-002: Detecção de projecto
 
@@ -3278,7 +3282,7 @@ Deve detectar Maven ou Gradle.
 
 ## RF-003: Schema parser
 
-Deve interpretar ficheiros `.jorvia`.
+Deve interpretar ficheiros `.tuprel`.
 
 ## RF-004: Schema validation
 
@@ -3522,7 +3526,7 @@ Deve disponibilizar eventos/métricas integráveis.
 
 ## RF-064: Error mapping
 
-Deve mapear constraints PostgreSQL para excepções Jorvia úteis.
+Deve mapear constraints PostgreSQL para excepções Tuprel úteis.
 
 ## RF-065: CLI exit codes
 
@@ -3630,7 +3634,7 @@ Dialect e integrações devem ter limites arquitecturais claros.
 
 ## RNF-020: Zero hidden network access
 
-O Jorvia não deve enviar telemetria sem consentimento explícito.
+O Tuprel não deve enviar telemetria sem consentimento explícito.
 
 ## RNF-021: Reproducibility
 
@@ -3638,7 +3642,7 @@ Builds e geração devem ser reproduzíveis.
 
 ## RNF-022: Accessibility
 
-Jorvia Studio deverá seguir boas práticas de acessibilidade web.
+Tuprel Studio deverá seguir boas práticas de acessibilidade web.
 
 ## RNF-023: Resource safety
 
@@ -3654,7 +3658,7 @@ Códigos de erro públicos não devem mudar arbitrariamente.
 
 ---
 
-# 118. Funcionalidades que realmente tornam o Jorvia interessante para developers Java
+# 118. Funcionalidades que realmente tornam o Tuprel interessante para developers Java
 
 A lista seguinte representa o núcleo de valor do produto, não apenas extras.
 
@@ -3714,7 +3718,7 @@ Ajuda developers a optimizar aplicações.
 
 Reduz dependência de ferramentas externas para tarefas do dia-a-dia.
 
-## 118.15 `jorvia doctor`
+## 118.15 `tuprel doctor`
 
 Transforma erros de configuração em problemas fáceis de resolver.
 
@@ -3724,7 +3728,7 @@ Reduz tempo de debugging.
 
 ## 118.17 Maven e Gradle de primeira classe
 
-O Jorvia deve parecer natural no ecossistema Java.
+O Tuprel deve parecer natural no ecossistema Java.
 
 ## 118.18 Java standalone
 
@@ -3736,7 +3740,7 @@ Não fica preso a uma framework.
 
 Schema:
 
-```jorvia
+```tuprel
 enum OrderStatus {
     PENDING
     PAID
@@ -3855,7 +3859,7 @@ PostgreSQL.
 
 A primeira versão estável deve poder afirmar:
 
-> Se a aplicação usa PostgreSQL, o Jorvia oferece uma experiência completa e suportada.
+> Se a aplicação usa PostgreSQL, o Tuprel oferece uma experiência completa e suportada.
 
 Só depois deverá expandir para outros dialectos.
 
@@ -3874,7 +3878,7 @@ Cada dialecto precisa de uma suíte de conformidade própria.
 
 ---
 
-# 123. O que deve estar pronto no Jorvia 1.0
+# 123. O que deve estar pronto no Tuprel 1.0
 
 A versão 1.0 deve ser considerada pronta para utilização real apenas quando incluir:
 
@@ -3995,7 +3999,7 @@ Entregas:
 Marco:
 
 ```bash
-jorvia generate
+tuprel generate
 ```
 
 produz um client Java compilável.
@@ -4153,7 +4157,7 @@ O formato interno de migration e metadata deverá ter uma versão.
 Exemplo:
 
 ```text
-jorviaSchemaVersion = 1
+tuprelSchemaVersion = 1
 ```
 
 Isto permitirá evoluir ferramentas sem interpretar ficheiros antigos incorrectamente.
@@ -4212,8 +4216,8 @@ docs/
 
 Um novo developer deve conseguir em menos de alguns minutos:
 
-1. adicionar Jorvia;
-2. executar `jorvia init`;
+1. adicionar Tuprel;
+2. executar `tuprel init`;
 3. definir `User`;
 4. executar migration;
 5. gerar client;
@@ -4247,7 +4251,7 @@ Exemplos devem ser executados em CI para não ficarem desactualizados.
 
 # 132. Developer experience como requisito de engenharia
 
-O Jorvia só será realmente valioso se for agradável de utilizar.
+O Tuprel só será realmente valioso se for agradável de utilizar.
 
 Isto significa que DX não é apenas design visual ou documentação.
 
@@ -4271,7 +4275,7 @@ Inclui:
 
 ## Decisão 1
 
-`schema.jorvia` é a fonte de verdade para modelação Jorvia.
+`schema.tuprel` é a fonte de verdade para modelação Tuprel.
 
 ## Decisão 2
 
@@ -4313,40 +4317,40 @@ Performance e correctness são medidas por testes e benchmarks.
 
 # 134. Exemplo de experiência completa de desenvolvimento
 
-Criar Jorvia:
+Criar Tuprel:
 
 ```bash
-jorvia init
+tuprel init
 ```
 
 Editar:
 
 ```text
-jorvia/schema.jorvia
+tuprel/schema.tuprel
 ```
 
 Validar:
 
 ```bash
-jorvia validate
+tuprel validate
 ```
 
 Formatar:
 
 ```bash
-jorvia format
+tuprel format
 ```
 
 Criar migration:
 
 ```bash
-jorvia migrate dev --name init
+tuprel migrate dev --name init
 ```
 
 Gerar client:
 
 ```bash
-jorvia generate
+tuprel generate
 ```
 
 Executar testes:
@@ -4358,19 +4362,19 @@ Executar testes:
 Abrir dados:
 
 ```bash
-jorvia studio
+tuprel studio
 ```
 
 Ver estado:
 
 ```bash
-jorvia migrate status
+tuprel migrate status
 ```
 
 Deployment:
 
 ```bash
-jorvia migrate deploy
+tuprel migrate deploy
 java -jar app.jar
 ```
 
@@ -4380,7 +4384,7 @@ java -jar app.jar
 
 Antes:
 
-```jorvia
+```tuprel
 model User {
     id    UUID   @id @default(uuid())
     name  String
@@ -4390,7 +4394,7 @@ model User {
 
 Depois:
 
-```jorvia
+```tuprel
 model User {
     id        UUID      @id @default(uuid())
     name      String
@@ -4403,10 +4407,10 @@ model User {
 Executar:
 
 ```bash
-jorvia migrate dev --name add-user-metadata
+tuprel migrate dev --name add-user-metadata
 ```
 
-Jorvia mostra:
+Tuprel mostra:
 
 ```text
 Changes:
@@ -4422,7 +4426,7 @@ Depois cria SQL legível.
 
 Developer remove:
 
-```jorvia
+```tuprel
 legacyCode String?
 ```
 
@@ -4445,7 +4449,7 @@ Em modo não interactivo, a operação falha até receber flag explícita adequa
 
 Schema:
 
-```jorvia
+```tuprel
 model Order {
     user   User @relation(fields: [userId], references: [id])
     userId String
@@ -4459,7 +4463,7 @@ model User {
 Erro:
 
 ```text
-JORVIA-SCHEMA-221
+TUPREL-SCHEMA-221
 Relation type mismatch.
 
 Order.userId is String.
@@ -4496,9 +4500,9 @@ public final class UserController {
 @Service
 public final class UserService {
 
-    private final JorviaClient db;
+    private final TuprelClient db;
 
-    public UserService(JorviaClient db) {
+    public UserService(TuprelClient db) {
         this.db = db;
     }
 
@@ -4561,7 +4565,7 @@ CLI pode depender dos serviços de alto nível, mas o core não deve depender da
 ## Dialect
 
 ```java
-public interface JorviaDialect {
+public interface TuprelDialect {
     SqlRenderResult render(QueryAst query);
     TypeMapping types();
     DdlRenderer ddl();
@@ -4623,7 +4627,7 @@ Evitar annotations repetindo todo o schema.
 
 Raw SQL é uma ferramenta legítima.
 
-O Jorvia não deverá envergonhar o developer por precisar de SQL.
+O Tuprel não deverá envergonhar o developer por precisar de SQL.
 
 A documentação deve dizer claramente:
 
@@ -4649,7 +4653,7 @@ Casos avançados exigem SQL manual:
 - extensão PostgreSQL;
 - migrations por etapas.
 
-O Jorvia deverá aceitar isso em vez de tentar impedir.
+O Tuprel deverá aceitar isso em vez de tentar impedir.
 
 ---
 
@@ -4659,7 +4663,7 @@ A primeira versão deverá pelo menos tolerar bases que utilizam extensões.
 
 Futuro:
 
-```jorvia
+```tuprel
 extension "pgcrypto"
 extension "citext"
 ```
@@ -4674,7 +4678,7 @@ Tipos específicos PostgreSQL podem ser expostos por annotations/attributes de d
 
 Exemplo conceptual:
 
-```jorvia
+```tuprel
 email String @db.Citext @unique
 ```
 
@@ -4696,7 +4700,7 @@ name = "production"
 Ou flag/env:
 
 ```text
-JORVIA_ENV=production
+TUPREL_ENV=production
 ```
 
 Em produção:
@@ -4792,7 +4796,7 @@ Dependências deverão ser verificadas automaticamente.
 
 # 152. Definição de qualidade para 1.0
 
-O Jorvia 1.0 não é apenas uma lista de funcionalidades.
+O Tuprel 1.0 não é apenas uma lista de funcionalidades.
 
 Para ser estável deve cumprir:
 
@@ -4831,7 +4835,7 @@ Uma funcionalidade só é considerada pronta quando tem:
 
 ```text
 com.example.app.db
-├── JorviaClient
+├── TuprelClient
 ├── model
 ├── create
 ├── update
@@ -4852,13 +4856,13 @@ O package `internal` não deve fazer parte da API pública.
 A biblioteca deve separar claramente:
 
 ```text
-dev.jorvia.api.*
+dev.tuprel.api.*
 ```
 
 estável, de:
 
 ```text
-dev.jorvia.internal.*
+dev.tuprel.internal.*
 ```
 
 sem garantia de compatibilidade.
@@ -4905,7 +4909,7 @@ Objectivos:
 Exemplo:
 
 ```bash
-jorvia migrate status --json
+tuprel migrate status --json
 ```
 
 ---
@@ -4915,9 +4919,9 @@ jorvia migrate status --json
 Para CI e tooling:
 
 ```bash
-jorvia validate --json
-jorvia migrate status --json
-jorvia doctor --json
+tuprel validate --json
+tuprel migrate status --json
+tuprel doctor --json
 ```
 
 Isto permite IDE plugins e automação futura.
@@ -4942,7 +4946,7 @@ Uma Language Server Protocol implementation pode ser mais sustentável do que pl
 
 # 161. LSP futuro
 
-Um `jorvia language-server` poderia alimentar:
+Um `tuprel language-server` poderia alimentar:
 
 - IntelliJ;
 - VS Code;
@@ -4954,7 +4958,7 @@ O parser deverá guardar source spans desde o início para facilitar esta evolu�
 
 # 162. Schema comments e documentação
 
-```jorvia
+```tuprel
 /// Utilizador registado na plataforma.
 model User {
     /// Identificador global.
@@ -4975,7 +4979,7 @@ Isto melhora a experiência no IDE.
 
 Futuro:
 
-```jorvia
+```tuprel
 legacyCode String? @deprecated("Use externalId")
 ```
 
@@ -4997,7 +5001,7 @@ Deve ser configurável porque nem todas as equipas desejam essa sincronização.
 
 Pode existir metadata:
 
-```jorvia
+```tuprel
 passwordHash String @sensitive
 ```
 
@@ -5011,7 +5015,7 @@ Serve para:
 
 Também pode ser usado em:
 
-```jorvia
+```tuprel
 apiToken String @sensitive
 ```
 
@@ -5023,7 +5027,7 @@ Esta funcionalidade seria muito útil e relativamente pequena.
 
 Futuro:
 
-```jorvia
+```tuprel
 email String @pii
 ```
 
@@ -5035,7 +5039,7 @@ O ORM não pode afirmar conformidade regulatória apenas porque existe uma annot
 
 # 167. Soft delete e uniqueness
 
-O Jorvia deverá documentar que soft delete pode interagir com unique constraints.
+O Tuprel deverá documentar que soft delete pode interagir com unique constraints.
 
 Exemplo: email único continua bloqueado mesmo depois de soft delete se o índice for global.
 
@@ -5106,7 +5110,7 @@ Pode entrar no 1.0 apenas depois de CRUD, relações e transactions estarem sól
 
 # 171. Idempotência de migrations
 
-As migrations são aplicadas exactamente uma vez segundo o histórico Jorvia.
+As migrations são aplicadas exactamente uma vez segundo o histórico Tuprel.
 
 O SQL individual não precisa de ser escrito com `IF NOT EXISTS` em todos os casos.
 
@@ -5134,7 +5138,7 @@ Para evitar perda de dados, o CLI deverá perguntar ou permitir declaração exp
 Exemplo:
 
 ```bash
-jorvia migrate dev --name rename-user-name
+tuprel migrate dev --name rename-user-name
 ```
 
 CLI:
@@ -5154,7 +5158,7 @@ Em CI, renames devem ser declarados em migration manual ou metadata explícita.
 
 Nem toda migration é schema migration.
 
-O Jorvia deverá permitir SQL manual dentro da migration:
+O Tuprel deverá permitir SQL manual dentro da migration:
 
 ```sql
 UPDATE users
@@ -5184,7 +5188,7 @@ com warning claro.
 
 # 175. Connection URLs
 
-O Jorvia deverá suportar JDBC URLs e uma forma simplificada de URL de base de dados, desde que a normalização seja bem definida.
+O Tuprel deverá suportar JDBC URLs e uma forma simplificada de URL de base de dados, desde que a normalização seja bem definida.
 
 Exemplo:
 
@@ -5211,7 +5215,7 @@ urlEnv = "TEST_DATABASE_URL"
 Uso:
 
 ```bash
-jorvia migrate dev --profile dev
+tuprel migrate dev --profile dev
 ```
 
 Em aplicações Spring, runtime continua a poder usar o DataSource da aplicação.
@@ -5233,13 +5237,13 @@ Regras:
 # 178. Project init interactivo
 
 ```bash
-jorvia init
+tuprel init
 ```
 
 Possível diálogo:
 
 ```text
-Jorvia ORM
+Tuprel ORM
 
 Detected:
   Build: Gradle
@@ -5250,21 +5254,21 @@ Database:
   > PostgreSQL
 
 Schema path:
-  > jorvia/schema.jorvia
+  > tuprel/schema.tuprel
 
 Java package:
   > com.example.app.db
 
-✓ Created jorvia/schema.jorvia
-✓ Created jorvia.toml
-✓ Added Jorvia generated sources configuration
-✓ Jorvia is ready
+✓ Created tuprel/schema.tuprel
+✓ Created tuprel.toml
+✓ Added Tuprel generated sources configuration
+✓ Tuprel is ready
 ```
 
 Deve existir modo não interactivo:
 
 ```bash
-jorvia init --database postgresql --package com.example.app.db --yes
+tuprel init --database postgresql --package com.example.app.db --yes
 ```
 
 ---
@@ -5274,7 +5278,7 @@ jorvia init --database postgresql --package com.example.app.db --yes
 O CLI pode oferecer:
 
 ```text
-Add Jorvia Gradle plugin to build.gradle.kts? [Y/n]
+Add Tuprel Gradle plugin to build.gradle.kts? [Y/n]
 ```
 
 Não deve alterar ficheiros de build silenciosamente sem mostrar o que vai fazer.
@@ -5282,7 +5286,7 @@ Não deve alterar ficheiros de build silenciosamente sem mostrar o que vai fazer
 Alternativa:
 
 ```bash
-jorvia init --no-build-changes
+tuprel init --no-build-changes
 ```
 
 ---
@@ -5299,7 +5303,7 @@ Um generator Kotlin nativo pode surgir depois, mas não deve atrasar o 1.0.
 
 # 181. Compatibilidade com Lombok
 
-O Jorvia não deverá depender de Lombok.
+O Tuprel não deverá depender de Lombok.
 
 Generated code deve compilar com Java puro.
 
@@ -5321,14 +5325,14 @@ O ORM não deve obrigar uma stack HTTP.
 
 # 183. Domain models vs database models
 
-O Jorvia não deve afirmar que o modelo gerado é sempre o modelo de domínio ideal.
+O Tuprel não deve afirmar que o modelo gerado é sempre o modelo de domínio ideal.
 
 Em sistemas simples, pode ser usado directamente.
 
 Em sistemas complexos:
 
 ```text
-Jorvia model
+Tuprel model
     ↓
 Repository/application adapter
     ↓
@@ -5341,7 +5345,7 @@ A ferramenta deve apoiar ambos os estilos.
 
 # 184. Repository pattern opcional
 
-O Jorvia não elimina o Repository Pattern.
+O Tuprel não elimina o Repository Pattern.
 
 Elimina a obrigação de criar repositories triviais.
 
@@ -5350,7 +5354,7 @@ Quando existe lógica de acesso a dados complexa, um repository continua útil:
 ```java
 public final class OrderRepository {
 
-    private final JorviaClient db;
+    private final TuprelClient db;
 
     public List<Order> findPendingForProcessing(...) {
         ...
@@ -5384,7 +5388,7 @@ Isso mantém persistência explícita e desacoplada.
 
 # 186. Active Record
 
-Não deverá ser o modelo principal do Jorvia 1.0.
+Não deverá ser o modelo principal do Tuprel 1.0.
 
 Pode surgir como módulo opcional se houver procura.
 
@@ -5406,7 +5410,7 @@ Este tema afecta segurança e deve ser implementado apenas com forte cobertura d
 
 # 188. Row Level Security
 
-PostgreSQL RLS deve continuar a funcionar porque o Jorvia usa SQL normal.
+PostgreSQL RLS deve continuar a funcionar porque o Tuprel usa SQL normal.
 
 Uma integração específica pode surgir posteriormente.
 
@@ -5419,13 +5423,13 @@ O 1.0 deve documentar como usar connection/session variables quando necessário.
 Comando útil:
 
 ```bash
-jorvia schema graph
+tuprel schema graph
 ```
 
 Pode produzir Mermaid:
 
 ```bash
-jorvia schema graph --format mermaid > schema.mmd
+tuprel schema graph --format mermaid > schema.mmd
 ```
 
 Ou SVG no futuro.
@@ -5434,16 +5438,16 @@ Isto é útil para documentação e onboarding.
 
 ---
 
-# 190. `jorvia info`
+# 190. `tuprel info`
 
 Saída:
 
 ```text
-Jorvia CLI: 1.0.0
+Tuprel CLI: 1.0.0
 Java: 21.0.x
 Build tool: Gradle 9.x
 Database provider: PostgreSQL
-Schema: jorvia/schema.jorvia
+Schema: tuprel/schema.tuprel
 Models: 18
 Migrations: 24
 Generated package: com.example.app.db
@@ -5455,12 +5459,12 @@ Não deve revelar connection password.
 
 # 191. Compatibilidade entre CLI e runtime
 
-O Jorvia deverá detectar incompatibilidades importantes.
+O Tuprel deverá detectar incompatibilidades importantes.
 
 Exemplo:
 
 ```text
-Jorvia CLI 1.3 cannot generate client for runtime 1.0.
+Tuprel CLI 1.3 cannot generate client for runtime 1.0.
 
 Detected runtime: 1.0.4
 Recommended CLI: 1.0.x
@@ -5472,7 +5476,7 @@ Ou suportar um intervalo documentado.
 
 # 192. Lockfile
 
-`jorvia/migration.lock` pode guardar:
+`tuprel/migration.lock` pode guardar:
 
 ```text
 provider = "postgresql"
@@ -5498,7 +5502,7 @@ Não deve executar introspecção pesada em cada startup de produção.
 Spring Boot starter pode fornecer:
 
 ```text
-jorvia
+tuprel
 status: UP
 provider: postgresql
 ```
@@ -5534,8 +5538,8 @@ A API deve permitir usar uma connection/transacção externa em integrações av
 
 Regra:
 
-- se Jorvia cria o DataSource, Jorvia fecha-o;
-- se a aplicação fornece o DataSource, Jorvia não deve assumir ownership.
+- se Tuprel cria o DataSource, Tuprel fecha-o;
+- se a aplicação fornece o DataSource, Tuprel não deve assumir ownership.
 
 Isto deve estar documentado.
 
@@ -5546,14 +5550,14 @@ Isto deve estar documentado.
 Standalone:
 
 ```java
-try (JorviaClient db = ...) {
+try (TuprelClient db = ...) {
     ...
 }
 ```
 
 Spring:
 
-O lifecycle do bean trata cleanup dos recursos pertencentes ao Jorvia.
+O lifecycle do bean trata cleanup dos recursos pertencentes ao Tuprel.
 
 ---
 
@@ -5589,7 +5593,7 @@ Nunca password ou connection string completa.
 
 # 201. Padrão de IDs
 
-O Jorvia deve suportar:
+O Tuprel deve suportar:
 
 - UUID;
 - identity/serial equivalent;
@@ -5598,13 +5602,13 @@ O Jorvia deve suportar:
 
 Exemplo:
 
-```jorvia
+```tuprel
 id Long @id @default(identity())
 ```
 
 ou:
 
-```jorvia
+```tuprel
 id UUID @id @default(uuid())
 ```
 
@@ -5621,7 +5625,7 @@ Pode haver funções diferentes se necessário.
 
 Exemplo conceptual:
 
-```jorvia
+```tuprel
 @default(uuid())
 @default(dbUuid())
 ```
@@ -5634,7 +5638,7 @@ A nomenclatura final deve ser decidida numa RFC.
 
 Schema deve permitir:
 
-```jorvia
+```tuprel
 price Decimal @db.Decimal(12, 2)
 ```
 
@@ -5646,7 +5650,7 @@ Nunca converter dinheiro automaticamente para `double`.
 
 # 204. String length
 
-```jorvia
+```tuprel
 name String @db.VarChar(150)
 description String @db.Text
 ```
@@ -5657,7 +5661,7 @@ Defaults devem ser documentados.
 
 # 205. Timestamps e timezone
 
-O Jorvia deve distinguir claramente:
+O Tuprel deve distinguir claramente:
 
 - `Instant` para momento absoluto;
 - `LocalDateTime` para data/hora sem timezone;
@@ -5696,7 +5700,7 @@ Ajuda a agrupar métricas sem expor PII.
 
 # 208. N+1 diagnostics
 
-Em development mode, se forem observadas dezenas de queries estruturalmente idênticas dentro de uma request/trace, Jorvia pode emitir:
+Em development mode, se forem observadas dezenas de queries estruturalmente idênticas dentro de uma request/trace, Tuprel pode emitir:
 
 ```text
 Possible N+1 query pattern detected.
@@ -5724,7 +5728,7 @@ services:
       - "5432:5432"
 ```
 
-O Jorvia não precisa de gerir Docker internamente.
+O Tuprel não precisa de gerir Docker internamente.
 
 ---
 
@@ -5737,7 +5741,7 @@ Um teste nunca deve resetar production acidentalmente.
 O testing toolkit pode exigir explicitamente:
 
 ```text
-JORVIA_TEST_DATABASE_URL
+TUPREL_TEST_DATABASE_URL
 ```
 
 ---
@@ -5749,7 +5753,7 @@ Não permitir que um transaction client seja usado depois do callback terminar.
 Se o developer tentar:
 
 ```java
-JorviaTransaction leaked;
+TuprelTransaction leaked;
 ```
 
 fora do lifetime, deverá falhar claramente.
@@ -5938,9 +5942,9 @@ Runtime:
 
 Tooling:
 
-- `jorvia init`;
-- `jorvia validate`;
-- `jorvia generate`;
+- `tuprel init`;
+- `tuprel validate`;
+- `tuprel generate`;
 - Gradle integration.
 
 Este milestone prova a arquitectura sem tentar entregar o produto inteiro.
@@ -5977,7 +5981,7 @@ Adicionar migration engine inicial:
 
 # 225. Como saber se o produto está a resolver um problema real
 
-Antes de 1.0, testar Jorvia em pelo menos três tipos de projecto:
+Antes de 1.0, testar Tuprel em pelo menos três tipos de projecto:
 
 1. API CRUD pequena;
 2. aplicação Spring Boot com relações e transacções;
@@ -6016,7 +6020,7 @@ Primeiro ganhar confiança em persistência.
 
 # 227. Possível futura inteligência de diagnóstico
 
-Depois de o core estar maduro, Jorvia pode analisar telemetria e sugerir:
+Depois de o core estar maduro, Tuprel pode analisar telemetria e sugerir:
 
 ```text
 Query returned 100,000 rows without pagination.
@@ -6046,7 +6050,7 @@ Nunca criar ou eliminar índices automaticamente em produção sem aprovação.
 
 ---
 
-# 229. Jorvia Studio como ferramenta de aprendizagem
+# 229. Tuprel Studio como ferramenta de aprendizagem
 
 O Studio pode ensinar SQL sem esconder SQL.
 
@@ -6073,20 +6077,20 @@ Isto transforma a ferramenta numa ponte entre produtividade e compreensão da ba
 
 # 230. Visão de longo prazo
 
-Jorvia pode tornar-se um ecossistema:
+Tuprel pode tornar-se um ecossistema:
 
 ```text
-Jorvia ORM
-├── Jorvia Schema
-├── Jorvia Client
-├── Jorvia Migrate
-├── Jorvia Studio
-├── Jorvia CLI
-├── Jorvia Spring
-├── Jorvia Gradle
-├── Jorvia Maven
-├── Jorvia Test
-├── Jorvia PostgreSQL
+Tuprel ORM
+├── Tuprel Schema
+├── Tuprel Client
+├── Tuprel Migrate
+├── Tuprel Studio
+├── Tuprel CLI
+├── Tuprel Spring
+├── Tuprel Gradle
+├── Tuprel Maven
+├── Tuprel Test
+├── Tuprel PostgreSQL
 └── Future Dialects
 ```
 
@@ -6096,9 +6100,9 @@ Mas todos os módulos devem continuar ligados a uma missão única:
 
 ---
 
-# 231. Manifesto técnico do Jorvia
+# 231. Manifesto técnico do Tuprel
 
-O Jorvia deverá defender as seguintes ideias:
+O Tuprel deverá defender as seguintes ideias:
 
 1. O developer merece autocomplete na camada de dados.
 2. O schema da aplicação deve ser fácil de ler.
@@ -6145,7 +6149,7 @@ O Jorvia deverá defender as seguintes ideias:
 
 Schema:
 
-```jorvia
+```tuprel
 model User {
     id        UUID      @id @default(uuid())
     name      String
@@ -6168,9 +6172,9 @@ model Post {
 Comandos:
 
 ```bash
-jorvia validate
-jorvia migrate dev --name init
-jorvia generate
+tuprel validate
+tuprel migrate dev --name init
+tuprel generate
 ```
 
 Java:
@@ -6199,7 +6203,7 @@ Esta demonstração deve funcionar end-to-end com PostgreSQL real.
 
 # 234. Definição final do produto
 
-**Jorvia ORM** é uma plataforma de persistência para Java, schema-first, type-safe e orientada a geração de código, que unifica modelação, queries, relações, migrações, introspecção e tooling de desenvolvimento numa experiência consistente.
+**Tuprel ORM** é uma plataforma de persistência para Java, schema-first, type-safe e orientada a geração de código, que unifica modelação, queries, relações, migrações, introspecção e tooling de desenvolvimento numa experiência consistente.
 
 A ferramenta foi concebida para resolver cinco problemas centrais:
 
@@ -6209,7 +6213,7 @@ A ferramenta foi concebida para resolver cinco problemas centrais:
 4. tornar o comportamento de queries previsível;
 5. tornar a evolução da base de dados mais segura.
 
-O Jorvia não deverá esconder a base de dados. Deverá tornar a base de dados mais fácil de utilizar correctamente.
+O Tuprel não deverá esconder a base de dados. Deverá tornar a base de dados mais fácil de utilizar correctamente.
 
 A experiência final pretendida é simples:
 

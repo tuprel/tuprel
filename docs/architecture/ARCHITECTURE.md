@@ -1,19 +1,19 @@
-# Arquitectura do Jorvia ORM
+# Arquitectura do Tuprel ORM
 
 ## Visão
 
-O Jorvia é dividido em pipelines claros em vez de um único runtime monolítico.
+O Tuprel é dividido em pipelines claros em vez de um único runtime monolítico.
 
 ```mermaid
 flowchart LR
-    Schema[schema.jorvia] --> Parser[Schema Parser]
+    Schema[schema.tuprel] --> Parser[Schema Parser]
     Parser --> AST[Schema AST]
     AST --> Validator[Semantic Validator]
     Validator --> Model[Validated Schema Model]
     Model --> Codegen[Java Code Generator]
     Model --> Diff[Schema Diff / Migration Engine]
     Codegen --> Client[Generated Java Client]
-    Client --> Runtime[Jorvia Runtime]
+    Client --> Runtime[Tuprel Runtime]
     Runtime --> Query[Query Model / SQL AST]
     Query --> PG[PostgreSQL Renderer]
     PG --> JDBC[JDBC / DataSource]
@@ -50,7 +50,7 @@ Lê metadata PostgreSQL e converte-a para o modelo interno. Inputs de metadata d
 
 ### Integrations
 
-Spring Boot, Gradle e Maven dependem dos contratos públicos do Jorvia. O core nunca depende deles.
+Spring Boot, Gradle e Maven dependem dos contratos públicos do Tuprel. O core nunca depende deles.
 
 ## Invariantes
 

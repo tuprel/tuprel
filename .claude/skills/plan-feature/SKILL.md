@@ -1,6 +1,6 @@
 ---
 name: plan-feature
-description: Planeia uma funcionalidade Jorvia antes de qualquer implementação, incluindo arquitectura, segurança, testes, compatibilidade e critérios de aceitação.
+description: Planeia uma funcionalidade Tuprel antes de qualquer implementação, incluindo arquitectura, segurança, testes, compatibilidade e critérios de aceitação.
 disable-model-invocation: true
 allowed-tools: Read Grep Glob
 ---
