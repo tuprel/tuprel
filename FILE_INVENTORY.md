@@ -42,11 +42,14 @@ configuração local não versionada ficam de fora.
 - `SECURITY.md`
 - `START_HERE.md`
 - `build-logic/build.gradle.kts`
+- `build-logic/buildscript-gradle.lockfile`
+- `build-logic/gradle.lockfile`
 - `build-logic/gradle.properties`
 - `build-logic/settings.gradle.kts`
 - `build-logic/src/main/kotlin/tuprel.java-conventions.gradle.kts`
 - `build-logic/src/test/kotlin/dev/tuprel/buildlogic/JavaConventionsPluginTest.kt`
 - `build.gradle.kts`
+- `buildscript-gradle.lockfile`
 - `docs/adr/ADR-0001-gradle-multi-project.md`
 - `docs/adr/ADR-0002-java-21-baseline.md`
 - `docs/adr/ADR-0003-postgresql-first.md`
@@ -95,6 +98,7 @@ configuração local não versionada ficam de fora.
 - `project/BUILD_CONVENTIONS.md`
 - `project/EXPECTED_REPOSITORY_STRUCTURE.md`
 - `project/MODULE_CATALOG.md`
+- `settings-gradle.lockfile`
 - `settings.gradle.kts`
 - `templates/GITHUB_SETUP.md`
 - `templates/github/ci.yml`
