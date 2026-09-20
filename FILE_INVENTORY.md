@@ -93,6 +93,7 @@ configuração local não versionada ficam de fora.
 - `docs/product/TUPREL_ORM_SPEC.md`
 - `docs/research/CLAUDE_CODE_SETUP.md`
 - `docs/research/ENGINEERING_SECURITY_BASELINE.md`
+- `docs/rfcs/RFC-001-schema-language.md`
 - `docs/security/SECURITY_REQUIREMENTS.md`
 - `docs/security/SUPPLY_CHAIN.md`
 - `docs/security/THREAT_MODEL.md`
