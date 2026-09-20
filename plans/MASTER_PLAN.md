@@ -4,11 +4,15 @@ O desenvolvimento avança por gates. Não saltar fases porque uma funcionalidade
 
 ## Fase 0 - Fundação de engenharia
 
-Build, módulos iniciais, quality gates, CI, security baseline, test infrastructure, package naming provisório e documentação operacional.
+**Concluída localmente.** Build preparado para futuros módulos, quality gates,
+CI configurada, security baseline, test infrastructure, package naming
+provisório e documentação operacional. Nenhum módulo de produto é criado sem
+código real.
 
 ## Fase 1 - Schema language
 
-Lexer/parser, AST, diagnostics, model/enums/scalars, atributos fundamentais, formatter e validator.
+Começa pelo RFC-001 Schema Language. Depois: lexer/parser, AST, diagnostics,
+model/enums/scalars, atributos fundamentais, formatter e validator.
 
 ## Fase 2 - Java code generation
 

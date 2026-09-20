@@ -2,11 +2,13 @@
 
 > Modern relational data toolkit for Java.
 
-> Estado: especificação e bootstrap de engenharia. Ainda não é uma release utilizável.
+> Estado: Fase 0 de engenharia concluída. Ainda não existe implementação de
+> produto nem uma release utilizável.
 
 Tuprel ORM é uma plataforma de persistência para Java orientada a schema, geração de código type-safe, queries explícitas, migrações auditáveis e integração profissional com o ecossistema Java.
 
-Este repositório encontra-se preparado para desenvolvimento assistido por Claude Code. Começa por `START_HERE.md`.
+Este repositório encontra-se preparado para desenvolvimento assistido por
+Codex e Claude Code. Começa por `START_HERE.md`.
 
 Para construir e verificar o repositório, consulta `docs/development/BUILD_AND_TEST.md`.
 

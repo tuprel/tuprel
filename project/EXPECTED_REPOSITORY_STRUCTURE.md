@@ -1,30 +1,19 @@
-# Estrutura Esperada do Repositório depois da Fase 0
+# Estrutura do Repositório no fecho da Fase 0
 
 ```text
 tuprel/
+├── .agents/
 ├── .claude/
+├── .codex/
 ├── .github/
+├── build-logic/
 ├── docs/
 ├── plans/
+├── project/
 ├── gradle/
 │   ├── wrapper/
-│   └── libs.versions.toml
-├── build-logic/
-│   └── ... convention plugins, se justificados
-├── tuprel-schema/
-│   └── src/{main,test}/java/...
-├── tuprel-codegen-java/
-├── tuprel-sql/
-├── tuprel-runtime/
-├── tuprel-postgresql/
-├── tuprel-migrate/
-├── tuprel-introspection-postgresql/
-├── tuprel-cli/
-├── tuprel-spring-boot-starter/
-├── tuprel-gradle-plugin/
-├── tuprel-maven-plugin/
-├── tuprel-testkit/
-├── examples/
+│   ├── libs.versions.toml
+│   └── verification-metadata.xml
 ├── build.gradle.kts
 ├── settings.gradle.kts
 ├── gradle.properties
@@ -32,7 +21,12 @@ tuprel/
 └── gradlew.bat
 ```
 
-A Fase 0 deve evitar módulos vazios sem valor. Pode começar com subconjunto mínimo e adicionar os restantes quando a fase correspondente iniciar, desde que `MODULE_BOUNDARIES.md` continue a descrever o destino.
+A Fase 0 termina com **zero módulos de produto**. `build-logic` é um included
+build de infraestrutura, não um product subproject. Os módulos do destino
+arquitectural são adicionados apenas na fase que introduz código real, a
+começar por `tuprel-schema` na Fase 1; o catálogo completo continua em
+`MODULE_CATALOG.md` e os boundaries em
+`docs/architecture/MODULE_BOUNDARIES.md`.
 
 ## Generated sources numa aplicação consumidora
 

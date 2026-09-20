@@ -22,7 +22,10 @@ tuprel/
 └── .claude/
 ```
 
-A Fase 0 pode criar apenas os módulos necessários para estabelecer o grafo e deixar módulos posteriores como projectos declarados/documentados quando isso reduzir complexidade inicial.
+A Fase 0 documenta este grafo mas termina sem módulos de produto. O primeiro
+módulo só é declarado na Fase 1, quando `tuprel-schema` tiver código e testes
+reais. `build-logic` é um included build de infraestrutura e não faz parte
+deste grafo de produto.
 
 ## Responsabilidades
 

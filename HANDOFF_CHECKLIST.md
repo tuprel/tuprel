@@ -15,7 +15,7 @@
 
 - activar Plan Mode;
 - colar `CLAUDE_FIRST_PROMPT.md`;
-- aprovar/corrigir o plano da Fase 0;
+- confirmar a fase actual no master plan e aprovar/corrigir o primeiro slice;
 - só depois permitir implementação.
 
 ## Durante o projecto
