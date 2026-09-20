@@ -277,12 +277,12 @@ Existem e são executados hoje:
 - warnings tratados como erro (`-Werror`);
 - static analysis com Error Prone;
 - verificação do convention plugin com JUnit 5 e Gradle TestKit;
-- agregação do `build-logic:check` no `check` da raiz.
+- agregação do `build-logic:check` no `check` da raiz;
+- dependency locking (secção 8).
 
 Ainda **não** existem, e pertencem a fatias posteriores da Fase 0
 (`plans/PHASE_0_FOUNDATION.md`):
 
-- dependency locking;
 - dependency verification (`verification-metadata.xml`, checksums, chaves);
 - integração contínua (GitHub Actions);
 - CodeQL / code scanning;
@@ -298,7 +298,72 @@ chain; não dupliques essa informação aqui.
 
 ---
 
-## 8. Resolução de problemas
+## 8. Dependency locking
+
+O dependency locking nativo do Gradle está **activo**. Builds normais resolvem
+contra o lock state versionado, por isso a mesma revisão do repositório resolve
+sempre as mesmas versões.
+
+### O que está travado
+
+| Lockfile | Build | Cobre |
+|---|---|---|
+| `buildscript-gradle.lockfile` | raiz | classpath de plugins da raiz (Spotless e grafo transitivo) |
+| `build-logic/buildscript-gradle.lockfile` | `build-logic` | classpath de plugins de build-logic (`kotlin-dsl` e o grafo do Kotlin) |
+| `build-logic/gradle.lockfile` | `build-logic` | configurações de projecto de build-logic (plugin Error Prone, JUnit, TestKit, compilador Kotlin) |
+| `settings-gradle.lockfile` | raiz | gerado pelo Gradle para o version catalog; não contém módulos |
+
+O projecto raiz **não** tem `gradle.lockfile` porque não tem nenhuma
+configuração de dependências de projecto — `.\gradlew.bat dependencies` responde
+`No configurations`. Não é uma omissão: não há nada para travar.
+
+### Builds normais
+
+Não passes `--write-locks` no trabalho do dia-a-dia. Os comandos da secção 2
+usam o lock state existente e falham se uma versão resolvida não corresponder:
+
+```text
+Dependency version enforced by Dependency Locking
+```
+
+### Refrescar os locks deliberadamente
+
+Actualizar locks é uma alteração de dependências e deve ser revista como tal,
+não um passo de rotina para fazer uma build passar. Depois de mudar uma versão
+declarada:
+
+```powershell
+# Windows (PowerShell)
+.\gradlew.bat check --write-locks
+```
+
+```bash
+# Linux / macOS
+./gradlew check --write-locks
+```
+
+Usa `check` e não uma task que não resolva nada. O lock state de um included
+build só é escrito quando alguma task resolve mesmo as suas configurações: como
+o `check` da raiz agrega `build-logic:check`, um único comando cobre os dois
+builds. Uma task que não toque em build-logic (por exemplo `spotlessCheck`)
+reescreve apenas os classpaths de plugins.
+
+Depois de refrescar, revê o diff dos lockfiles como reveria qualquer outra
+alteração de dependências, e nunca edites versões à mão dentro de um lockfile.
+
+### O que o locking não faz
+
+Dependency locking fixa **as versões seleccionadas**. Não diz nada sobre o
+conteúdo dos artefactos: não deteta um artefacto substituído ou adulterado que
+mantenha as mesmas coordenadas.
+
+Essa garantia é a **dependency verification** (checksums, assinaturas, chaves
+confiáveis), que ainda **não** está configurada neste repositório e pertence a
+uma fatia posterior. Não descrevas locking como protecção de integridade.
+
+---
+
+## 9. Resolução de problemas
 
 ### Os testes de `build-logic` falham com erros de memória
 

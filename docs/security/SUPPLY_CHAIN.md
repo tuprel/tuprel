@@ -5,12 +5,37 @@
 Antes da primeira release pública:
 
 - proibir versões dinâmicas em dependências de produção;
-- activar dependency locking nas configurações relevantes;
-- versionar lockfiles;
+- ~~activar dependency locking nas configurações relevantes~~ — feito, ver
+  "Estado do dependency locking" abaixo;
+- ~~versionar lockfiles~~ — feito;
 - gerar `gradle/verification-metadata.xml` com SHA-256 e, quando disponível, verificação de assinaturas;
 - rever manualmente metadata bootstrap antes de confiar nela;
 - manter wrapper versionado e validar actualizações;
 - minimizar plugins de build e dependências transitivas.
+
+## Estado do dependency locking
+
+Dependency locking nativo do Gradle **activo**. Lockfiles versionados:
+`buildscript-gradle.lockfile` e `settings-gradle.lockfile` na raiz,
+`build-logic/buildscript-gradle.lockfile` e `build-logic/gradle.lockfile` no
+included build. O procedimento de refrescamento está em
+`docs/development/BUILD_AND_TEST.md`.
+
+Cobertura relevante para esta política:
+
+- artefactos de plugin resolvidos do Gradle Plugin Portal ficam travados,
+  porque entram nos classpaths de buildscript e, no caso do plugin de
+  integração Error Prone, numa configuração de projecto normal de build-logic;
+- dependências de Maven Central usadas por build-logic ficam travadas;
+- `com.google.errorprone:error_prone_core` ainda não aparece em nenhum lock
+  state: é declarado pelo convention plugin para os módulos consumidores e
+  nenhum módulo de produto existe ainda. Fica travado quando o primeiro módulo
+  aplicar `tuprel.java-conventions`.
+
+Limite desta garantia: locking fixa versões seleccionadas, não integridade de
+artefactos. Um artefacto substituído com as mesmas coordenadas não é detectado
+por locking. Essa é a função da dependency verification, ainda **não**
+configurada, que terá de cobrir as duas origens listadas abaixo.
 
 ## Origens de artefactos actualmente em uso
 

@@ -38,6 +38,10 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   `docs/development/BUILD_AND_TEST.md`.
 - Inventário das origens de artefactos usadas pela build em
   `docs/security/SUPPLY_CHAIN.md`.
+- Dependency locking do Gradle activo, com lockfiles versionados para o
+  classpath de plugins da raiz e para o included build `build-logic`. Fixa as
+  versões resolvidas; a verificação de integridade de artefactos (dependency
+  verification) continua por configurar.
 
 ### Notas
 

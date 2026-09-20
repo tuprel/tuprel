@@ -7,6 +7,28 @@
  * próprio.
  */
 
+/*
+ * Dependency locking do classpath de plugins deste script.
+ *
+ * O projecto raiz não tem NENHUMA configuração de dependências de projecto
+ * (`./gradlew dependencies` responde "No configurations"): o plugin `base` não
+ * declara dependências e os passos de Spotless em uso são higiene de texto
+ * pura, sem artefactos externos. Por isso não existe aqui nada para
+ * `dependencyLocking { lockAllConfigurations() }` bloquear, e declará-lo seria
+ * configuração decorativa.
+ *
+ * O que existe de facto é o classpath de plugins: `alias(libs.plugins.spotless)`
+ * resolve o Spotless e todo o seu grafo transitivo (jgit, durian, slf4j,
+ * commons-codec, ...). Esse grafo é real, vem da rede e é o que fica travado
+ * aqui.
+ *
+ * Locking fixa as versões seleccionadas. NÃO prova integridade dos artefactos;
+ * isso é dependency verification, uma fatia posterior.
+ */
+buildscript {
+    configurations["classpath"].resolutionStrategy.activateDependencyLocking()
+}
+
 plugins {
     /*
      * Fornece o lifecycle base do build: clean, assemble, check e build.

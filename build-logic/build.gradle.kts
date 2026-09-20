@@ -6,6 +6,17 @@
 
 import java.time.Duration
 
+/*
+ * Dependency locking do classpath de plugins desta build.
+ *
+ * `kotlin-dsl` é um plugin da distribuição do Gradle, mas arrasta o Kotlin
+ * Gradle Plugin e todo o grafo transitivo do Kotlin a partir da rede. Esse
+ * grafo é travado aqui.
+ */
+buildscript {
+    configurations["classpath"].resolutionStrategy.activateDependencyLocking()
+}
+
 plugins {
     /*
      * `kotlin-dsl` vem com o Gradle e habilita precompiled script plugins em
@@ -13,6 +24,21 @@ plugins {
      * classpath do plugin aos testes TestKit via `withPluginClasspath()`.
      */
     `kotlin-dsl`
+}
+
+/*
+ * Dependency locking das configurações de projecto.
+ *
+ * Ao contrário da raiz, esta build tem um grafo de dependências real: o plugin
+ * de integração Error Prone, o JUnit dos seus próprios testes, o Kotlin stdlib
+ * trazido pelo `kotlin-dsl` e o TestKit. `lockAllConfigurations()` cobre todas
+ * as configurações resolúveis do projecto de uma vez, em vez de manter uma
+ * lista que ficaria desactualizada sempre que um source set fosse acrescentado.
+ *
+ * Locking fixa versões seleccionadas; não verifica integridade de artefactos.
+ */
+dependencyLocking {
+    lockAllConfigurations()
 }
 
 dependencies {
