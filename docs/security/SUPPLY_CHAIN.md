@@ -126,15 +126,24 @@ ser decisão do build que o aplica.
 
 ## GitHub
 
-Configurar:
+A automação de GitHub está configurada no repositório, mas **não executada**:
+não existe remote e nenhum workflow foi enviado para GitHub.
 
-- Dependabot;
-- dependency review em pull requests;
-- CodeQL/code scanning para Java/Kotlin e linguagens adicionais usadas;
-- branch protection/rulesets;
-- revisão obrigatória para ficheiros de release/security;
-- permissões mínimas em workflows;
-- actions de terceiros fixadas/pinned segundo a política do projecto.
+| Controlo | Ficheiro | Política |
+|---|---|---|
+| build e quality gates | `.github/workflows/ci.yml` | Java 21, Wrapper, verification estrita, `contents: read` |
+| dependency review | `.github/workflows/dependency-review.yml` | pull requests para `main`, falha em severidade alta, sem permissão de escrita |
+| code scanning | `.github/workflows/codeql.yml` | Java/Kotlin; apenas o job de análise recebe `security-events: write` |
+| actualizações | `.github/dependabot.yml` | Gradle na raiz e build-logic, mais GitHub Actions |
+
+Todas as actions estão fixadas a commit SHA completo, com a versão imutável
+revista indicada em comentário. `actions/setup-java` não activa cache Gradle;
+`gradle/actions/setup-gradle` é o único mecanismo de cache do Gradle nos
+workflows e valida também o Wrapper.
+
+Branch protection/rulesets e revisão obrigatória de ficheiros sensíveis exigem
+um repositório remoto e permanecem configuração manual para quando esse
+repositório existir. Nenhum secret é necessário pelos workflows actuais.
 
 ## Release
 

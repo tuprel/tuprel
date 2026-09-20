@@ -285,9 +285,6 @@ Ainda **não** existem, e pertencem a fatias posteriores da Fase 0
 (`plans/PHASE_0_FOUNDATION.md`):
 
 - verificação de assinaturas PGP dos artefactos;
-- integração contínua (GitHub Actions);
-- CodeQL / code scanning;
-- Dependabot e dependency review;
 - publicação, assinatura e verificações de release.
 
 Nenhum destes deve ser descrito como activo enquanto não for implementado.
@@ -308,6 +305,25 @@ Gradle 9.7.1 e dependency verification estrita:
 novas sejam aceites como warnings. O build cache configurado é local; não há
 infraestrutura de cache remoto. Os testes TestKit continuam a ser a prova do
 comportamento das builds consumidoras e não perdem nenhum gate de qualidade.
+
+### Automação GitHub
+
+O repositório contém workflows para CI, dependency review e CodeQL, além da
+configuração do Dependabot. A CI usa Linux e Java 21, executa o Wrapper com
+dependency verification estrita e deixa o `build` da raiz agregar todos os
+quality gates, incluindo `build-logic:check`.
+
+As actions estão fixadas a SHAs completos e os workflows usam permissões
+mínimas. Apenas o job CodeQL recebe `security-events: write`. O cache de
+dependências Gradle é gerido exclusivamente por `gradle/actions/setup-gradle`;
+`actions/setup-java` não configura um segundo cache.
+
+Estes ficheiros estão **configurados mas não executados**, porque ainda não
+existe remote GitHub. A validação local cobre sintaxe e política estática; uma
+execução real e branch protection/rulesets só podem ser confirmados depois da
+criação autorizada do repositório remoto. A CI não arranca PostgreSQL ou Docker:
+nenhum módulo de produto nem integration test de base de dados existe na Fase
+0.
 
 As origens de artefactos que a build usa actualmente estão inventariadas em
 `docs/security/SUPPLY_CHAIN.md`. Esse é o documento canónico sobre supply
