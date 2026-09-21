@@ -1,0 +1,27 @@
+datasource db {
+    provider = "postgresql"
+    url = env("DATABASE_URL")
+}
+
+generator java {
+    package = "dev.example.generated"
+}
+
+enum UserStatus {
+    ACTIVE
+    BLOCKED
+}
+
+model User {
+    id UUID @id @default(uuid())
+    status UserStatus @default(ACTIVE)
+    email String? @unique
+    posts Post[]
+    @@index([email])
+}
+
+model Post {
+    id UUID @id
+    authorId UUID
+    author User @relation(fields: [authorId], references: [id])
+}

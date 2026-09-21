@@ -1,10 +1,9 @@
 /*
  * Projecto raiz do Tuprel.
  *
- * Este projecto é agregador/fundação, não um módulo Java de produto. Não
- * aplica `java`, `java-library`, `application`, publicação nem assinatura:
- * essas decisões pertencem a slices e fases posteriores, algumas com ADR
- * próprio.
+ * Este projecto é agregador, não um módulo Java de produto. Não
+ * aplica `java`, `java-library`, `application`, publicação nem assinatura.
+ * Os módulos Java aplicam as convenções partilhadas individualmente.
  */
 
 /*
@@ -31,8 +30,8 @@ buildscript {
 
 plugins {
     /*
-     * Fornece o lifecycle base do build: clean, assemble, check e build.
-     * Deliberadamente sem `java`: a Fase 0 não introduz código de produto.
+     * Fornece o lifecycle agregador: clean, assemble, check e build.
+     * Deliberadamente sem `java`: código de produto pertence aos subprojects.
      */
     base
 
@@ -51,6 +50,10 @@ plugins {
  * fechada.
  */
 group = "dev.tuprel"
+
+subprojects {
+    group = rootProject.group
+}
 
 /*
  * `version` é intencionalmente omitida neste slice. O baseline de versionamento
@@ -72,6 +75,11 @@ group = "dev.tuprel"
  */
 tasks.named("check") {
     dependsOn(gradle.includedBuild("build-logic").task(":check"))
+    dependsOn(":tuprel-schema:check", ":tuprel-cli:check")
+}
+
+tasks.named("assemble") {
+    dependsOn(":tuprel-schema:assemble", ":tuprel-cli:assemble")
 }
 
 /*
@@ -132,6 +140,17 @@ spotless {
     format("githubWorkflows") {
         target(".github/**/*.yml", ".github/**/*.yaml")
         leadingTabsToSpaces(2)
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    /*
+     * Java da Fase 1. O projecto mantém o âmbito conservador: apenas higiene
+     * determinística de whitespace, sem acrescentar um formatter de Java.
+     */
+    format("javaSources") {
+        target("tuprel-schema/src/**/*.java", "tuprel-cli/src/**/*.java")
+        leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         endWithNewline()
     }
