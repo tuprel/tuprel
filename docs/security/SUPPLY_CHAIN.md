@@ -147,4 +147,4 @@ repositório existir. Nenhum secret é necessário pelos workflows actuais.
 
 ## Release
 
-A pipeline de publicação futura deve incluir assinatura de artefactos, hashes, source/javadoc jars, SBOM quando aprovado, proveniência e nenhuma secret em logs. Publicação só depois de name/license/Maven coordinates estarem resolvidos.
+A pipeline de publicação futura deve incluir assinatura de artefactos, hashes, source/javadoc jars, SBOM quando aprovado, proveniência e nenhuma secret em logs. A licença Apache-2.0 já foi escolhida; a publicação de artefactos espera pela confirmação das coordenadas Maven e pelos restantes gates de release.

@@ -1,5 +1,7 @@
 # Contribuir para o Tuprel ORM
 
+As contribuições para este projecto open source são feitas sob a [Apache License 2.0](LICENSE) (`Apache-2.0`).
+
 ## Fluxo
 
 1. abre ou referencia uma issue/decisão;

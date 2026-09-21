@@ -402,7 +402,7 @@ dev.tuprel:tuprel-postgresql
 dev.tuprel:tuprel-spring-boot-starter
 ```
 
-Os nomes finais de domínio, groupId e packages devem ser confirmados antes da publicação pública.
+Os nomes finais de domínio, groupId e packages devem ser confirmados antes da publicação de artefactos.
 
 ---
 
@@ -4735,11 +4735,7 @@ Se algum dia houver telemetria:
 
 # 148. Licença
 
-Para adopção open source, uma licença permissiva como Apache-2.0 ou MIT deverá ser considerada.
-
-Apache-2.0 oferece cláusulas explícitas relacionadas com patentes e pode ser interessante para um projecto de infraestrutura.
-
-A decisão final deve ser tomada antes da primeira release pública relevante.
+O projecto adopta a Apache License, Version 2.0 (`Apache-2.0`), cujo texto oficial está no `LICENSE` da raiz. Inclui cláusulas explícitas relacionadas com patentes. Esta decisão não antecipa a publicação de artefactos nem uma release utilizável.
 
 ---
 
