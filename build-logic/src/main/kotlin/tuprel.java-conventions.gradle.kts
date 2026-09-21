@@ -4,9 +4,8 @@
  * Baseline partilhado dos futuros módulos Java do Tuprel: toolchain, política
  * de compilador, static analysis, testes e reprodutibilidade de artefactos.
  *
- * Este plugin NÃO é aplicado por nenhum módulo neste momento: a Fase 0 não
- * introduz código de produto. Existe para que o primeiro módulo real herde uma
- * baseline já decidida e já testada, em vez de a inventar nesse momento.
+ * Este plugin é aplicado pelos módulos de produto da Fase 1 e continua a
+ * servir de baseline para os módulos futuros, sem decisões locais duplicadas.
  *
  * Deliberadamente ausente: Spring, Jakarta Persistence, Hibernate, drivers de
  * base de dados, Testcontainers e qualquer dependência de produto Tuprel.
@@ -14,6 +13,11 @@
  */
 
 import net.ltgt.gradle.errorprone.errorprone
+import org.gradle.api.plugins.JavaPluginExtension
+import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.kotlin.dsl.configure
+import org.gradle.kotlin.dsl.getByType
 
 plugins {
     /*
@@ -24,6 +28,15 @@ plugins {
 
     // Static analysis dentro do próprio compilador.
     id("net.ltgt.errorprone")
+}
+
+/*
+ * Cada módulo de produto tem o seu próprio lock state. Activar locking na
+ * convenção garante que dependências injectadas por este plugin (Error Prone e
+ * JUnit) e dependências futuras do módulo ficam cobertas pela mesma política.
+ */
+dependencyLocking {
+    lockAllConfigurations()
 }
 
 /*
@@ -44,7 +57,7 @@ plugins {
 val errorProneVersion = "2.50.0"
 val junitBomVersion = "5.14.4"
 
-java {
+extensions.configure<JavaPluginExtension> {
     /*
      * Toolchain fixa garante que a compilação não depende do JDK com que o
      * Gradle arrancou.
@@ -62,10 +75,12 @@ java {
  * (PostgreSQL real, em fase posterior) e não devem tornar o ciclo de unit
  * tests lento nem não determinístico.
  */
-val integrationTestSourceSet: SourceSet = sourceSets.create("integrationTest") {
+val sourceSetContainer = extensions.getByType<SourceSetContainer>()
+val mainSourceSet = sourceSetContainer.getByName(SourceSet.MAIN_SOURCE_SET_NAME)
+val integrationTestSourceSet: SourceSet = sourceSetContainer.create("integrationTest") {
     // Um source set novo não vê o output de `main` por omissão.
-    compileClasspath += sourceSets["main"].output
-    runtimeClasspath += sourceSets["main"].output
+    compileClasspath += mainSourceSet.output
+    runtimeClasspath += mainSourceSet.output
 }
 
 /*
@@ -73,12 +88,15 @@ val integrationTestSourceSet: SourceSet = sourceSets.create("integrationTest") {
  * baseline JUnit declarada abaixo) e acrescentam apenas o que for específico
  * através de `integrationTestImplementation`.
  */
-configurations[integrationTestSourceSet.implementationConfigurationName]
-    .extendsFrom(configurations.testImplementation.get())
-configurations[integrationTestSourceSet.compileOnlyConfigurationName]
-    .extendsFrom(configurations.testCompileOnly.get())
-configurations[integrationTestSourceSet.runtimeOnlyConfigurationName]
-    .extendsFrom(configurations.testRuntimeOnly.get())
+configurations
+    .getByName(integrationTestSourceSet.implementationConfigurationName)
+    .extendsFrom(configurations.getByName("testImplementation"))
+configurations
+    .getByName(integrationTestSourceSet.compileOnlyConfigurationName)
+    .extendsFrom(configurations.getByName("testCompileOnly"))
+configurations
+    .getByName(integrationTestSourceSet.runtimeOnlyConfigurationName)
+    .extendsFrom(configurations.getByName("testRuntimeOnly"))
 
 dependencies {
     errorprone("com.google.errorprone:error_prone_core:$errorProneVersion")

@@ -5,6 +5,8 @@
  */
 
 import java.time.Duration
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 /*
  * Dependency locking do classpath de plugins desta build.
@@ -24,6 +26,25 @@ plugins {
      * classpath do plugin aos testes TestKit via `withPluginClasspath()`.
      */
     `kotlin-dsl`
+}
+
+/*
+ * Build-logic tem de produzir plugins carregáveis pela baseline Java 21.
+ * Fixar toolchain e target evita que um cache criado por um JDK mais recente
+ * devolva classes que o Gradle executado em Java 21 não consegue carregar.
+ */
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
+
+kotlin {
+    jvmToolchain(21)
+}
+
+tasks.withType<KotlinCompile>().configureEach {
+    compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
 }
 
 /*

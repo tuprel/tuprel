@@ -23,8 +23,8 @@ import java.io.File
  * um build Gradle real com TestKit. O objectivo é provar comportamento — o que
  * um módulo consumidor recebe de facto — e não a existência de ficheiros.
  *
- * As fixtures Java vivem apenas no directório temporário do teste. Não existe
- * nenhum módulo de produto Tuprel nem nenhuma fonte Java versionada.
+ * As fixtures Java vivem apenas no directório temporário do teste. Os módulos
+ * reais da Fase 1 também aplicam a mesma convenção no build principal.
  */
 class JavaConventionsPluginTest {
 

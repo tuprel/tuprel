@@ -1,10 +1,9 @@
 /*
  * Configuração raiz do build do Tuprel.
  *
- * Fase 0: apenas fundação de build. Nenhum módulo de produto é incluído
- * ainda. A estrutura alvo do monorepo está documentada em
- * docs/architecture/MODULE_BOUNDARIES.md e os módulos só serão declarados
- * quando existir código real para suportar.
+ * A Fase 1 introduz os primeiros módulos de produto com código real:
+ * `tuprel-schema` e o adapter inicial `tuprel-cli`. A estrutura alvo do
+ * monorepo continua documentada em docs/architecture/MODULE_BOUNDARIES.md.
  */
 
 pluginManagement {
@@ -20,6 +19,9 @@ pluginManagement {
 }
 
 rootProject.name = "tuprel"
+
+include("tuprel-schema")
+include("tuprel-cli")
 
 dependencyResolutionManagement {
     /*
