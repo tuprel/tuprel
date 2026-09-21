@@ -4,7 +4,7 @@ O Tuprel lida directamente com SQL, credenciais, migrações e dados persistente
 
 ## Reportar uma vulnerabilidade
 
-Antes de o projecto ter um canal público de security advisories, não abras detalhes exploráveis numa issue pública. Contacta o mantenedor por um canal privado definido antes da primeira release pública.
+Depois de estar activado o GitHub Private Vulnerability Reporting, usa **Report a vulnerability** na secção **Security** do repositório. Este canal ainda tem de ser activado após o primeiro push, antes de uma promoção pública ampla. Até estar disponível, não publiques detalhes exploráveis numa issue pública; contacta o mantenedor apenas por um canal privado já estabelecido.
 
 ## Áreas críticas
 

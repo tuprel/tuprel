@@ -58,6 +58,7 @@ configuração local não versionada ficam de fora.
 - `CONTRIBUTING.md`
 - `FILE_INVENTORY.md`
 - `HANDOFF_CHECKLIST.md`
+- `LICENSE`
 - `README.md`
 - `SECURITY.md`
 - `START_HERE.md`

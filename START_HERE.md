@@ -38,4 +38,4 @@ Nenhuma funcionalidade é considerada pronta porque compila. Uma funcionalidade 
 
 ## Nome do projecto
 
-`Tuprel ORM` é o nome de trabalho utilizado neste pacote. Antes de publicação pública, artefactos Maven, domínio, marca ou lançamento comercial, é obrigatória uma verificação de disponibilidade do nome. Consulta `docs/product/NAMING_AND_LEGAL.md`.
+Tuprel é o nome escolhido para o projecto. A pesquisa preliminar de disponibilidade permite o desenvolvimento público do repositório, sem constituir clearance legal ou de marca. Coordenadas Maven, direitos de domínio e gates de release continuam por resolver antes da publicação de artefactos. Consulta `docs/product/NAMING_AND_LEGAL.md`.

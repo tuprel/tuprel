@@ -6,7 +6,10 @@
 > validator, formatter e a CLI inicial de schema. Ainda não existe uma release
 > utilizável.
 
-Tuprel ORM é uma plataforma de persistência para Java orientada a schema, geração de código type-safe, queries explícitas, migrações auditáveis e integração profissional com o ecossistema Java.
+O código está disponível sob a [Apache License 2.0](LICENSE) (`Apache-2.0`).
+Copyright 2026 Mamadu Sama.
+
+Tuprel ORM pretende ser uma plataforma de persistência para Java orientada a schema, geração de código type-safe, queries explícitas, migrações auditáveis e integração profissional com o ecossistema Java.
 
 Este repositório encontra-se preparado para desenvolvimento assistido por
 Codex e Claude Code. Começa por `START_HERE.md`.
@@ -28,4 +31,4 @@ Para a linguagem de schema implementada na Fase 1, consulta
 
 ## Estado do nome
 
-Tuprel é um nome de trabalho. Nenhuma publicação pública deve acontecer antes das verificações descritas em `docs/product/NAMING_AND_LEGAL.md`.
+Tuprel é o nome escolhido para o projecto. Foi feita uma pesquisa preliminar de disponibilidade; não houve clearance legal ou de marca. O desenvolvimento público do repositório é permitido, mas ainda não há release utilizável nem publicação de artefactos configurada. Consulta `docs/product/NAMING_AND_LEGAL.md`.

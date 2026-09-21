@@ -20,6 +20,7 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Licença open source Apache-2.0 no `LICENSE` da raiz.
 - Fundação documental do projecto: especificação de produto, princípios,
   arquitectura, module boundaries, modelo de erros, estratégia de testes,
   requisitos de segurança, threat model e ADRs da fundação.
@@ -66,9 +67,11 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Notas
 
-- O nome de trabalho do produto é **Tuprel**. Continua a ser um nome de
-  trabalho: não foi feita verificação profissional de naming/trademark e a
-  publicação permanece desactivada (ver `docs/product/NAMING_AND_LEGAL.md`).
+- **Tuprel** é o nome escolhido. Uma pesquisa preliminar de disponibilidade
+  não encontrou conflito exacto bloqueante na mesma categoria; não constitui
+  clearance profissional de marca. Desenvolvimento público permitido,
+  publicação de artefactos ainda desactivada (ver
+  `docs/product/NAMING_AND_LEGAL.md`).
 - `dev.tuprel` é uma coordenada provisória e não uma coordenada de publicação
   aprovada.
 - Não existe ainda runtime ORM, geração de código, motor de migrações nem
