@@ -1,7 +1,7 @@
 # Build e Testes
 
 Este é o documento canónico sobre como construir e verificar o repositório.
-Descreve o estado **actual** da Fase 0. Nada aqui descreve funcionalidade
+Descreve o estado **actual** da Fase 1. Nada aqui descreve funcionalidade
 planeada como se já existisse.
 
 Para a estratégia de testes do produto (unit, golden, integração PostgreSQL,
@@ -77,17 +77,19 @@ Root project 'tuprel'
 Project hierarchy:
 
 Root project 'tuprel'
-No sub-projects
+ +--- Project ':tuprel-cli'
+ +--- Project ':tuprel-schema'
 
 Included builds:
 
 \--- Included build ':build-logic'
 ```
 
-**"No sub-projects" é o resultado esperado.** A Fase 0 constrói fundação de
-engenharia; ainda não existe nenhum módulo de produto Tuprel. Os módulos
-planeados estão descritos em `docs/architecture/MODULE_BOUNDARIES.md` e só são
-declarados quando existir código real para suportar.
+Os dois subprojectos de produto actuais são `tuprel-schema` e `tuprel-cli`.
+O primeiro implementa a linguagem de schema da Fase 1; o segundo expõe os
+comandos iniciais `validate` e `format`. Os restantes módulos planeados estão
+descritos em `docs/architecture/MODULE_BOUNDARIES.md` e continuam fora da
+build.
 
 `build-logic` aparece como *included build*, não como subprojecto. Ver a
 secção 4.
@@ -164,9 +166,9 @@ Podes confirmar o grafo sem executar nada:
 ### `build`
 
 Executa o lifecycle `build` da raiz, que com o plugin `base` significa
-`assemble` + `check`. Como não existem módulos de produto, `build` não produz
-artefactos Tuprel: o seu valor actual é garantir que a verificação completa
-passa.
+`assemble` + `check`. A raiz agrega os artefactos e verificações de
+`tuprel-schema` e `tuprel-cli`; não agrega módulos que ainda não foram
+implementados.
 
 ---
 
@@ -197,10 +199,9 @@ Isto é um atalho de iteração, não um substituto da verificação na raiz.
 
 ## 5. Baseline de `tuprel.java-conventions`
 
-O convention plugin estabelece o que os futuros módulos Java do Tuprel vão
-herdar. **Nenhum módulo o aplica hoje**, porque ainda não existe código de
-produto; o comportamento descrito abaixo é verificado por testes TestKit que
-aplicam o plugin a projectos temporários.
+O convention plugin estabelece a baseline que `tuprel-schema` e `tuprel-cli`
+aplicam. O comportamento descrito abaixo continua também verificado por
+testes TestKit que aplicam o plugin a projectos temporários.
 
 | Área | Configuração actual |
 |---|---|
@@ -321,8 +322,7 @@ Estes ficheiros estão **configurados mas não executados**, porque ainda não
 existe remote GitHub. A validação local cobre sintaxe e política estática; uma
 execução real e branch protection/rulesets só podem ser confirmados depois da
 criação autorizada do repositório remoto. A CI não arranca PostgreSQL ou Docker:
-nenhum módulo de produto nem integration test de base de dados existe na Fase
-0.
+os módulos da Fase 1 ainda não têm integration tests de base de dados.
 
 As origens de artefactos que a build usa actualmente estão inventariadas em
 `docs/security/SUPPLY_CHAIN.md`. Esse é o documento canónico sobre supply
@@ -344,6 +344,8 @@ sempre as mesmas versões.
 | `build-logic/buildscript-gradle.lockfile` | `build-logic` | classpath de plugins de build-logic (`kotlin-dsl` e o grafo do Kotlin) |
 | `build-logic/gradle.lockfile` | `build-logic` | configurações de projecto de build-logic (plugin Error Prone, JUnit, TestKit, compilador Kotlin) |
 | `settings-gradle.lockfile` | raiz | gerado pelo Gradle para o version catalog; não contém módulos |
+| `tuprel-schema/gradle.lockfile` | `tuprel-schema` | Error Prone, JUnit e as configurações dos testes do schema |
+| `tuprel-cli/gradle.lockfile` | `tuprel-cli` | Error Prone, JUnit e as configurações dos testes da CLI |
 
 O projecto raiz **não** tem `gradle.lockfile` porque não tem nenhuma
 configuração de dependências de projecto — `.\gradlew.bat dependencies` responde

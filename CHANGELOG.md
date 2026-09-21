@@ -52,6 +52,11 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   de armazenamento e reutilização na raiz e em build-logic.
 - Automação GitHub com CI Java 21, dependency review, CodeQL e Dependabot,
   usando permissões mínimas e actions fixadas a commits imutáveis.
+- Linguagem de schema da Fase 1 no módulo `tuprel-schema`, com lexer, parser,
+  AST, modelo validado, diagnostics e formatter para o subconjunto aceite pelo
+  RFC-001.
+- Módulo `tuprel-cli` com os comandos iniciais `tuprel validate` e
+  `tuprel format`.
 
 ### Alterado
 
@@ -66,6 +71,5 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   publicação permanece desactivada (ver `docs/product/NAMING_AND_LEGAL.md`).
 - `dev.tuprel` é uma coordenada provisória e não uma coordenada de publicação
   aprovada.
-- Não existe ainda runtime ORM, linguagem de schema, geração de código, motor
-  de migrações, CLI nem suporte a PostgreSQL. O roadmap por fases está em
-  `plans/MASTER_PLAN.md`.
+- Não existe ainda runtime ORM, geração de código, motor de migrações nem
+  suporte a PostgreSQL. O roadmap por fases está em `plans/MASTER_PLAN.md`.

@@ -11,8 +11,10 @@ código real.
 
 ## Fase 1 - Schema language
 
-Começa pelo RFC-001 Schema Language. Depois: lexer/parser, AST, diagnostics,
-model/enums/scalars, atributos fundamentais, formatter e validator.
+RFC-001 foi aceite para o subconjunto inicial. `tuprel-schema` já fornece
+lexer/parser, AST, diagnostics, model/enums/scalars, atributos fundamentais,
+formatter e validator; `tuprel-cli` expõe `validate` e `format`. A conclusão
+formal da fase depende do gate e da validação final definidos no plano da fase.
 
 ## Fase 2 - Java code generation
 

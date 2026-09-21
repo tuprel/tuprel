@@ -20,7 +20,8 @@ Antes da primeira release pública:
 Dependency locking nativo do Gradle **activo**. Lockfiles versionados:
 `buildscript-gradle.lockfile` e `settings-gradle.lockfile` na raiz,
 `build-logic/buildscript-gradle.lockfile` e `build-logic/gradle.lockfile` no
-included build. O procedimento de refrescamento está em
+included build, e `gradle.lockfile` em cada módulo de produto actual
+(`tuprel-schema` e `tuprel-cli`). O procedimento de refrescamento está em
 `docs/development/BUILD_AND_TEST.md`.
 
 Cobertura relevante para esta política:
@@ -29,10 +30,9 @@ Cobertura relevante para esta política:
   porque entram nos classpaths de buildscript e, no caso do plugin de
   integração Error Prone, numa configuração de projecto normal de build-logic;
 - dependências de Maven Central usadas por build-logic ficam travadas;
-- `com.google.errorprone:error_prone_core` ainda não aparece em nenhum lock
-  state: é declarado pelo convention plugin para os módulos consumidores e
-  nenhum módulo de produto existe ainda. Fica travado quando o primeiro módulo
-  aplicar `tuprel.java-conventions`.
+- `com.google.errorprone:error_prone_core` está travado nos lockfiles de
+  `tuprel-schema` e `tuprel-cli`, os módulos actuais que aplicam
+  `tuprel.java-conventions`.
 
 Limite desta garantia: locking fixa versões seleccionadas, não integridade de
 artefactos. Um artefacto substituído com as mesmas coordenadas não é detectado
@@ -89,9 +89,9 @@ build real que aplica `tuprel.java-conventions`.
 Um teste dedicado prova que a verificação está activa nesse scope: uma fixture
 que peça um artefacto fora da baseline falha a build.
 
-`error_prone_core` continua ausente do **lock state** — locking e verification
-são controlos distintos, e nenhum módulo de produto aplica ainda o convention
-plugin. Passa a estar coberto por checksum através da baseline de TestKit.
+`error_prone_core` está coberto por checksum através da baseline de TestKit e
+pelos lockfiles dos módulos consumidores. Locking e verification continuam a
+ser controlos distintos.
 
 ### Escopo da revisão de bootstrap
 

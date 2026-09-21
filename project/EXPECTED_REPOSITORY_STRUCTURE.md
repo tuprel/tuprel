@@ -1,4 +1,4 @@
-# Estrutura do Repositório no fecho da Fase 0
+# Estrutura do Repositório no fecho da Fase 0 (referência histórica)
 
 ```text
 tuprel/
@@ -43,3 +43,23 @@ target/generated-sources/tuprel/
 ```
 
 Nunca gerar por omissão em `src/main/java`.
+
+## Estrutura actual da Fase 1
+
+Além da fundação acima, a build actual contém os primeiros boundaries de
+produto:
+
+```text
+tuprel/
+├── tuprel-schema/
+├── tuprel-cli/
+├── build-logic/
+├── gradle/
+├── docs/
+├── plans/
+└── project/
+```
+
+`tuprel-schema` implementa o subconjunto de linguagem aceite pelo RFC-001 e
+`tuprel-cli` fornece os comandos iniciais `validate` e `format`. Os restantes
+módulos do catálogo continuam fora da build.
