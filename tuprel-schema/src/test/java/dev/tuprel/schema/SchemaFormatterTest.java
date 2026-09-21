@@ -38,6 +38,28 @@ class SchemaFormatterTest {
     }
 
     @Test
+    void keepsSpaceBeforeRelationFieldLists() {
+        SourceText source =
+                SourceText.of(
+                        "format.tuprel",
+                        """
+                        model User {
+                         id Int @id
+                         posts Post[]
+                        }
+                        model Post {
+                         id Int @id
+                         userId Int
+                         user User @relation(fields:[userId], references:[id])
+                        }
+                        """);
+
+        String formatted = formatter.format(source).formattedText().orElseThrow();
+
+        assertTrue(formatted.contains("fields: [userId], references: [id]"));
+    }
+
+    @Test
     void refusesToFormatInvalidSchema() {
         SchemaFormatResult result = formatter.format(SourceText.of("invalid.tuprel", "model User {}"));
 

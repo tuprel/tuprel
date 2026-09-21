@@ -123,7 +123,10 @@ public final class SchemaFormatter {
                 || previous == TokenKind.AT_AT) {
             return false;
         }
-        if (current == TokenKind.LEFT_PAREN || current == TokenKind.LEFT_BRACKET) {
+        if (current == TokenKind.LEFT_PAREN && previous == TokenKind.IDENTIFIER) {
+            return false;
+        }
+        if (current == TokenKind.LEFT_BRACKET && previous == TokenKind.IDENTIFIER) {
             return false;
         }
         if (current == TokenKind.EQUALS || previous == TokenKind.EQUALS) {
