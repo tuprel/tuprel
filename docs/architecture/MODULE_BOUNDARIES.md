@@ -22,10 +22,9 @@ tuprel/
 └── .claude/
 ```
 
-A Fase 0 documenta este grafo mas termina sem módulos de produto. O primeiro
-módulo só é declarado na Fase 1, quando `tuprel-schema` tiver código e testes
-reais. `build-logic` é um included build de infraestrutura e não faz parte
-deste grafo de produto.
+A Fase 1 declara `tuprel-schema` e o adapter inicial `tuprel-cli`, que já têm
+código e testes reais. Os restantes módulos continuam planeados. `build-logic`
+é um included build de infraestrutura e não faz parte deste grafo de produto.
 
 ## Responsabilidades
 
@@ -69,7 +68,8 @@ Leitura de catálogos PostgreSQL e transformação no modelo de schema.
 
 ### `tuprel-cli`
 
-Orquestra comandos. Não deve duplicar lógica do parser, codegen ou migrate.
+Orquestra comandos. Actualmente expõe `validate` e `format` e delega a análise
+no `tuprel-schema`; não deve duplicar lógica do parser, codegen ou migrate.
 
 ### `tuprel-spring-boot-starter`
 

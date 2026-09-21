@@ -2,6 +2,11 @@
 
 Este documento separa o que deve existir no produto estável do que não deve bloquear a primeira release.
 
+O subconjunto inicial de schema definido no RFC-001 já está implementado em
+`tuprel-schema`, com `validate` e `format` disponíveis em `tuprel-cli`. Os
+itens abaixo continuam a descrever o roadmap do produto e não são todos
+funcionalidade disponível nesta fase.
+
 ## Tuprel 0.1 - Foundation preview
 
 - parser e validator básicos de `schema.tuprel`;

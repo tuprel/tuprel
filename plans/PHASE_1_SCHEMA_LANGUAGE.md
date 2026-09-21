@@ -1,5 +1,11 @@
 # Fase 1 - Schema Language
 
+## Estado actual
+
+RFC-001 foi revisto e aceite para o subconjunto inicial da Fase 1. O
+`tuprel-schema` e a CLI inicial implementam esse subconjunto; a conclusão da
+fase depende das validações e do relatório final previstos no plano.
+
 ## Gate de design
 
 O primeiro trabalho da Fase 1 é criar e rever
