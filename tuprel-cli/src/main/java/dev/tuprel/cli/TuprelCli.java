@@ -1,5 +1,9 @@
 package dev.tuprel.cli;
 
+import dev.tuprel.codegen.GeneratedSourceWriter;
+import dev.tuprel.codegen.GenerationDiagnostic;
+import dev.tuprel.codegen.JavaCodeGenerator;
+import dev.tuprel.codegen.JavaGenerationResult;
 import dev.tuprel.schema.DiagnosticRenderer;
 import dev.tuprel.schema.SchemaCompilation;
 import dev.tuprel.schema.SchemaCompiler;
@@ -16,9 +20,10 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 
-/** Initial command-line adapter for the Phase 1 schema operations. */
+/** Command-line adapter for schema validation, formatting and Java generation. */
 public final class TuprelCli {
     private static final Path DEFAULT_SCHEMA = Path.of("tuprel", "schema.tuprel");
+    private static final Path GENERATED_SOURCES = Path.of("build", "generated", "sources", "tuprel", "main");
 
     private TuprelCli() {}
 
@@ -32,6 +37,7 @@ public final class TuprelCli {
         return switch (command) {
             case "validate" -> validate(arguments, out, err);
             case "format" -> format(arguments, out, err);
+            case "generate" -> generate(arguments, out, err, Path.of(""));
             default -> {
                 printUsage(err);
                 yield 2;
@@ -119,6 +125,60 @@ public final class TuprelCli {
         return 0;
     }
 
+    static int generate(String[] arguments, PrintWriter out, PrintWriter err, Path projectRoot) {
+        boolean checkOnly = false;
+        Path path = null;
+        for (String argument : Arrays.copyOfRange(arguments, 1, arguments.length)) {
+            if (argument.equals("--check") && !checkOnly) {
+                checkOnly = true;
+            } else if (!argument.startsWith("--") && path == null) {
+                path = Path.of(argument);
+            } else {
+                printUsage(err);
+                return 2;
+            }
+        }
+        if (path == null) {
+            path = DEFAULT_SCHEMA;
+        }
+        String text = read(path, err);
+        if (text == null) {
+            return 2;
+        }
+        SchemaCompilation compilation = new SchemaCompiler().compile(SourceText.of(path.toString(), text));
+        printDiagnostics(compilation.diagnostics(), err);
+        if (!compilation.isValid()) {
+            return 1;
+        }
+        JavaGenerationResult result = new JavaCodeGenerator().generate(compilation.validatedSchema().orElseThrow());
+        if (!result.isSuccess()) {
+            for (GenerationDiagnostic diagnostic : result.diagnostics()) {
+                err.println(diagnostic.code() + ": " + diagnostic.message()
+                        + " (" + diagnostic.span().start().line() + ":"
+                        + diagnostic.span().start().column() + ")");
+            }
+            return 1;
+        }
+        try {
+            GeneratedSourceWriter writer = new GeneratedSourceWriter();
+            Path outputRoot = projectRoot.resolve(GENERATED_SOURCES);
+            if (checkOnly) {
+                if (!writer.isCurrent(outputRoot, result.sources().orElseThrow())) {
+                    err.println("Generated Java sources are out of date: " + GENERATED_SOURCES);
+                    return 1;
+                }
+                out.println("Generated Java sources are current: " + GENERATED_SOURCES);
+            } else {
+                writer.write(outputRoot, result.sources().orElseThrow());
+                out.println("Generated Java sources: " + GENERATED_SOURCES);
+            }
+            return 0;
+        } catch (IOException exception) {
+            err.println("Could not verify or write generated Java sources: " + exception.getMessage());
+            return 2;
+        }
+    }
+
     private static String read(Path path, PrintWriter err) {
         try {
             return Files.readString(path, StandardCharsets.UTF_8);
@@ -138,5 +198,6 @@ public final class TuprelCli {
     private static void printUsage(PrintWriter err) {
         err.println("Usage: tuprel validate [schema.tuprel]");
         err.println("       tuprel format [--check] [schema.tuprel]");
+        err.println("       tuprel generate [--check] [schema.tuprel]");
     }
 }

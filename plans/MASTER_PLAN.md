@@ -4,21 +4,23 @@ O desenvolvimento avança por gates. Não saltar fases porque uma funcionalidade
 
 ## Fase 0 - Fundação de engenharia
 
-**Concluída localmente.** Build preparado para futuros módulos, quality gates,
+**Concluída.** Build preparado para futuros módulos, quality gates,
 CI configurada, security baseline, test infrastructure, package naming
 provisório e documentação operacional. Nenhum módulo de produto é criado sem
 código real.
 
 ## Fase 1 - Schema language
 
-RFC-001 foi aceite para o subconjunto inicial. `tuprel-schema` já fornece
-lexer/parser, AST, diagnostics, model/enums/scalars, atributos fundamentais,
-formatter e validator; `tuprel-cli` expõe `validate` e `format`. A conclusão
-formal da fase depende do gate e da validação final definidos no plano da fase.
+**Concluída.** RFC-001 foi aceite para o subconjunto inicial. `tuprel-schema`
+fornece lexer/parser, AST, diagnostics, model/enums/scalars, atributos
+fundamentais, formatter e validator; `tuprel-cli` expõe `validate` e `format`.
 
 ## Fase 2 - Java code generation
 
-Model types, metadata, inputs e base do generated client com output determinístico e compilation tests.
+RFC-002 aceite para o subconjunto implementado. `tuprel-codegen-java` gera
+model values, enums, metadata e inputs a partir do schema validado, com output
+determinístico, escrita segura e compilation tests. `tuprel generate` expõe a
+geração; cliente operacional e execução de queries pertencem às fases seguintes.
 
 ## Fase 3 - Runtime PostgreSQL mínimo
 

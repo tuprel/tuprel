@@ -5,6 +5,7 @@ plugins {
 
 dependencies {
     implementation(project(":tuprel-schema"))
+    implementation(project(":tuprel-codegen-java"))
 }
 
 application {

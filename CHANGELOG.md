@@ -58,6 +58,10 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   RFC-001.
 - Módulo `tuprel-cli` com os comandos iniciais `tuprel validate` e
   `tuprel format`.
+- Módulo `tuprel-codegen-java` com geração determinística de valores Java,
+  enums, metadata tipada e inputs de create/update a partir do schema validado;
+  `tuprel generate` e `generate --check` na CLI, com escrita segura e teste de
+  compilação real do código gerado.
 
 ### Alterado
 
@@ -74,5 +78,5 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   `docs/product/NAMING_AND_LEGAL.md`).
 - `dev.tuprel` é uma coordenada provisória e não uma coordenada de publicação
   aprovada.
-- Não existe ainda runtime ORM, geração de código, motor de migrações nem
-  suporte a PostgreSQL. O roadmap por fases está em `plans/MASTER_PLAN.md`.
+- Não existe ainda runtime ORM/cliente operacional, motor de migrações nem
+  execução PostgreSQL. O roadmap por fases está em `plans/MASTER_PLAN.md`.

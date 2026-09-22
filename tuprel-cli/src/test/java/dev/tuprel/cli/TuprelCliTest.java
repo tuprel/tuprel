@@ -99,6 +99,37 @@ class TuprelCliTest {
         assertEquals(0, code);
     }
 
+    @Test
+    void generateCompilesSchemaAndChecksOwnedOutput() throws Exception {
+        Path schema = write("""
+                generator java { package = "dev.example.generated" }
+                model User { id Int @id }
+                """);
+        StringWriter checkErrors = new StringWriter();
+        int before = TuprelCli.generate(new String[] {"generate", "--check", schema.toString()},
+                writer(new StringWriter()), writer(checkErrors), temporaryDirectory);
+        int generated = TuprelCli.generate(new String[] {"generate", schema.toString()},
+                writer(new StringWriter()), writer(new StringWriter()), temporaryDirectory);
+        int after = TuprelCli.generate(new String[] {"generate", "--check", schema.toString()},
+                writer(new StringWriter()), writer(new StringWriter()), temporaryDirectory);
+
+        assertEquals(1, before);
+        assertEquals(0, generated);
+        assertEquals(0, after);
+        assertTrue(Files.isRegularFile(temporaryDirectory.resolve(
+                "build/generated/sources/tuprel/main/dev/example/generated/model/User.java")));
+    }
+
+    @Test
+    void generateNeedsValidatedSchemaAndGeneratorPackage() throws Exception {
+        Path schema = write("model User { id Int @id }\n");
+        StringWriter errors = new StringWriter();
+        int code = TuprelCli.generate(new String[] {"generate", schema.toString()},
+                writer(new StringWriter()), writer(errors), temporaryDirectory);
+        assertEquals(1, code);
+        assertTrue(errors.toString().contains("TUPREL-CODEGEN-001"));
+    }
+
     private Path write(String text) throws Exception {
         Path path = temporaryDirectory.resolve("schema.tuprel");
         Files.writeString(path, text, StandardCharsets.UTF_8);

@@ -22,9 +22,10 @@ tuprel/
 └── .claude/
 ```
 
-A Fase 1 declara `tuprel-schema` e o adapter inicial `tuprel-cli`, que já têm
-código e testes reais. Os restantes módulos continuam planeados. `build-logic`
-é um included build de infraestrutura e não faz parte deste grafo de produto.
+A Fase 1 declara `tuprel-schema` e o adapter inicial `tuprel-cli`; a Fase 2
+acrescenta `tuprel-codegen-java`, com código e testes reais. Os restantes
+módulos continuam planeados. `build-logic` é um included build de
+infraestrutura e não faz parte deste grafo de produto.
 
 ## Responsabilidades
 
@@ -36,7 +37,8 @@ Não depende de runtime, JDBC, PostgreSQL ou frameworks.
 
 ### `tuprel-codegen-java`
 
-Geração determinística de Java a partir de validated schema.
+Geração determinística de Java a partir de validated schema; rendering em
+memória e escrita segura de fontes geradas, sem comportamento de runtime.
 
 Depende de `tuprel-schema`. Não depende de PostgreSQL JDBC.
 
@@ -68,8 +70,9 @@ Leitura de catálogos PostgreSQL e transformação no modelo de schema.
 
 ### `tuprel-cli`
 
-Orquestra comandos. Actualmente expõe `validate` e `format` e delega a análise
-no `tuprel-schema`; não deve duplicar lógica do parser, codegen ou migrate.
+Orquestra comandos. Actualmente expõe `validate`, `format` e `generate`,
+delegando análise no `tuprel-schema` e geração no `tuprel-codegen-java`; não
+deve duplicar lógica do parser, codegen ou migrate.
 
 ### `tuprel-spring-boot-starter`
 

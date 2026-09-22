@@ -1,5 +1,8 @@
 # Fase 2 - Java Code Generation
 
+**Estado:** subconjunto definido pelo RFC-002 implementado. O gate de
+conclusão inclui compilation tests, verificação da build e revisão por PR.
+
 ## Scope
 
 Gerar Java determinístico a partir do schema validado.
