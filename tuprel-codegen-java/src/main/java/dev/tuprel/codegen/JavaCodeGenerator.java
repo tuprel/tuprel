@@ -18,6 +18,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import javax.lang.model.SourceVersion;
 
 /** Renders a validated Tuprel schema into deterministic, JDK-only Java 21 sources. */
 public final class JavaCodeGenerator {
@@ -83,6 +84,10 @@ public final class JavaCodeGenerator {
         for (int index = 0; index <= packageName.length(); index++) {
             if (index == packageName.length() || packageName.charAt(index) == '.') {
                 String segment = packageName.substring(segmentStart, index);
+                if (!identifier(segment)) {
+                    diagnostics.add(diagnostic("002", "Generator package contains an invalid Java identifier.",
+                            config.span()));
+                }
                 if (deviceName(segment)) {
                     diagnostics.add(diagnostic("008", "Generator package segment is a reserved filesystem name: "
                             + segment, config.span()));
@@ -92,6 +97,10 @@ public final class JavaCodeGenerator {
         }
         Set<String> typeNames = new HashSet<>();
         Set<String> derivedNames = new HashSet<>();
+        Set<String> modelNames = new HashSet<>();
+        Set<String> enumNames = new HashSet<>();
+        schema.models().forEach(model -> modelNames.add(model.name()));
+        schema.enums().forEach(enumeration -> enumNames.add(enumeration.name()));
         for (ValidatedModel model : schema.models()) {
             for (String suffix : List.of("Create", "Update", "Fields", "Where")) {
                 derivedNames.add((model.name() + suffix).toLowerCase(Locale.ROOT));
@@ -106,6 +115,10 @@ public final class JavaCodeGenerator {
             Set<String> fieldNames = new HashSet<>();
             Set<String> constantNames = new HashSet<>();
             for (ValidatedField field : model.fields()) {
+                if (!identifier(field.name()) || deviceName(field.name())) {
+                    diagnostics.add(diagnostic("010", "Field name is not a safe Java identifier.",
+                            field.span()));
+                }
                 if (!fieldNames.add(field.name().toLowerCase(Locale.ROOT))
                         || !constantNames.add(field.name().toUpperCase(Locale.ROOT))) {
                     diagnostics.add(diagnostic("004", "Java field name collides after case folding: "
@@ -118,11 +131,25 @@ public final class JavaCodeGenerator {
                 if (field.type().kind() == TypeKind.SCALAR && scalar(field.type(), false) == null) {
                     diagnostics.add(diagnostic("006", "Unsupported Java scalar: " + field.type().name(),
                             field.span()));
+                } else if (!identifier(field.type().name())
+                        || (field.type().kind() == TypeKind.MODEL
+                                && !modelNames.contains(field.type().name()))
+                        || (field.type().kind() == TypeKind.ENUM
+                                && !enumNames.contains(field.type().name()))) {
+                    diagnostics.add(diagnostic("011", "Field has an invalid or undeclared Java type.",
+                            field.span()));
                 }
             }
         }
         for (ValidatedEnum enumeration : schema.enums()) {
             inspectType(enumeration.name(), enumeration.span(), typeNames, diagnostics);
+            Set<String> values = new HashSet<>();
+            for (String value : enumeration.values()) {
+                if (!identifier(value) || !values.add(value)) {
+                    diagnostics.add(diagnostic("012", "Enum contains an invalid or duplicate Java value.",
+                            enumeration.span()));
+                }
+            }
             if (derivedNames.contains(enumeration.name().toLowerCase(Locale.ROOT))) {
                 diagnostics.add(diagnostic("007", "Java type name conflicts with a generated companion: "
                         + enumeration.name(), enumeration.span()));
@@ -133,11 +160,19 @@ public final class JavaCodeGenerator {
 
     private static void inspectType(String name, SourceSpan span, Set<String> names,
             List<GenerationDiagnostic> diagnostics) {
+        if (!identifier(name)) {
+            diagnostics.add(diagnostic("013", "Model or enum name is not a safe Java identifier.", span));
+        }
         if (RESERVED_TYPES.contains(name) || deviceName(name)
                 || !names.add(name.toLowerCase(Locale.ROOT))) {
             diagnostics.add(diagnostic("003", "Java type name conflicts with another generated or JDK type: "
                     + name, span));
         }
+    }
+
+    private static boolean identifier(String name) {
+        return name.matches("[A-Za-z_][A-Za-z0-9_]*")
+                && SourceVersion.isIdentifier(name) && !SourceVersion.isKeyword(name);
     }
 
     private static boolean deviceName(String name) {

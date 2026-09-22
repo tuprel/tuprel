@@ -8,6 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.tuprel.schema.SchemaCompilation;
 import dev.tuprel.schema.SchemaCompiler;
 import dev.tuprel.schema.SourceText;
+import dev.tuprel.schema.model.ValidatedSchema;
+import dev.tuprel.schema.model.ValidatedSchema.ValidatedEnum;
+import dev.tuprel.schema.model.ValidatedSchema.ValidatedField;
+import dev.tuprel.schema.model.ValidatedSchema.ValidatedModel;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -219,6 +223,49 @@ class JavaCodeGeneratorTest {
                 compilation.validatedSchema().orElseThrow());
         assertFalse(result.isSuccess());
         assertTrue(result.diagnostics().stream().anyMatch(d -> d.code().equals("TUPREL-CODEGEN-009")));
+    }
+
+    @Test
+    void rejectsForgedValidatedModelBeforeRenderingSource() {
+        SchemaCompilation compilation = compile("""
+                generator java { package = "dev.example.generated" }
+                model User { id Int @id }
+                """);
+        ValidatedSchema valid = compilation.validatedSchema().orElseThrow();
+        ValidatedModel model = valid.models().getFirst();
+        ValidatedField field = model.fields().getFirst();
+        ValidatedField injected = new ValidatedField("id; class Evil {}", field.type(),
+                field.cardinality(), field.id(), field.unique(), field.defaultValue(),
+                field.relation(), field.span());
+        ValidatedModel forged = new ValidatedModel(model.name(), List.of(injected),
+                model.indexes(), model.span());
+        ValidatedSchema forgedSchema = new ValidatedSchema(valid.syntax(), List.of(forged),
+                valid.enums(), valid.datasource(), valid.generator());
+
+        JavaGenerationResult result = new JavaCodeGenerator().generate(forgedSchema);
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.diagnostics().stream().anyMatch(d -> d.code().equals("TUPREL-CODEGEN-010")));
+    }
+
+    @Test
+    void rejectsForgedEnumValueBeforeRenderingSource() {
+        SchemaCompilation compilation = compile("""
+                generator java { package = "dev.example.generated" }
+                enum Role { ADMIN }
+                model User { id Int @id role Role }
+                """);
+        ValidatedSchema valid = compilation.validatedSchema().orElseThrow();
+        ValidatedEnum original = valid.enums().getFirst();
+        ValidatedEnum forged = new ValidatedEnum(original.name(),
+                List.of("ADMIN; static { System.exit(1); }"), original.span());
+        ValidatedSchema forgedSchema = new ValidatedSchema(valid.syntax(), valid.models(),
+                List.of(forged), valid.datasource(), valid.generator());
+
+        JavaGenerationResult result = new JavaCodeGenerator().generate(forgedSchema);
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.diagnostics().stream().anyMatch(d -> d.code().equals("TUPREL-CODEGEN-012")));
     }
 
     private static GeneratedJavaSources generate(String schema) {
