@@ -22,6 +22,7 @@ rootProject.name = "tuprel"
 
 include("tuprel-schema")
 include("tuprel-cli")
+include("tuprel-codegen-java")
 
 dependencyResolutionManagement {
     /*
