@@ -44,7 +44,7 @@ target/generated-sources/tuprel/
 
 Nunca gerar por omissão em `src/main/java`.
 
-## Estrutura actual da Fase 1
+## Estrutura actual da Fase 2
 
 Além da fundação acima, a build actual contém os primeiros boundaries de
 produto:
@@ -52,6 +52,7 @@ produto:
 ```text
 tuprel/
 ├── tuprel-schema/
+├── tuprel-codegen-java/
 ├── tuprel-cli/
 ├── build-logic/
 ├── gradle/
@@ -60,6 +61,7 @@ tuprel/
 └── project/
 ```
 
-`tuprel-schema` implementa o subconjunto de linguagem aceite pelo RFC-001 e
-`tuprel-cli` fornece os comandos iniciais `validate` e `format`. Os restantes
-módulos do catálogo continuam fora da build.
+`tuprel-schema` implementa o subconjunto de linguagem aceite pelo RFC-001,
+`tuprel-codegen-java` implementa a geração definida no RFC-002, e `tuprel-cli`
+fornece `validate`, `format` e `generate`. Os restantes módulos do catálogo
+continuam fora da build.

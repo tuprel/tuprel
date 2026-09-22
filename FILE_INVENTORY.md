@@ -95,6 +95,7 @@ configuração local não versionada ficam de fora.
 - `docs/research/CLAUDE_CODE_SETUP.md`
 - `docs/research/ENGINEERING_SECURITY_BASELINE.md`
 - `docs/rfcs/RFC-001-schema-language.md`
+- `docs/rfcs/RFC-002-java-client-api.md`
 - `docs/security/SECURITY_REQUIREMENTS.md`
 - `docs/security/SUPPLY_CHAIN.md`
 - `docs/security/THREAT_MODEL.md`
@@ -129,6 +130,16 @@ configuração local não versionada ficam de fora.
 - `tuprel-cli/gradle.lockfile`
 - `tuprel-cli/src/main/java/dev/tuprel/cli/TuprelCli.java`
 - `tuprel-cli/src/test/java/dev/tuprel/cli/TuprelCliTest.java`
+- `tuprel-codegen-java/build.gradle.kts`
+- `tuprel-codegen-java/gradle.lockfile`
+- `tuprel-codegen-java/src/main/java/dev/tuprel/codegen/GeneratedJavaSources.java`
+- `tuprel-codegen-java/src/main/java/dev/tuprel/codegen/GeneratedSourceWriter.java`
+- `tuprel-codegen-java/src/main/java/dev/tuprel/codegen/GenerationDiagnostic.java`
+- `tuprel-codegen-java/src/main/java/dev/tuprel/codegen/JavaCodeGenerator.java`
+- `tuprel-codegen-java/src/main/java/dev/tuprel/codegen/JavaGenerationResult.java`
+- `tuprel-codegen-java/src/test/java/dev/tuprel/codegen/GeneratedSourceWriterTest.java`
+- `tuprel-codegen-java/src/test/java/dev/tuprel/codegen/JavaCodeGeneratorTest.java`
+- `tuprel-codegen-java/src/test/resources/golden/User.java.txt`
 - `tuprel-schema/build.gradle.kts`
 - `tuprel-schema/gradle.lockfile`
 - `tuprel-schema/src/main/java/dev/tuprel/schema/ast/SchemaDocument.java`

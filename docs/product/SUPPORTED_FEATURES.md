@@ -4,8 +4,10 @@ Este documento separa o que deve existir no produto estável do que não deve bl
 
 O subconjunto inicial de schema definido no RFC-001 já está implementado em
 `tuprel-schema`, com `validate` e `format` disponíveis em `tuprel-cli`. Os
-itens abaixo continuam a descrever o roadmap do produto e não são todos
-funcionalidade disponível nesta fase.
+tipos Java gerados do subconjunto RFC-002 e `generate` também estão disponíveis
+na Fase 2. Isto ainda não inclui um cliente operacional nem acesso à base de
+dados. Os itens abaixo descrevem o roadmap e não são todos funcionalidades
+disponíveis nesta fase.
 
 ## Tuprel 0.1 - Foundation preview
 

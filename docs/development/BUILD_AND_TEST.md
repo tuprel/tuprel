@@ -1,7 +1,7 @@
 # Build e Testes
 
 Este é o documento canónico sobre como construir e verificar o repositório.
-Descreve o estado **actual** da Fase 1. Nada aqui descreve funcionalidade
+Descreve o estado **actual** da Fase 2. Nada aqui descreve funcionalidade
 planeada como se já existisse.
 
 Para a estratégia de testes do produto (unit, golden, integração PostgreSQL,
@@ -78,6 +78,7 @@ Project hierarchy:
 
 Root project 'tuprel'
  +--- Project ':tuprel-cli'
+ +--- Project ':tuprel-codegen-java'
  +--- Project ':tuprel-schema'
 
 Included builds:
@@ -85,9 +86,10 @@ Included builds:
 \--- Included build ':build-logic'
 ```
 
-Os dois subprojectos de produto actuais são `tuprel-schema` e `tuprel-cli`.
-O primeiro implementa a linguagem de schema da Fase 1; o segundo expõe os
-comandos iniciais `validate` e `format`. Os restantes módulos planeados estão
+Os três subprojectos de produto actuais são `tuprel-schema`,
+`tuprel-codegen-java` e `tuprel-cli`. O primeiro implementa a linguagem de
+schema; o segundo gera Java a partir do modelo validado; a CLI expõe
+`validate`, `format` e `generate`. Os restantes módulos planeados estão
 descritos em `docs/architecture/MODULE_BOUNDARIES.md` e continuam fora da
 build.
 
@@ -104,7 +106,9 @@ restrito de ficheiros de build e configuração:
 - `build-logic/src/main/kotlin/*.gradle.kts`;
 - `gradle/libs.versions.toml`;
 - `gradle.properties` e `build-logic/gradle.properties`;
-- workflows activos em `.github/`.
+- workflows activos em `.github/`;
+- Java em `tuprel-schema/src/`, `tuprel-codegen-java/src/` e
+  `tuprel-cli/src/`.
 
 As verificações são apenas: converter tabulações iniciais em espaços, remover
 espaços no fim das linhas e garantir newline final.
@@ -151,7 +155,9 @@ Hoje, `check` na raiz executa:
 - `build-logic:compileKotlin` e `build-logic:compileTestKotlin`;
 - `build-logic:validatePlugins`;
 - `build-logic:test` (os testes TestKit do convention plugin);
-- `build-logic:check`.
+- `build-logic:check`;
+- `tuprel-schema:check`, `tuprel-codegen-java:check` e `tuprel-cli:check`,
+  incluindo testes que compilam o Java gerado com `javac` 21.
 
 Podes confirmar o grafo sem executar nada:
 
@@ -167,8 +173,37 @@ Podes confirmar o grafo sem executar nada:
 
 Executa o lifecycle `build` da raiz, que com o plugin `base` significa
 `assemble` + `check`. A raiz agrega os artefactos e verificações de
-`tuprel-schema` e `tuprel-cli`; não agrega módulos que ainda não foram
-implementados.
+`tuprel-schema`, `tuprel-codegen-java` e `tuprel-cli`; não agrega módulos que
+ainda não foram implementados.
+
+### Gerar Java a partir de um schema
+
+`tuprel generate [--check] [schema.tuprel]` compila e valida o schema antes de
+gerar tipos Java 21. O `generator java` com `package` é obrigatório. A saída
+fica em `build/generated/sources/tuprel/main` relativamente ao processo CLI;
+`--check` verifica que os ficheiros gerados e o manifesto continuam actuais sem
+escrever. A geração não abre uma ligação à base de dados nem lê o valor de
+`env("DATABASE_URL")`.
+
+De um checkout, usa a CLI com o Wrapper. A task `:tuprel-cli:run` corre dentro
+de `tuprel-cli/`, pelo que `../tuprel/schema.tuprel` aponta para o schema na
+raiz e a saída fica em `tuprel-cli/build/generated/sources/tuprel/main`:
+
+```powershell
+.\gradlew.bat :tuprel-cli:run --args="generate ../tuprel/schema.tuprel"
+.\gradlew.bat :tuprel-cli:run --args="generate --check ../tuprel/schema.tuprel"
+```
+
+```bash
+./gradlew :tuprel-cli:run --args="generate ../tuprel/schema.tuprel"
+./gradlew :tuprel-cli:run --args="generate --check ../tuprel/schema.tuprel"
+```
+
+Os ficheiros pertencentes ao Tuprel são inventariados num manifesto dentro do
+output root. Regenerar não substitui ficheiros externos nem edições manuais;
+para mudar o package ou o schema, volta a executar `generate` e inspecciona o
+output.
+Os tipos gerados são contratos de valores e metadata, não um runtime ORM.
 
 ---
 
@@ -199,8 +234,9 @@ Isto é um atalho de iteração, não um substituto da verificação na raiz.
 
 ## 5. Baseline de `tuprel.java-conventions`
 
-O convention plugin estabelece a baseline que `tuprel-schema` e `tuprel-cli`
-aplicam. O comportamento descrito abaixo continua também verificado por
+O convention plugin estabelece a baseline que `tuprel-schema`,
+`tuprel-codegen-java` e `tuprel-cli` aplicam. O comportamento descrito abaixo
+continua também verificado por
 testes TestKit que aplicam o plugin a projectos temporários.
 
 | Área | Configuração actual |
@@ -257,9 +293,9 @@ configurações `integrationTestImplementation`, `integrationTestCompileOnly` e
 vê o output de `main`.
 
 Nesta fase, `integrationTest` é apenas uma convenção de estrutura e lifecycle.
-Não pressupõe base de dados, container nem qualquer infraestrutura externa: não
-há módulos de produto e o suporte a PostgreSQL via Testcontainers pertence a
-fases posteriores, conforme `docs/testing/TEST_STRATEGY.md`.
+Não pressupõe base de dados, container nem qualquer infraestrutura externa: os
+módulos actuais não executam PostgreSQL e o suporte via Testcontainers pertence
+a fases posteriores, conforme `docs/testing/TEST_STRATEGY.md`.
 
 Os testes do próprio `build-logic` usam Gradle TestKit: criam projectos Java
 temporários, aplicam o convention plugin e correm builds Gradle reais para
@@ -318,11 +354,9 @@ mínimas. Apenas o job CodeQL recebe `security-events: write`. O cache de
 dependências Gradle é gerido exclusivamente por `gradle/actions/setup-gradle`;
 `actions/setup-java` não configura um segundo cache.
 
-Estes ficheiros estão **configurados mas não executados**, porque ainda não
-existe remote GitHub. A validação local cobre sintaxe e política estática; uma
-execução real e branch protection/rulesets só podem ser confirmados depois da
-criação autorizada do repositório remoto. A CI não arranca PostgreSQL ou Docker:
-os módulos da Fase 1 ainda não têm integration tests de base de dados.
+O repositório é público e a CI corre nos pull requests e em `main`. A CI não
+arranca PostgreSQL ou Docker: os módulos actuais ainda não têm integration
+tests de base de dados.
 
 As origens de artefactos que a build usa actualmente estão inventariadas em
 `docs/security/SUPPLY_CHAIN.md`. Esse é o documento canónico sobre supply
@@ -346,6 +380,7 @@ sempre as mesmas versões.
 | `settings-gradle.lockfile` | raiz | gerado pelo Gradle para o version catalog; não contém módulos |
 | `tuprel-schema/gradle.lockfile` | `tuprel-schema` | Error Prone, JUnit e as configurações dos testes do schema |
 | `tuprel-cli/gradle.lockfile` | `tuprel-cli` | Error Prone, JUnit e as configurações dos testes da CLI |
+| `tuprel-codegen-java/gradle.lockfile` | `tuprel-codegen-java` | Error Prone, JUnit e as configurações dos testes do gerador |
 
 O projecto raiz **não** tem `gradle.lockfile` porque não tem nenhuma
 configuração de dependências de projecto — `.\gradlew.bat dependencies` responde

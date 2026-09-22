@@ -46,8 +46,9 @@ com os tipos ou métodos gerados, imports necessários, membros herdados de
 `Object` ou paths equivalentes em sistemas case-insensitive. Não renomeia
 silenciosamente um identificador: devolve `TUPREL-CODEGEN-...` com a localização
 do nome e uma mensagem accionável. A mesma regra cobre enums, models, nomes
-derivados e package segments. Nomes não podem determinar paths fora do output
-root nem injectar texto Java estrutural.
+derivados e package segments. O namespace reservado `java.*` e nomes de
+dispositivo incompatíveis com ficheiros Windows são recusados. Nomes não podem
+determinar paths fora do output root nem injectar texto Java estrutural.
 
 ## 4. Mapping de tipos
 

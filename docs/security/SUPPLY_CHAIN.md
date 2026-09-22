@@ -21,8 +21,8 @@ Dependency locking nativo do Gradle **activo**. Lockfiles versionados:
 `buildscript-gradle.lockfile` e `settings-gradle.lockfile` na raiz,
 `build-logic/buildscript-gradle.lockfile` e `build-logic/gradle.lockfile` no
 included build, e `gradle.lockfile` em cada módulo de produto actual
-(`tuprel-schema` e `tuprel-cli`). O procedimento de refrescamento está em
-`docs/development/BUILD_AND_TEST.md`.
+(`tuprel-schema`, `tuprel-codegen-java` e `tuprel-cli`). O procedimento de
+refrescamento está em `docs/development/BUILD_AND_TEST.md`.
 
 Cobertura relevante para esta política:
 
@@ -31,8 +31,8 @@ Cobertura relevante para esta política:
   integração Error Prone, numa configuração de projecto normal de build-logic;
 - dependências de Maven Central usadas por build-logic ficam travadas;
 - `com.google.errorprone:error_prone_core` está travado nos lockfiles de
-  `tuprel-schema` e `tuprel-cli`, os módulos actuais que aplicam
-  `tuprel.java-conventions`.
+  `tuprel-schema`, `tuprel-codegen-java` e `tuprel-cli`, os módulos actuais que
+  aplicam `tuprel.java-conventions`.
 
 Limite desta garantia: locking fixa versões seleccionadas, não integridade de
 artefactos. Um artefacto substituído com as mesmas coordenadas não é detectado
@@ -111,7 +111,7 @@ fatia; o resumo é:
 ## Origens de artefactos actualmente em uso
 
 Um included build resolve dependências e plugins de forma independente da
-raiz. Inventário actual, necessário para a futura `verification-metadata.xml`:
+raiz. Inventário actual das origens cobertas pela metadata de verificação:
 
 | Build | Origem | Porquê |
 |---|---|---|
@@ -126,8 +126,7 @@ ser decisão do build que o aplica.
 
 ## GitHub
 
-A automação de GitHub está configurada no repositório, mas **não executada**:
-não existe remote e nenhum workflow foi enviado para GitHub.
+A automação de GitHub está configurada e activa no repositório público.
 
 | Controlo | Ficheiro | Política |
 |---|---|---|
