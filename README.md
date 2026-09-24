@@ -4,13 +4,13 @@
 
 Tuprel is an open-source relational data toolkit for Java focused on explicit, predictable, and type-safe relational database development. Its direction is a schema-first workflow with generated Java APIs and a PostgreSQL-first runtime.
 
-> **Early development:** The schema language and Java source generation are available from a source checkout, but there is no stable public release or published Maven artifact. Database access, an operational client, and migrations are not implemented yet.
+> **Early development:** Schema validation, Java source generation, and a minimal PostgreSQL CRUD runtime are available from a source checkout. There is no stable public release or published Maven artifact. The generated descriptors are not yet an operational client; migrations are not implemented.
 
 ## What Tuprel is building
 
-The workflow starts with `schema.tuprel` as the declarative source for models and relationships. Tuprel can now generate Java domain types from that schema. Future phases will add an operational Java client, execute explicit queries against PostgreSQL, and provide reviewed migrations plus Gradle and Maven integrations. The core is designed to work without a framework; Spring Boot integration is planned as a separate module.
+The workflow starts with `schema.tuprel` as the declarative source for models and relationships. Tuprel can generate Java domain types and execute minimal explicit CRUD operations against PostgreSQL through a caller-supplied `DataSource`. Future phases will add an operational generated Java client, richer type-safe querying, and reviewed migrations plus Gradle and Maven integrations. The core is designed to work without a framework; Spring Boot integration is planned as a separate module.
 
-The design favors visible relational behavior over implicit database work. It calls for explicit relation loading and writes, inspectable SQL, generated code developers can understand, useful source-location diagnostics, and parameter binding for SQL values. These are design goals for future phases, not claims about features already shipped.
+The design favors visible relational behavior over implicit database work. The current runtime separates SQL structure from bound values and performs explicit writes; relation loading, richer query APIs, and migration behavior remain future work.
 
 ## What works today
 
@@ -21,8 +21,9 @@ The implemented foundation provides:
 - An initial CLI with `validate`, `format`, and `format --check` commands. Validation and formatting operate on schema text; they do not connect to a database.
 - Java 21 source generation from a validated schema through `tuprel-codegen-java`, with immutable model values, enums, typed field metadata, create/update inputs, and structural where accessors. The generated `TuprelSchema` describes models but does not execute queries.
 - `generate` and `generate --check` CLI commands. Generated files have an ownership manifest and are written under `build/generated/sources/tuprel/main` relative to the CLI process.
+- A development-stage PostgreSQL runtime for structural insert, find by ID, update by ID, and delete by ID, with prepared statements, typed scalar binds and row reads, explicit JDBC resource ownership, and real PostgreSQL integration tests.
 
-The current modules are [`tuprel-schema`](tuprel-schema/) for the schema frontend, [`tuprel-codegen-java`](tuprel-codegen-java/) for Java generation, and [`tuprel-cli`](tuprel-cli/) for the command-line adapter. The CLI has no public installer or binary release yet. The supported syntax and Java mapping are defined in [RFC-001](docs/rfcs/RFC-001-schema-language.md) and [RFC-002](docs/rfcs/RFC-002-java-client-api.md).
+The current modules are [`tuprel-schema`](tuprel-schema/), [`tuprel-codegen-java`](tuprel-codegen-java/), [`tuprel-cli`](tuprel-cli/), [`tuprel-sql`](tuprel-sql/), [`tuprel-runtime`](tuprel-runtime/), and [`tuprel-postgresql`](tuprel-postgresql/). The CLI has no public installer or binary release yet. The runtime is a low-level foundation rather than an operational generated client. The supported schema and Java mapping are defined in [RFC-001](docs/rfcs/RFC-001-schema-language.md) and [RFC-002](docs/rfcs/RFC-002-java-client-api.md); [ADR-0009](docs/adr/ADR-0009-runtime-postgresql-foundation.md) defines the runtime subset.
 
 ## Schema example
 
@@ -88,11 +89,11 @@ Replace `validate` with `format`, `format --check`, `generate`, or `generate --c
 
 ## Roadmap
 
-The engineering foundation, Phase 1 schema language, and Phase 2 Java source generation are in place. The [master plan](plans/MASTER_PLAN.md) next calls for a PostgreSQL runtime and operational client, type-safe querying, relations and transactions, migrations, and developer integrations. Broader tooling, including Studio, is later work. No release dates are promised.
+The engineering foundation, Phase 1 schema language, Phase 2 Java source generation, and Phase 3 minimal PostgreSQL runtime are in place. The [master plan](plans/MASTER_PLAN.md) next calls for type-safe querying, relations and transactions, migrations, and developer integrations. Broader tooling, including Studio, is later work. No release dates are promised.
 
 ## Build from source
 
-Use Java 21 and the checked-in Gradle Wrapper; a global Gradle installation is not required.
+Use Java 21 and the checked-in Gradle Wrapper; a global Gradle installation is not required. A Docker-compatible container runtime is needed for the PostgreSQL integration tests included in `check`.
 
 ```bash
 ./gradlew check

@@ -21,7 +21,8 @@ Dependency locking nativo do Gradle **activo**. Lockfiles versionados:
 `buildscript-gradle.lockfile` e `settings-gradle.lockfile` na raiz,
 `build-logic/buildscript-gradle.lockfile` e `build-logic/gradle.lockfile` no
 included build, e `gradle.lockfile` em cada módulo de produto actual
-(`tuprel-schema`, `tuprel-codegen-java` e `tuprel-cli`). O procedimento de
+(`tuprel-schema`, `tuprel-codegen-java`, `tuprel-cli`, `tuprel-sql`,
+`tuprel-runtime` e `tuprel-postgresql`). O procedimento de
 refrescamento está em `docs/development/BUILD_AND_TEST.md`.
 
 Cobertura relevante para esta política:
@@ -31,8 +32,8 @@ Cobertura relevante para esta política:
   integração Error Prone, numa configuração de projecto normal de build-logic;
 - dependências de Maven Central usadas por build-logic ficam travadas;
 - `com.google.errorprone:error_prone_core` está travado nos lockfiles de
-  `tuprel-schema`, `tuprel-codegen-java` e `tuprel-cli`, os módulos actuais que
-  aplicam `tuprel.java-conventions`.
+  todos os módulos actuais que aplicam `tuprel.java-conventions`;
+- pgJDBC e Testcontainers estão travados em `tuprel-postgresql/gradle.lockfile`.
 
 Limite desta garantia: locking fixa versões seleccionadas, não integridade de
 artefactos. Um artefacto substituído com as mesmas coordenadas não é detectado
@@ -120,9 +121,32 @@ raiz. Inventário actual das origens cobertas pela metadata de verificação:
 | `build-logic` | `mavenCentral()` | Kotlin stdlib do `kotlin-dsl` e JUnit |
 | `build-logic` | Gradle Plugin Portal | `net.ltgt.gradle:gradle-errorprone-plugin`, que não está publicado no Maven Central |
 | módulos que apliquem `tuprel.java-conventions` | `mavenCentral()` | `error_prone_core` e JUnit, declarados pelo convention plugin |
+| `tuprel-postgresql` | `mavenCentral()` | pgJDBC em runtime; Testcontainers PostgreSQL somente no source set `integrationTest` |
 
 O convention plugin não declara repositórios: a escolha de origens continua a
 ser decisão do build que o aplica.
+
+## Dependências da Fase 3
+
+- `org.postgresql:postgresql:42.7.13` (BSD-2-Clause): único driver JDBC da
+  fase. A aplicação fornece o `DataSource`; o módulo PostgreSQL disponibiliza
+  o driver em runtime. A versão inclui as correcções de segurança publicadas
+  na linha 42.7. [Releases oficiais](https://github.com/pgjdbc/pgjdbc/releases).
+- `org.testcontainers:testcontainers-postgresql:2.0.5` (MIT): apenas testes de
+  integração reais; traz o core e módulos JDBC transitivos. Não é dependência
+  de produção. [Documentação oficial](https://java.testcontainers.org/modules/databases/postgres/).
+- `postgres:17.11-trixie`: imagem de teste com versão menor específica, sem
+  usar `latest`. [Tags oficiais](https://hub.docker.com/_/postgres/tags).
+
+Estas dependências usam Maven Central, já aprovado; não foi adicionado nenhum
+repositório. O lockfile de `tuprel-postgresql` fixa as versões resolvidas e a
+metadata da raiz contém checksums SHA-256 dos artefactos usados pela build.
+Um checksum gerado na primeira resolução continua sujeito à revisão de
+bootstrap descrita acima e não comprova identidade do publicador.
+Na revisão desta mudança, o SHA-256 do JAR `testcontainers-postgresql:2.0.5`
+coincidiu com o valor publicado separadamente pelo Maven Central. A URL de
+SHA-256 correspondente a `postgresql:42.7.13` devolveu 404, pelo que não se
+regista uma comparação independente para esse JAR.
 
 ## GitHub
 

@@ -1,8 +1,8 @@
 /*
  * Configuração raiz do build do Tuprel.
  *
- * A Fase 1 introduz os primeiros módulos de produto com código real:
- * `tuprel-schema` e o adapter inicial `tuprel-cli`. A estrutura alvo do
+ * As Fases 1-3 introduzem módulos de schema, codegen e runtime PostgreSQL.
+ * A estrutura alvo do
  * monorepo continua documentada em docs/architecture/MODULE_BOUNDARIES.md.
  */
 
@@ -12,7 +12,7 @@ pluginManagement {
      * convention plugins (`tuprel.java-conventions`). Não é um subprojecto de
      * produto e não aparece em `./gradlew projects`.
      *
-     * Fica em `pluginManagement` porque é a partir daqui que os futuros
+     * Fica em `pluginManagement` porque é a partir daqui que os
      * módulos resolvem o plugin pelo id, sem coordenadas nem versão.
      */
     includeBuild("build-logic")
@@ -23,6 +23,9 @@ rootProject.name = "tuprel"
 include("tuprel-schema")
 include("tuprel-cli")
 include("tuprel-codegen-java")
+include("tuprel-sql")
+include("tuprel-runtime")
+include("tuprel-postgresql")
 
 dependencyResolutionManagement {
     /*

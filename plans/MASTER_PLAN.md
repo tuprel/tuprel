@@ -24,7 +24,10 @@ geração; cliente operacional e execução de queries pertencem às fases segui
 
 ## Fase 3 - Runtime PostgreSQL mínimo
 
-DataSource/JDBC lifecycle, SQL + binds, row mapping, errors e CRUD mínimo.
+**Concluída para o subconjunto do plano.** `tuprel-sql`, `tuprel-runtime` e
+`tuprel-postgresql` fornecem CRUD estrutural mínimo, DataSource/JDBC lifecycle,
+SQL + binds, mapping tipado, erros e integração PostgreSQL real. O cliente
+operacional gerado e a query API permanecem nas fases seguintes.
 
 ## Fase 4 - Query API type-safe
 

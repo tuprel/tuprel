@@ -62,6 +62,10 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   enums, metadata tipada e inputs de create/update a partir do schema validado;
   `tuprel generate` e `generate --check` na CLI, com escrita segura e teste de
   compilação real do código gerado.
+- Fundação de runtime PostgreSQL nos módulos `tuprel-sql`, `tuprel-runtime` e
+  `tuprel-postgresql`: CRUD estrutural mínimo, SQL parametrizado, bindings e
+  leituras escalares tipadas, lifecycle JDBC explícito e testes reais via
+  Testcontainers.
 
 ### Alterado
 
@@ -78,5 +82,6 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   `docs/product/NAMING_AND_LEGAL.md`).
 - `dev.tuprel` é uma coordenada provisória e não uma coordenada de publicação
   aprovada.
-- Não existe ainda runtime ORM/cliente operacional, motor de migrações nem
-  execução PostgreSQL. O roadmap por fases está em `plans/MASTER_PLAN.md`.
+- O runtime PostgreSQL actual é uma API de fundação; ainda não existe cliente
+  operacional gerado, query API completa nem motor de migrações. O roadmap por
+  fases está em `plans/MASTER_PLAN.md`.

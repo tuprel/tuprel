@@ -1,15 +1,15 @@
 /*
  * tuprel.java-conventions
  *
- * Baseline partilhado dos futuros módulos Java do Tuprel: toolchain, política
+ * Baseline partilhado dos módulos Java do Tuprel: toolchain, política
  * de compilador, static analysis, testes e reprodutibilidade de artefactos.
  *
- * Este plugin é aplicado pelos módulos de produto da Fase 1 e continua a
- * servir de baseline para os módulos futuros, sem decisões locais duplicadas.
+ * Este plugin é aplicado pelos módulos de produto e serve de baseline para
+ * módulos futuros, sem decisões locais duplicadas.
  *
  * Deliberadamente ausente: Spring, Jakarta Persistence, Hibernate, drivers de
  * base de dados, Testcontainers e qualquer dependência de produto Tuprel.
- * Testcontainers entra quando existirem integration tests PostgreSQL reais.
+ * Testcontainers é declarado apenas nos integration tests do módulo PostgreSQL.
  */
 
 import net.ltgt.gradle.errorprone.errorprone
@@ -72,7 +72,7 @@ extensions.configure<JavaPluginExtension> {
  * src/integrationTest/resources.
  *
  * Ficam separados dos unit tests porque vão depender de recursos externos
- * (PostgreSQL real, em fase posterior) e não devem tornar o ciclo de unit
+ * (PostgreSQL real no módulo PostgreSQL) e não devem tornar o ciclo de unit
  * tests lento nem não determinístico.
  */
 val sourceSetContainer = extensions.getByType<SourceSetContainer>()

@@ -23,7 +23,8 @@ tuprel/
 ```
 
 A Fase 1 declara `tuprel-schema` e o adapter inicial `tuprel-cli`; a Fase 2
-acrescenta `tuprel-codegen-java`, com código e testes reais. Os restantes
+acrescenta `tuprel-codegen-java`. A Fase 3 acrescenta `tuprel-sql`,
+`tuprel-runtime` e `tuprel-postgresql`, com código e testes reais. Os restantes
 módulos continuam planeados. `build-logic` é um included build de
 infraestrutura e não faz parte deste grafo de produto.
 
@@ -44,19 +45,27 @@ Depende de `tuprel-schema`. Não depende de PostgreSQL JDBC.
 
 ### `tuprel-sql`
 
-Representação de query/SQL AST, bind model e contratos de dialect.
+Actualmente: identificadores validados, operações CRUD estruturais, valores
+escalares tipados e contratos de renderer. O AST completo de queries fica
+para a Fase 4.
 
 Não contém código específico Spring.
 
 ### `tuprel-runtime`
 
-Lifecycle, query execution abstractions, mapping, transactions, streaming, errors e public client contracts.
+Actualmente: DataSource/JDBC lifecycle, invocação da binding do dialecto,
+execução CRUD, leitura de
+resultados tipada e erros. Transactions, streaming e cliente operacional
+gerado continuam planeados.
 
 Pode depender de `tuprel-sql`; não depende de Spring.
 
 ### `tuprel-postgresql`
 
-Renderer/dialect PostgreSQL, bindings de tipos e comportamento específico.
+Actualmente: renderer CRUD PostgreSQL, binding JDBC escalar/NULL e entrada
+para o runtime com DataSource.
+Bindings PostgreSQL avançados e comportamento de dialecto posterior ficam
+planeados. Testes de integração usam PostgreSQL real.
 
 Depende dos contratos de `tuprel-sql` e runtime necessários.
 

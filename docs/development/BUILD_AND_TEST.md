@@ -1,7 +1,7 @@
 # Build e Testes
 
 Este é o documento canónico sobre como construir e verificar o repositório.
-Descreve o estado **actual** da Fase 2. Nada aqui descreve funcionalidade
+Descreve o estado **actual** da Fase 3. Nada aqui descreve funcionalidade
 planeada como se já existisse.
 
 Para a estratégia de testes do produto (unit, golden, integração PostgreSQL,
@@ -16,8 +16,8 @@ documento trata apenas do que a build faz hoje.
 |---|---|
 | JDK 21 | Obrigatório (ver `docs/adr/ADR-0002-java-21-baseline.md`) |
 | Gradle instalado globalmente | Não é necessário e não deve ser usado |
-| Docker | Não é necessário nesta fase |
-| PostgreSQL | Não é necessário nesta fase |
+| Docker compatível com Testcontainers | Necessário para o `integrationTest` PostgreSQL e para `check`/`build` completos |
+| PostgreSQL instalado localmente | Não é necessário; Testcontainers usa uma imagem `postgres:17.11-trixie` |
 | Maven | Não é necessário nesta fase |
 | Spring Boot | Não é necessário nesta fase |
 
@@ -79,19 +79,21 @@ Project hierarchy:
 Root project 'tuprel'
  +--- Project ':tuprel-cli'
  +--- Project ':tuprel-codegen-java'
+ +--- Project ':tuprel-postgresql'
+ +--- Project ':tuprel-runtime'
  +--- Project ':tuprel-schema'
+ \--- Project ':tuprel-sql'
 
 Included builds:
 
 \--- Included build ':build-logic'
 ```
 
-Os três subprojectos de produto actuais são `tuprel-schema`,
-`tuprel-codegen-java` e `tuprel-cli`. O primeiro implementa a linguagem de
-schema; o segundo gera Java a partir do modelo validado; a CLI expõe
-`validate`, `format` e `generate`. Os restantes módulos planeados estão
-descritos em `docs/architecture/MODULE_BOUNDARIES.md` e continuam fora da
-build.
+Os seis subprojectos de produto actuais são `tuprel-schema`,
+`tuprel-codegen-java`, `tuprel-cli`, `tuprel-sql`, `tuprel-runtime` e
+`tuprel-postgresql`. Os três primeiros preservam o pipeline de schema e
+geração; os três últimos fornecem CRUD estrutural mínimo, execução JDBC e o
+renderer PostgreSQL. Os módulos posteriores continuam fora da build.
 
 `build-logic` aparece como *included build*, não como subprojecto. Ver a
 secção 4.
@@ -107,8 +109,9 @@ restrito de ficheiros de build e configuração:
 - `gradle/libs.versions.toml`;
 - `gradle.properties` e `build-logic/gradle.properties`;
 - workflows activos em `.github/`;
-- Java em `tuprel-schema/src/`, `tuprel-codegen-java/src/` e
-  `tuprel-cli/src/`.
+- Java em `tuprel-schema/src/`, `tuprel-codegen-java/src/`,
+  `tuprel-cli/src/`, `tuprel-sql/src/`, `tuprel-runtime/src/` e
+  `tuprel-postgresql/src/`.
 
 As verificações são apenas: converter tabulações iniciais em espaços, remover
 espaços no fim das linhas e garantir newline final.
@@ -156,8 +159,9 @@ Hoje, `check` na raiz executa:
 - `build-logic:validatePlugins`;
 - `build-logic:test` (os testes TestKit do convention plugin);
 - `build-logic:check`;
-- `tuprel-schema:check`, `tuprel-codegen-java:check` e `tuprel-cli:check`,
-  incluindo testes que compilam o Java gerado com `javac` 21.
+- o `check` dos seis módulos de produto, incluindo compilação de Java gerado
+  com `javac` 21 e integration tests reais de PostgreSQL em
+  `tuprel-postgresql:integrationTest`.
 
 Podes confirmar o grafo sem executar nada:
 
@@ -173,8 +177,7 @@ Podes confirmar o grafo sem executar nada:
 
 Executa o lifecycle `build` da raiz, que com o plugin `base` significa
 `assemble` + `check`. A raiz agrega os artefactos e verificações de
-`tuprel-schema`, `tuprel-codegen-java` e `tuprel-cli`; não agrega módulos que
-ainda não foram implementados.
+os seis módulos actuais; não agrega módulos que ainda não foram implementados.
 
 ### Gerar Java a partir de um schema
 
@@ -234,8 +237,8 @@ Isto é um atalho de iteração, não um substituto da verificação na raiz.
 
 ## 5. Baseline de `tuprel.java-conventions`
 
-O convention plugin estabelece a baseline que `tuprel-schema`,
-`tuprel-codegen-java` e `tuprel-cli` aplicam. O comportamento descrito abaixo
+O convention plugin estabelece a baseline aplicada pelos seis módulos de
+produto. O comportamento descrito abaixo
 continua também verificado por
 testes TestKit que aplicam o plugin a projectos temporários.
 
@@ -261,10 +264,11 @@ O id do plugin é `tuprel.java-conventions`.
   nem activo.
 - **Checkstyle, PMD e SpotBugs:** não adoptados. Error Prone é o único
   analisador estático da baseline.
-- **Spring, Jakarta Persistence, Hibernate e drivers JDBC:** não são
-  dependências do convention plugin nem do core.
-- **Testcontainers e Docker:** entram quando existirem integration tests
-  PostgreSQL reais, não nesta fase.
+- **Spring, Jakarta Persistence e Hibernate:** não são dependências do
+  convention plugin nem do core. O driver PostgreSQL está apenas no módulo
+  PostgreSQL.
+- **Testcontainers:** não é dependência do convention plugin; está limitado
+  aos integration tests de `tuprel-postgresql`.
 
 ---
 
@@ -292,10 +296,23 @@ configurações `integrationTestImplementation`, `integrationTestCompileOnly` e
 `integrationTestRuntimeOnly` estendem as equivalentes de `test`, e o source set
 vê o output de `main`.
 
-Nesta fase, `integrationTest` é apenas uma convenção de estrutura e lifecycle.
-Não pressupõe base de dados, container nem qualquer infraestrutura externa: os
-módulos actuais não executam PostgreSQL e o suporte via Testcontainers pertence
-a fases posteriores, conforme `docs/testing/TEST_STRATEGY.md`.
+`tuprel-postgresql:integrationTest` usa PostgreSQL real via Testcontainers.
+`check` e `build` executam esses testes; Docker deve estar disponível para um
+resultado completo. Os outros módulos mantêm testes unitários sem Docker.
+Para executar só a suite de base de dados:
+
+```powershell
+.\gradlew.bat :tuprel-postgresql:integrationTest --dependency-verification strict
+```
+
+```bash
+./gradlew :tuprel-postgresql:integrationTest --dependency-verification strict
+```
+
+Se Docker não estiver disponível numa máquina local, executa os testes
+unitários dos módulos separadamente e deixa a integração pendente até correr
+num host com Docker; não a marques como aprovada. O pull request em Linux tem
+de executar a suite completa sem a desactivar.
 
 Os testes do próprio `build-logic` usam Gradle TestKit: criam projectos Java
 temporários, aplicam o convention plugin e correm builds Gradle reais para
@@ -354,9 +371,8 @@ mínimas. Apenas o job CodeQL recebe `security-events: write`. O cache de
 dependências Gradle é gerido exclusivamente por `gradle/actions/setup-gradle`;
 `actions/setup-java` não configura um segundo cache.
 
-O repositório é público e a CI corre nos pull requests e em `main`. A CI não
-arranca PostgreSQL ou Docker: os módulos actuais ainda não têm integration
-tests de base de dados.
+O repositório é público e a CI corre nos pull requests e em `main`.
+Testcontainers inicia PostgreSQL durante o `build` da CI no runner Linux.
 
 As origens de artefactos que a build usa actualmente estão inventariadas em
 `docs/security/SUPPLY_CHAIN.md`. Esse é o documento canónico sobre supply
@@ -381,6 +397,9 @@ sempre as mesmas versões.
 | `tuprel-schema/gradle.lockfile` | `tuprel-schema` | Error Prone, JUnit e as configurações dos testes do schema |
 | `tuprel-cli/gradle.lockfile` | `tuprel-cli` | Error Prone, JUnit e as configurações dos testes da CLI |
 | `tuprel-codegen-java/gradle.lockfile` | `tuprel-codegen-java` | Error Prone, JUnit e as configurações dos testes do gerador |
+| `tuprel-sql/gradle.lockfile` | `tuprel-sql` | Error Prone e JUnit do modelo SQL |
+| `tuprel-runtime/gradle.lockfile` | `tuprel-runtime` | Error Prone e JUnit do executor JDBC |
+| `tuprel-postgresql/gradle.lockfile` | `tuprel-postgresql` | Error Prone, JUnit, pgJDBC e Testcontainers |
 
 O projecto raiz **não** tem `gradle.lockfile` porque não tem nenhuma
 configuração de dependências de projecto — `.\gradlew.bat dependencies` responde
