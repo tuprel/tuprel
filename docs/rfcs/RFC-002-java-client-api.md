@@ -13,6 +13,10 @@ relações. O nome `TuprelClient` e os seus métodos operacionais só se tornam
 contrato quando o runtime da Fase 3 os puder cumprir. O ponto de entrada gerado
 nesta fase é `TuprelSchema`, que expõe descritores tipados de models, não I/O.
 
+A Fase 3 acrescenta um runtime PostgreSQL de baixo nível com mapper tipado,
+sem alterar estes tipos gerados. Não transforma `TuprelSchema` num cliente
+operacional nem aprova ainda a forma final de `TuprelClient`.
+
 Isto concretiza o mínimo de *client/model entry points* do plano sem prometer
 CRUD ou uma query API antes das respectivas fases. Os exemplos de `db.user()`
 na especificação de produto continuam direccionais até esses contratos serem

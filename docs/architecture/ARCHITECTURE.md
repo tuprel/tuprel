@@ -36,9 +36,17 @@ Transforma um schema validado em código Java determinístico. A geração deve 
 
 Executa operações através de contratos internos tipados, lifecycle de connections, statements, mapping, transactions, streaming, timeout e erros.
 
+Na Fase 3, o subconjunto implementado é CRUD por identificador, com
+`DataSource` fornecido pela aplicação, uma connection por operação, bind de
+valores tipados e row mapper síncrono. Transactions, streaming e timeout
+continuam fora do contrato actual (ADR-0009).
+
 ### SQL model e dialect
 
 Queries devem ser representadas estruturalmente. O dialect PostgreSQL transforma essa estrutura em SQL + bind parameters. Valores não entram directamente na string SQL.
+
+O renderer actual cobre apenas insert, find by id, update by id e delete by id;
+não implementa a futura query DSL.
 
 ### Migration engine
 
