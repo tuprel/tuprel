@@ -75,11 +75,11 @@ subprojects {
  */
 tasks.named("check") {
     dependsOn(gradle.includedBuild("build-logic").task(":check"))
-    dependsOn(":tuprel-schema:check", ":tuprel-cli:check", ":tuprel-codegen-java:check")
+    dependsOn(":tuprel-schema:check", ":tuprel-cli:check", ":tuprel-codegen-java:check", ":tuprel-sql:check", ":tuprel-runtime:check", ":tuprel-postgresql:check")
 }
 
 tasks.named("assemble") {
-    dependsOn(":tuprel-schema:assemble", ":tuprel-cli:assemble", ":tuprel-codegen-java:assemble")
+    dependsOn(":tuprel-schema:assemble", ":tuprel-cli:assemble", ":tuprel-codegen-java:assemble", ":tuprel-sql:assemble", ":tuprel-runtime:assemble", ":tuprel-postgresql:assemble")
 }
 
 /*
@@ -145,11 +145,11 @@ spotless {
     }
 
     /*
-     * Java da Fase 1. O projecto mantém o âmbito conservador: apenas higiene
+     * Java de produto. O projecto mantém o âmbito conservador: apenas higiene
      * determinística de whitespace, sem acrescentar um formatter de Java.
      */
     format("javaSources") {
-        target("tuprel-schema/src/**/*.java", "tuprel-cli/src/**/*.java", "tuprel-codegen-java/src/**/*.java")
+        target("tuprel-schema/src/**/*.java", "tuprel-cli/src/**/*.java", "tuprel-codegen-java/src/**/*.java", "tuprel-sql/src/**/*.java", "tuprel-runtime/src/**/*.java", "tuprel-postgresql/src/**/*.java")
         leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         endWithNewline()
