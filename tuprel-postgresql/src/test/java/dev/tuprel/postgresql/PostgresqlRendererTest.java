@@ -13,6 +13,7 @@ import dev.tuprel.sql.SqlQuery;
 import dev.tuprel.sql.SqlValue;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -141,5 +142,53 @@ class PostgresqlRendererTest {
         SqlQuery query = SqlQuery.count(table).where(
                 new SqlCondition.Comparison(idColumn, SqlCondition.Operator.IN, values));
         assertThrows(IllegalArgumentException.class, () -> renderer.render(query));
+    }
+
+    @Test
+    void rendersMultiRowInsertsWithDefaultCellsAsOneStatement() {
+        SqlIdentifier name = new SqlIdentifier("name");
+        SqlIdentifier age = new SqlIdentifier("age");
+        RenderedSql insert = renderer.render(new SqlCommand.InsertMany(table, List.of(name, age), List.of(
+                List.of(Optional.of(new SqlValue.Text("a")), Optional.empty()),
+                List.of(Optional.of(new SqlValue.Text("b'); --")), Optional.of(new SqlValue.Int32(3))))));
+        assertEquals("INSERT INTO \"Order\" (\"name\", \"age\") VALUES (?, DEFAULT), (?, ?)", insert.text());
+        assertEquals(List.of(new SqlValue.Text("a"), new SqlValue.Text("b'); --"), new SqlValue.Int32(3)),
+                insert.binds());
+    }
+
+    @Test
+    void rendersConditionalBulkWritesAndVersionChecks() {
+        SqlIdentifier name = new SqlIdentifier("name");
+        SqlIdentifier version = new SqlIdentifier("version");
+        SqlCondition stale = new SqlCondition.Comparison(name, SqlCondition.Operator.EQ,
+                List.of(new SqlValue.Text("old")));
+        SqlCommand.Assignment rename = new SqlCommand.Assignment(name, new SqlValue.Text("new"));
+        RenderedSql update = renderer.render(new SqlCommand.UpdateWhere(table, List.of(rename), stale,
+                Optional.of(version)));
+        assertEquals("UPDATE \"Order\" SET \"name\" = ?, \"version\" = \"version\" + 1 WHERE \"name\" = ?",
+                update.text());
+        assertEquals(List.of(new SqlValue.Text("new"), new SqlValue.Text("old")), update.binds());
+        RenderedSql delete = renderer.render(new SqlCommand.DeleteWhere(table, stale));
+        assertEquals("DELETE FROM \"Order\" WHERE \"name\" = ?", delete.text());
+        RenderedSql versioned = renderer.render(new SqlCommand.UpdateByIdReturning(table, idColumn, id,
+                List.of(rename), List.of(idColumn, version),
+                Optional.of(new SqlCommand.VersionCheck(version, new SqlValue.Int64(7)))));
+        assertEquals("UPDATE \"Order\" SET \"name\" = ?, \"version\" = \"version\" + 1 WHERE \"id\" = ?"
+                + " AND \"version\" = ? RETURNING \"id\", \"version\"", versioned.text());
+        assertEquals(List.of(new SqlValue.Text("new"), id, new SqlValue.Int64(7)), versioned.binds());
+    }
+
+    @Test
+    void rendersRowLocksAfterPaging() {
+        SqlQuery base = SqlQuery.select(table, List.of(idColumn)).limit(1);
+        List<String> rendered = new ArrayList<>();
+        for (SqlQuery.Lock.Strength strength : SqlQuery.Lock.Strength.values()) {
+            for (SqlQuery.Lock.Wait wait : SqlQuery.Lock.Wait.values()) {
+                rendered.add(renderer.render(base.lock(new SqlQuery.Lock(strength, wait))).text()
+                        .substring("SELECT \"id\" FROM \"Order\" LIMIT ?".length()));
+            }
+        }
+        assertEquals(List.of(" FOR UPDATE", " FOR UPDATE NOWAIT", " FOR UPDATE SKIP LOCKED",
+                " FOR SHARE", " FOR SHARE NOWAIT", " FOR SHARE SKIP LOCKED"), rendered);
     }
 }

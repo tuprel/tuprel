@@ -10,6 +10,7 @@ import dev.tuprel.sql.SqlRenderer;
 import dev.tuprel.sql.SqlValue;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.StringJoiner;
 
 /**
@@ -38,13 +39,70 @@ public final class PostgresqlRenderer implements SqlRenderer {
             case SqlCommand.FindById find -> new RenderedSql(
                     "SELECT * FROM " + quote(find.table()) + " WHERE " + quote(find.idColumn()) + " = ?",
                     List.of(find.id()));
+            case SqlCommand.InsertMany insert -> insertMany(insert);
             case SqlCommand.UpdateById update -> update(update);
-            case SqlCommand.UpdateByIdReturning update -> returning(update(update.update()),
-                    update.returning());
+            case SqlCommand.UpdateByIdReturning update -> returning(versioned(update), update.returning());
+            case SqlCommand.UpdateWhere update -> updateWhere(update);
             case SqlCommand.DeleteById delete -> new RenderedSql(
                     "DELETE FROM " + quote(delete.table()) + " WHERE " + quote(delete.idColumn()) + " = ?",
                     List.of(delete.id()));
+            case SqlCommand.DeleteWhere delete -> {
+                StringBuilder sql = new StringBuilder("DELETE FROM ").append(quote(delete.table()))
+                        .append(" WHERE ");
+                List<SqlValue> binds = new ArrayList<>();
+                appendCondition(sql, binds, delete.condition());
+                yield new RenderedSql(sql.toString(), binds);
+            }
         });
+    }
+
+    private static RenderedSql insertMany(SqlCommand.InsertMany command) {
+        StringJoiner rows = new StringJoiner(", ");
+        List<SqlValue> binds = new ArrayList<>();
+        for (List<Optional<SqlValue>> row : command.rows()) {
+            StringJoiner cells = new StringJoiner(", ", "(", ")");
+            for (Optional<SqlValue> cell : row) {
+                if (cell.isPresent()) {
+                    cells.add("?");
+                    binds.add(cell.get());
+                } else {
+                    cells.add("DEFAULT");
+                }
+            }
+            rows.add(cells.toString());
+        }
+        return new RenderedSql("INSERT INTO " + quote(command.table()) + " (" + columns(command.columns())
+                + ") VALUES " + rows, binds);
+    }
+
+    private static RenderedSql versioned(SqlCommand.UpdateByIdReturning command) {
+        RenderedSql update = update(command.update());
+        if (command.version().isEmpty()) {
+            return update;
+        }
+        SqlCommand.VersionCheck check = command.version().get();
+        String version = quote(check.column());
+        String text = update.text();
+        int where = text.lastIndexOf(" WHERE ");
+        List<SqlValue> binds = new ArrayList<>(update.binds());
+        binds.add(check.expected());
+        return new RenderedSql(text.substring(0, where) + ", " + version + " = " + version + " + 1"
+                + text.substring(where) + " AND " + version + " = ?", binds);
+    }
+
+    private static RenderedSql updateWhere(SqlCommand.UpdateWhere command) {
+        StringJoiner assignments = new StringJoiner(", ");
+        List<SqlValue> binds = new ArrayList<>();
+        for (SqlCommand.Assignment assignment : command.values()) {
+            assignments.add(quote(assignment.column()) + " = ?");
+            binds.add(assignment.value());
+        }
+        command.incrementVersion().ifPresent(column ->
+                assignments.add(quote(column) + " = " + quote(column) + " + 1"));
+        StringBuilder sql = new StringBuilder("UPDATE ").append(quote(command.table())).append(" SET ")
+                .append(assignments).append(" WHERE ");
+        appendCondition(sql, binds, command.condition());
+        return new RenderedSql(sql.toString(), binds);
     }
 
     @Override
@@ -64,6 +122,14 @@ public final class PostgresqlRenderer implements SqlRenderer {
                 query.offset().ifPresent(value -> {
                     sql.append(" OFFSET ?");
                     binds.add(new SqlValue.Int32(value));
+                });
+                query.lock().ifPresent(lock -> {
+                    sql.append(lock.strength() == SqlQuery.Lock.Strength.UPDATE ? " FOR UPDATE" : " FOR SHARE");
+                    switch (lock.waitPolicy()) {
+                        case WAIT -> { }
+                        case NOWAIT -> sql.append(" NOWAIT");
+                        case SKIP_LOCKED -> sql.append(" SKIP LOCKED");
+                    }
                 });
             }
             case SqlQuery.Selection.Count count -> {
