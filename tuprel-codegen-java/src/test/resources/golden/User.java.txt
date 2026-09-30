@@ -5,6 +5,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /** Immutable value for model User; relations are represented by metadata only. */
+@javax.annotation.processing.Generated("dev.tuprel.codegen")
 public record User(UUID id, String name) {
     public User {
         Objects.requireNonNull(id, "id");

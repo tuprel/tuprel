@@ -148,6 +148,13 @@ coincidiu com o valor publicado separadamente pelo Maven Central. A URL de
 SHA-256 correspondente a `postgresql:42.7.13` devolveu 404, pelo que não se
 regista uma comparação independente para esse JAR.
 
+## Dependências da Fase 4
+
+A Fase 4 não acrescenta dependências externas, repositórios nem checksums.
+A configuração `tuprelGeneratorClasspath` de `tuprel-postgresql` resolve apenas
+`tuprel-cli` e os seus módulos do próprio repositório, para gerar o cliente
+usado pelos integration tests.
+
 ## GitHub
 
 A automação de GitHub está configurada e activa no repositório público.

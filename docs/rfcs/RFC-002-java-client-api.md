@@ -1,8 +1,16 @@
 # RFC-002: API Java gerada para o subconjunto da Fase 2
 
-- **Estado:** Aceite para o subconjunto implementado na Fase 2
+- **Estado:** Aceite para o subconjunto implementado na Fase 2; revisto na Fase 4
 - **Data:** 2026-09-22
 - **Âmbito:** tipos Java gerados, metadata, inputs e contrato de geração
+
+> **Revisão da Fase 4.** O RFC-004 e o ADR-0010 substituem as partes deste RFC
+> sobre `P.where`, `TuprelClient` e a garantia JDK-only. `P.where` expõe agora
+> colunas tipadas e operacionais. A geração acrescenta `P.order`, `P.client` e
+> um `TuprelClient` operacional, que compilam contra `tuprel-runtime`. Models,
+> enums, inputs, metadata e `TuprelSchema` continuam JDK-only. Todos os tipos
+> gerados de topo têm `@javax.annotation.processing.Generated`. O resto deste
+> RFC mantém-se.
 
 ## 1. Fronteira da decisão
 

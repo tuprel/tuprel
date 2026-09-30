@@ -1,0 +1,28 @@
+generator java {
+    package = "dev.tuprel.it.generated"
+}
+
+enum Role {
+    ADMIN
+    MEMBER
+}
+
+model Customer {
+    id UUID @id
+    email String @unique
+    name String
+    age Int?
+    role Role
+    balance Decimal
+    active Boolean
+    createdAt Instant
+    avatar Bytes?
+    notes Note[]
+}
+
+model Note {
+    id Long @id
+    customerId UUID
+    body String
+    customer Customer @relation(fields: [customerId], references: [id])
+}

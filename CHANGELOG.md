@@ -66,12 +66,39 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   `tuprel-postgresql`: CRUD estrutural mínimo, SQL parametrizado, bindings e
   leituras escalares tipadas, lifecycle JDBC explícito e testes reais via
   Testcontainers.
+- Cliente operacional gerado e query API type-safe (RFC-004, ADR-0010). Cada
+  model com colunas mapeáveis recebe um cliente com:
+  - `create`, `findById`, `findMany`, `findFirst` e `findManyCursor`;
+  - `select`, `count` e `exists`;
+  - `updateById`, `deleteById` e `preview`.
+
+  Cada método executa um único statement parametrizado. Colunas tipadas por
+  model garantem, em compilação, que uma condição só se aplica ao seu model e
+  que cada tipo expõe apenas operadores válidos: igualdade, intervalos, padrões
+  de texto literais, `in`/`notIn` e predicados de `NULL`. Inclui composição
+  `AND`/`OR`/`NOT`, ordenação, projecções, paginação por offset e cursor keyset
+  determinístico com token opaco.
+- Modelo estrutural de queries em `tuprel-sql` (`SqlQuery`, `SqlCondition`,
+  `SqlOrder`), `INSERT`/`UPDATE ... RETURNING`, e renderização PostgreSQL com
+  todos os valores em binds, incluindo `LIMIT` e `OFFSET`.
 
 ### Alterado
 
 - Documentação de arquitectura, fases e handoff reconciliada com o fecho da
   Fase 0: zero módulos de produto, primeiro módulo na Fase 1 e RFCs aplicados
   como gates das fases que afectam.
+- Os acessores gerados em `P.where` devolvem colunas tipadas e operacionais em
+  vez de `TuprelField`. Os ficheiros `where`, `order`, `client` e
+  `TuprelClient` compilam contra `tuprel-runtime`. Valores, inputs e metadata
+  gerados continuam JDK-only.
+- Todos os tipos gerados de topo têm `@javax.annotation.processing.Generated`.
+  Assim, análise estática configurada para ignorar código gerado, como a opção
+  `disableWarningsInGeneratedCode` do Error Prone, deixa de falhar em builds
+  consumidoras com `-Werror`.
+- O gerador rejeita nomes de model ou de campo acima de 63 caracteres
+  (`TUPREL-CODEGEN-014`), porque passam a ser identificadores PostgreSQL.
+- `RenderedSql.toString()` mostra apenas o número de binds, para que registar
+  um preview não revele valores de parâmetros.
 
 ### Notas
 
@@ -82,6 +109,6 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   `docs/product/NAMING_AND_LEGAL.md`).
 - `dev.tuprel` é uma coordenada provisória e não uma coordenada de publicação
   aprovada.
-- O runtime PostgreSQL actual é uma API de fundação; ainda não existe cliente
-  operacional gerado, query API completa nem motor de migrações. O roadmap por
-  fases está em `plans/MASTER_PLAN.md`.
+- O cliente gerado ainda não carrega relações, não gere transacções nem cria
+  tabelas. As tabelas usam os nomes do schema até existirem `@map`/`@@map` e
+  migrations. O roadmap por fases está em `plans/MASTER_PLAN.md`.

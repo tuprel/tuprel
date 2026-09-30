@@ -1,7 +1,7 @@
 # Build e Testes
 
 Este é o documento canónico sobre como construir e verificar o repositório.
-Descreve o estado **actual** da Fase 3. Nada aqui descreve funcionalidade
+Descreve o estado **actual** da Fase 4. Nada aqui descreve funcionalidade
 planeada como se já existisse.
 
 Para a estratégia de testes do produto (unit, golden, integração PostgreSQL,
@@ -206,7 +206,10 @@ Os ficheiros pertencentes ao Tuprel são inventariados num manifesto dentro do
 output root. Regenerar não substitui ficheiros externos nem edições manuais;
 para mudar o package ou o schema, volta a executar `generate` e inspecciona o
 output.
-Os tipos gerados são contratos de valores e metadata, não um runtime ORM.
+Os valores, inputs e metadata gerados compilam só com o JDK. Os packages
+`where`, `order` e `client` e o `TuprelClient` compilam contra
+`tuprel-runtime` e executam operações através de um `TuprelDatabase`
+explícito (ADR-0010).
 
 ---
 
@@ -299,6 +302,14 @@ vê o output de `main`.
 `tuprel-postgresql:integrationTest` usa PostgreSQL real via Testcontainers.
 `check` e `build` executam esses testes; Docker deve estar disponível para um
 resultado completo. Os outros módulos mantêm testes unitários sem Docker.
+
+Os testes do cliente gerado usam código produzido pela própria CLI. A task
+`:tuprel-postgresql:generateIntegrationTestClient` executa
+`tuprel generate src/integrationTest/tuprel/schema.tuprel` no directório do
+módulo, com um classpath que só contém módulos do repositório. A saída em
+`tuprel-postgresql/build/generated/sources/tuprel/main` entra no source set
+`integrationTest`, e `compileIntegrationTestJava` compila-a com `-Xlint:all`,
+`-Werror` e Error Prone, como num projecto consumidor.
 Para executar só a suite de base de dados:
 
 ```powershell

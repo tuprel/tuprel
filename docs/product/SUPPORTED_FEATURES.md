@@ -6,9 +6,17 @@ O subconjunto inicial de schema definido no RFC-001 já está implementado em
 `tuprel-schema`, com `validate` e `format` disponíveis em `tuprel-cli`. Os
 tipos Java gerados do subconjunto RFC-002 e `generate` também estão disponíveis
 na Fase 2. A Fase 3 acrescentou CRUD estrutural mínimo com acesso real a
-PostgreSQL, mas ainda não um cliente operacional gerado. Os itens abaixo
-descrevem o roadmap e não são todos funcionalidades
-disponíveis nesta fase.
+PostgreSQL. A Fase 4 acrescentou o cliente operacional gerado e a query API
+type-safe do RFC-004:
+- CRUD por identificador;
+- filtros compostos e predicados de `NULL`;
+- ordenação e projecções;
+- `count`/`exists`;
+- offset e cursor pagination;
+- SQL preview.
+
+Relações, `include` e transacções continuam fora. Os itens abaixo descrevem o
+roadmap e não são todos funcionalidades disponíveis nesta fase.
 
 ## Tuprel 0.1 - Foundation preview
 
