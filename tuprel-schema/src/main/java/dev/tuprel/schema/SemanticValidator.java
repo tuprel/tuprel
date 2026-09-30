@@ -8,6 +8,7 @@ import dev.tuprel.schema.ast.SchemaDocument.EnumDeclaration;
 import dev.tuprel.schema.ast.SchemaDocument.FieldAttribute;
 import dev.tuprel.schema.ast.SchemaDocument.FieldDeclaration;
 import dev.tuprel.schema.ast.SchemaDocument.ModelDeclaration;
+import dev.tuprel.schema.model.RelationGraph;
 import dev.tuprel.schema.model.ValidatedSchema;
 import dev.tuprel.schema.model.ValidatedSchema.ResolvedType;
 import dev.tuprel.schema.model.ValidatedSchema.TypeKind;
@@ -152,6 +153,9 @@ final class SemanticValidator {
 
         List<ValidatedEnum> validatedEnums = validateEnums();
         List<ValidatedModel> validatedModels = validateModels();
+        for (RelationGraph.Problem problem : RelationGraph.of(validatedModels).problems()) {
+            add(problem.code(), problem.message(), problem.span());
+        }
         Optional<ValidatedConfiguration> datasource = validateDatasource();
         Optional<ValidatedConfiguration> generator = validateGenerator();
 
@@ -271,6 +275,12 @@ final class SemanticValidator {
                     "Model '%s' declares more than one @id field.".formatted(model.name()),
                     model.span());
         }
+        if (validatedFields.stream().filter(ValidatedField::version).count() > 1) {
+            add(
+                    "TUPREL-SCHEMA-SEM-026",
+                    "Model '%s' declares more than one @version field.".formatted(model.name()),
+                    model.span());
+        }
         return new ValidatedModel(model.name(), validatedFields, indexes, model.span());
     }
 
@@ -278,7 +288,7 @@ final class SemanticValidator {
             ModelDeclaration model, FieldDeclaration field) {
         Map<String, FieldAttribute> attributes = new LinkedHashMap<>();
         for (FieldAttribute attribute : field.attributes()) {
-            if (!Set.of("id", "unique", "default", "relation").contains(attribute.name())) {
+            if (!Set.of("id", "unique", "default", "relation", "version").contains(attribute.name())) {
                 add(
                         "TUPREL-SCHEMA-SEM-009",
                         "Unknown field attribute '@%s' on '%s.%s'."
@@ -366,6 +376,21 @@ final class SemanticValidator {
                     relationAttribute.span());
         }
 
+        boolean version = attributes.containsKey("version");
+        if (version) {
+            validateNoArguments(attributes.get("version"), model, field);
+            if (type.kind() != TypeKind.SCALAR
+                    || !(type.name().equals("Int") || type.name().equals("Long"))
+                    || field.type().cardinality() != SchemaDocument.Cardinality.REQUIRED
+                    || id) {
+                add(
+                        "TUPREL-SCHEMA-SEM-025",
+                        "@version on '%s.%s' requires a required Int or Long field that is not the @id."
+                                .formatted(model.name(), field.name()),
+                        attributes.get("version").span());
+            }
+        }
+
         return new ValidatedField(
                 field.name(),
                 type,
@@ -374,7 +399,8 @@ final class SemanticValidator {
                 unique,
                 defaultValue,
                 relation,
-                field.span());
+                field.span(),
+                version);
     }
 
     private void validateNoArguments(
