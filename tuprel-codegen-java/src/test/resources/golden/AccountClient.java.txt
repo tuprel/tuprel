@@ -2,14 +2,16 @@
 package dev.example.generated.client;
 
 import dev.example.generated.create.AccountCreate;
+import dev.example.generated.metadata.AccountMetadata;
 import dev.example.generated.model.Account;
 import dev.example.generated.update.AccountUpdate;
 import dev.example.generated.where.AccountWhere;
 import dev.tuprel.runtime.TuprelDatabase;
+import dev.tuprel.runtime.TuprelStream;
 import dev.tuprel.runtime.query.Assignments;
+import dev.tuprel.runtime.query.Condition;
 import dev.tuprel.runtime.query.CursorPage;
 import dev.tuprel.runtime.query.ModelOperations;
-import dev.tuprel.runtime.query.ModelTable;
 import dev.tuprel.runtime.query.Projection;
 import dev.tuprel.runtime.query.Query;
 import dev.tuprel.sql.RenderedSql;
@@ -21,49 +23,31 @@ import java.util.function.UnaryOperator;
 /**
  * Explicit operations on table {@code "Account"} for model {@code Account}.
  *
- * <p>Each method runs exactly one SQL statement with bound parameters, on its own
- * connection in autocommit mode. Nothing is cached, tracked or loaded lazily.
+ * <p>Each method runs one SQL statement with bound parameters, plus one statement per
+ * included relation. Outside a transaction each statement uses its own autocommit
+ * connection. Nothing is cached, tracked or loaded lazily.
  */
 @javax.annotation.processing.Generated("dev.tuprel.codegen")
 public final class AccountClient {
-    private static final ModelTable<Account, Long> TABLE = ModelTable.of(
-            "Account",
-            AccountWhere.id(),
-            List.of(
-                    AccountWhere.id(),
-                    AccountWhere.email(),
-                    AccountWhere.score(),
-                    AccountWhere.role()),
-            row -> new Account(
-                    AccountWhere.id().read(row),
-                    AccountWhere.email().read(row),
-                    AccountWhere.score().read(row),
-                    AccountWhere.role().read(row)));
-
     private final ModelOperations<Account, Long> operations;
 
     /** Creates the client over an explicit runtime; the caller owns its DataSource. */
     public AccountClient(TuprelDatabase database) {
-        this.operations = new ModelOperations<>(Objects.requireNonNull(database, "database"), TABLE);
+        this.operations = new ModelOperations<>(Objects.requireNonNull(database, "database"), AccountMetadata.TABLE);
     }
 
     /** Inserts the present input fields and returns the stored row. */
     public Account create(AccountCreate input) {
-        Objects.requireNonNull(input, "input");
-        Assignments<Account> values = Assignments.empty();
-        if (input.id().present()) {
-            values = values.set(AccountWhere.id(), input.id().value());
-        }
-        if (input.email().present()) {
-            values = values.set(AccountWhere.email(), input.email().value());
-        }
-        if (input.score().present()) {
-            values = values.set(AccountWhere.score(), input.score().value());
-        }
-        if (input.role().present()) {
-            values = values.set(AccountWhere.role(), input.role().value());
-        }
-        return operations.create(values);
+        return operations.create(values(input));
+    }
+
+    /**
+     * Inserts rows with multi-row statements and returns the number of inserted rows;
+     * a batch that needs several statements requires a transaction.
+     */
+    public long createMany(List<AccountCreate> inputs) {
+        Objects.requireNonNull(inputs, "inputs");
+        return operations.createMany(inputs.stream().map(AccountClient::values).toList());
     }
 
     /** Reads the row with the identifier. */
@@ -71,12 +55,17 @@ public final class AccountClient {
         return operations.findById(id);
     }
 
+    /** Reads the row with the identifier; the query may only include relations, lock or time out. */
+    public Optional<Account> findById(long id, UnaryOperator<Query<Account>> query) {
+        return operations.findById(id, configured(query));
+    }
+
     /** Reads every row, in unspecified order. */
     public List<Account> findMany() {
         return operations.findMany(Query.all());
     }
 
-    /** Reads every row matching the query. */
+    /** Reads every row matching the query, with its included relations. */
     public List<Account> findMany(UnaryOperator<Query<Account>> query) {
         return operations.findMany(configured(query));
     }
@@ -89,6 +78,11 @@ public final class AccountClient {
     /** Reads one page of cursor pagination; the query must set take. */
     public CursorPage<Account> findManyCursor(UnaryOperator<Query<Account>> query) {
         return operations.findManyCursor(configured(query));
+    }
+
+    /** Opens a forward-only stream; requires a transaction and must be closed. */
+    public TuprelStream<Account> stream(UnaryOperator<Query<Account>> query) {
+        return operations.stream(configured(query));
     }
 
     /** Reads only the projected columns of every row. */
@@ -118,6 +112,48 @@ public final class AccountClient {
 
     /** Changes the present input fields and returns the changed row, if it exists. */
     public Optional<Account> updateById(long id, AccountUpdate input) {
+        return operations.updateById(id, values(input));
+    }
+
+    /** Changes the present input fields of every row matching the condition; returns the count. */
+    public long updateMany(Condition<Account> where, AccountUpdate input) {
+        return operations.updateMany(where, values(input));
+    }
+
+    /** Deletes the row with the identifier; returns whether a row was deleted. */
+    public boolean deleteById(long id) {
+        return operations.deleteById(id);
+    }
+
+    /** Deletes every row matching the condition; returns the count. */
+    public long deleteMany(Condition<Account> where) {
+        return operations.deleteMany(where);
+    }
+
+    /** Renders the statement findMany would execute for the rows, without running it. */
+    public RenderedSql preview(UnaryOperator<Query<Account>> query) {
+        return operations.preview(configured(query));
+    }
+
+    private static Assignments<Account> values(AccountCreate input) {
+        Objects.requireNonNull(input, "input");
+        Assignments<Account> values = Assignments.empty();
+        if (input.id().present()) {
+            values = values.set(AccountWhere.id(), input.id().value());
+        }
+        if (input.email().present()) {
+            values = values.set(AccountWhere.email(), input.email().value());
+        }
+        if (input.score().present()) {
+            values = values.set(AccountWhere.score(), input.score().value());
+        }
+        if (input.role().present()) {
+            values = values.set(AccountWhere.role(), input.role().value());
+        }
+        return values;
+    }
+
+    private static Assignments<Account> values(AccountUpdate input) {
         Objects.requireNonNull(input, "input");
         Assignments<Account> values = Assignments.empty();
         if (input.email().present()) {
@@ -129,17 +165,7 @@ public final class AccountClient {
         if (input.role().present()) {
             values = values.set(AccountWhere.role(), input.role().value());
         }
-        return operations.updateById(id, values);
-    }
-
-    /** Deletes the row with the identifier; returns whether a row was deleted. */
-    public boolean deleteById(long id) {
-        return operations.deleteById(id);
-    }
-
-    /** Renders the statement findMany would execute, without running it. */
-    public RenderedSql preview(UnaryOperator<Query<Account>> query) {
-        return operations.preview(configured(query));
+        return values;
     }
 
     private static Query<Account> configured(UnaryOperator<Query<Account>> query) {
