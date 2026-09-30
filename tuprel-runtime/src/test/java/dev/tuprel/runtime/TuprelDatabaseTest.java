@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import dev.tuprel.sql.RenderedSql;
 import dev.tuprel.sql.SqlCommand;
 import dev.tuprel.sql.SqlIdentifier;
+import dev.tuprel.sql.SqlQuery;
+import dev.tuprel.sql.SqlRenderer;
 import dev.tuprel.sql.SqlValue;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationHandler;
@@ -85,6 +87,45 @@ class TuprelDatabaseTest {
         assertEquals(1, fixture.resultsClosed);
         assertEquals(1, fixture.statementsClosed);
         assertEquals(1, fixture.connectionsClosed);
+    }
+
+    @Test
+    void queryExecutionClosesResourcesAfterSuccessAndMapperFailure() {
+        SqlQuery query = SqlQuery.select(TABLE, List.of(new SqlIdentifier("name")));
+        Fixture success = new Fixture(Failure.NONE);
+        assertEquals(List.of("value"), queryDatabase(success).findMany(query, row -> row.text("name")));
+        assertEquals(1, success.resultsClosed);
+        assertEquals(1, success.statementsClosed);
+        assertEquals(1, success.connectionsClosed);
+
+        Fixture failure = new Fixture(Failure.NONE);
+        TuprelDatabaseException exception = assertThrows(TuprelDatabaseException.class,
+                () -> queryDatabase(failure).findMany(query, row -> {
+                    throw new IllegalStateException("mapper failed");
+                }));
+        assertEquals(TuprelDatabaseException.Phase.MAPPING, exception.phase());
+        assertEquals(1, failure.resultsClosed);
+        assertEquals(1, failure.statementsClosed);
+        assertEquals(1, failure.connectionsClosed);
+    }
+
+    @Test
+    void querySelectionMustMatchTheOperationBeforeAnyConnectionOpens() {
+        Fixture fixture = new Fixture(Failure.ACQUIRE);
+        TuprelDatabase database = database(fixture);
+        SqlQuery rows = SqlQuery.select(TABLE, List.of(ID));
+        assertThrows(IllegalArgumentException.class, () -> database.count(rows));
+        assertThrows(IllegalArgumentException.class, () -> database.exists(SqlQuery.count(TABLE)));
+        assertThrows(IllegalArgumentException.class,
+                () -> database.findMany(SqlQuery.exists(TABLE), row -> row.text("name")));
+    }
+
+    private static TuprelDatabase queryDatabase(Fixture fixture) {
+        RenderedSql plan = new RenderedSql("SELECT 1 WHERE ? IS NOT NULL", List.of(new SqlValue.Text("value")));
+        return new TuprelDatabase(fixture, new SqlRenderer() {
+            @Override public RenderedSql render(SqlCommand command) { return plan; }
+            @Override public RenderedSql render(SqlQuery query) { return plan; }
+        }, (statement, position, value) -> statement.setString(position, ((SqlValue.Text) value).value()));
     }
 
     private static TuprelDatabase database(Fixture fixture) {

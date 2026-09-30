@@ -6,8 +6,9 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Minimal structural CRUD statements; callers cannot supply SQL fragments. */
-public sealed interface SqlCommand permits SqlCommand.Insert, SqlCommand.FindById,
-        SqlCommand.UpdateById, SqlCommand.DeleteById {
+public sealed interface SqlCommand permits SqlCommand.Insert, SqlCommand.InsertReturning,
+        SqlCommand.FindById, SqlCommand.UpdateById, SqlCommand.UpdateByIdReturning,
+        SqlCommand.DeleteById {
 
     SqlIdentifier table();
 
@@ -40,6 +41,20 @@ public sealed interface SqlCommand permits SqlCommand.Insert, SqlCommand.FindByI
         }
     }
 
+    private static List<SqlIdentifier> checkedColumns(List<SqlIdentifier> columns) {
+        return new SqlQuery.Selection.Columns(columns).columns();
+    }
+
+    /** Inserts one row and returns the listed columns of the inserted row in the same statement. */
+    record InsertReturning(SqlIdentifier table, List<Assignment> values, List<SqlIdentifier> returning)
+            implements SqlCommand {
+        public InsertReturning {
+            Objects.requireNonNull(table, "table");
+            values = checked(values);
+            returning = checkedColumns(returning);
+        }
+    }
+
     record FindById(SqlIdentifier table, SqlIdentifier idColumn, SqlValue id) implements SqlCommand {
         public FindById {
             Objects.requireNonNull(table, "table");
@@ -66,6 +81,21 @@ public sealed interface SqlCommand permits SqlCommand.Insert, SqlCommand.FindByI
                     throw new IllegalArgumentException("Identifier column cannot be updated");
                 }
             }
+        }
+    }
+
+    /** Changes one row and returns the listed columns of the changed row in the same statement. */
+    record UpdateByIdReturning(SqlIdentifier table, SqlIdentifier idColumn, SqlValue id,
+            List<Assignment> values, List<SqlIdentifier> returning) implements SqlCommand {
+        public UpdateByIdReturning {
+            UpdateById checkedUpdate = new UpdateById(table, idColumn, id, values);
+            values = checkedUpdate.values();
+            returning = checkedColumns(returning);
+        }
+
+        /** The same change without the returned columns. */
+        public UpdateById update() {
+            return new UpdateById(table, idColumn, id, values);
         }
     }
 
