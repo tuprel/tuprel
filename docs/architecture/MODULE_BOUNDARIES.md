@@ -24,8 +24,9 @@ tuprel/
 
 A Fase 1 declara `tuprel-schema` e o adapter inicial `tuprel-cli`; a Fase 2
 acrescenta `tuprel-codegen-java`. A Fase 3 acrescenta `tuprel-sql`,
-`tuprel-runtime` e `tuprel-postgresql`, com código e testes reais. A Fase 4 não
-cria módulos: estende estes três e o código gerado (RFC-004, ADR-0010). Os
+`tuprel-runtime` e `tuprel-postgresql`, com código e testes reais. As Fases 4 e 5 não
+criam módulos: estendem estes três, `tuprel-schema` e o código gerado (RFC-003,
+RFC-004, RFC-005, ADR-0010, ADR-0011). Os
 restantes módulos continuam planeados. `build-logic` é um included build de
 infraestrutura e não faz parte deste grafo de produto.
 
@@ -50,8 +51,9 @@ do módulo compilam esse código com o runtime no classpath de teste.
 ### `tuprel-sql`
 
 Identificadores validados, valores escalares tipados, operações CRUD
-estruturais com e sem `RETURNING`, o modelo estrutural de queries
-(`SqlQuery`, `SqlCondition`, `SqlOrder`) e contratos de renderer. Não contém
+estruturais com e sem `RETURNING`, inserção multi-linha, escrita condicional,
+verificação de versão, o modelo estrutural de queries (`SqlQuery` com row locks,
+`SqlCondition`, `SqlOrder`) e contratos de renderer. Não contém
 texto SQL de dialecto.
 
 Não contém código específico Spring.
@@ -61,8 +63,9 @@ Não contém código específico Spring.
 DataSource/JDBC lifecycle, invocação da binding do dialecto, execução de CRUD
 e de queries estruturais, leitura de resultados tipada e erros. O package
 `dev.tuprel.runtime.query` contém a API tipada usada pelo cliente gerado:
-colunas por model, condições, query imutável, projecções, cursor e
-`ModelOperations`. Transactions e streaming continuam planeados.
+colunas por model, condições, query imutável, projecções, cursor, relações
+incluídas, row locks e `ModelOperations`. Transacções explícitas com
+savepoints, timeouts e streaming vivem em `TuprelDatabase`.
 
 Pode depender de `tuprel-sql`; não depende de Spring.
 

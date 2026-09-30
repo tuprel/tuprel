@@ -81,6 +81,22 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 - Modelo estrutural de queries em `tuprel-sql` (`SqlQuery`, `SqlCondition`,
   `SqlOrder`), `INSERT`/`UPDATE ... RETURNING`, e renderização PostgreSQL com
   todos os valores em binds, incluindo `LIMIT` e `OFFSET`.
+- Relações e carregamento explícito (RFC-003):
+  - emparelhamento de relações no schema, com diagnostics para inversos sem
+    par, ambíguos ou 1:1 inválidos;
+  - componentes `TuprelRelation` nos records gerados;
+  - classes `P.include` com includes aninhados, filtrados e ordenados;
+  - carregamento em lote com uma query por relação e nível, sem N+1;
+  - suporte a 1:1, 1:N, auto-relações e N:N através de um model de junção.
+- Transacções e concorrência (RFC-005):
+  - `transaction` em `TuprelDatabase` e no `TuprelClient` gerado, com
+    commit/rollback, restauro da connection, savepoints, isolamento,
+    read-only e prazo;
+  - row locks `FOR UPDATE`/`FOR SHARE` com `NOWAIT`/`SKIP LOCKED`;
+  - timeouts de query e streaming com `TuprelStream`;
+  - `createMany` multi-linha atómico, `updateMany`/`deleteMany` com condição
+    obrigatória;
+  - optimistic locking com `@version` e `OptimisticLockException`.
 
 ### Alterado
 
@@ -99,6 +115,10 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   (`TUPREL-CODEGEN-014`), porque passam a ser identificadores PostgreSQL.
 - `RenderedSql.toString()` mostra apenas o número de binds, para que registar
   um preview não revele valores de parâmetros.
+- Relações inversas sem relação dona correspondente passam a ser erros de
+  schema. Models com relações ganham componentes `TuprelRelation` e um
+  construtor só com escalares. O `ModelTable` gerado passa para `P.metadata`.
+  Models com `@version` só oferecem `updateById` com a versão esperada.
 
 ### Notas
 
@@ -109,6 +129,7 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
   `docs/product/NAMING_AND_LEGAL.md`).
 - `dev.tuprel` é uma coordenada provisória e não uma coordenada de publicação
   aprovada.
-- O cliente gerado ainda não carrega relações, não gere transacções nem cria
-  tabelas. As tabelas usam os nomes do schema até existirem `@map`/`@@map` e
-  migrations. O roadmap por fases está em `plans/MASTER_PLAN.md`.
+- O cliente gerado não cria tabelas nem repete transacções automaticamente.
+  As tabelas usam os nomes do schema até existirem `@map`/`@@map` e migrations,
+  e a relação N:N implícita espera pelo motor de migrations. O roadmap por
+  fases está em `plans/MASTER_PLAN.md`.

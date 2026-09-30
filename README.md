@@ -4,13 +4,13 @@
 
 Tuprel is an open-source relational data toolkit for Java focused on explicit, predictable, and type-safe relational database development. Its direction is a schema-first workflow with generated Java APIs and a PostgreSQL-first runtime.
 
-> **Early development:** Schema validation, Java source generation, and a generated type-safe PostgreSQL client are available from a source checkout. There is no stable public release or published Maven artifact. Relations, transactions, and migrations are not implemented yet.
+> **Early development:** Schema validation, Java source generation, and a generated type-safe PostgreSQL client are available from a source checkout. There is no stable public release or published Maven artifact. Migrations are not implemented yet.
 
 ## What Tuprel is building
 
-The workflow starts with `schema.tuprel` as the declarative source for models and relationships. Tuprel generates Java domain types and a type-safe client that runs explicit queries against PostgreSQL through a caller-supplied `DataSource`. Future phases will add explicit relation loading, transactions, reviewed migrations, and Gradle and Maven integrations. The core is designed to work without a framework; Spring Boot integration is planned as a separate module.
+The workflow starts with `schema.tuprel` as the declarative source for models and relationships. Tuprel generates Java domain types and a type-safe client that runs explicit queries against PostgreSQL through a caller-supplied `DataSource`. It loads relations only when a query includes them and runs work in explicit transactions. Future phases will add reviewed migrations and Gradle and Maven integrations. The core is designed to work without a framework; Spring Boot integration is planned as a separate module.
 
-The design favors visible relational behavior over implicit database work. Every client method runs one parameterized statement you can preview; there is no lazy loading, dirty checking, or hidden session. Relation loading and migration behavior remain future work.
+The design favors visible relational behavior over implicit database work. Every client method runs a parameterized statement you can preview, plus one statement per included relation; there is no lazy loading, dirty checking, hidden session, or implicit transaction. Migration behavior remains future work.
 
 ## What works today
 
@@ -22,13 +22,15 @@ The implemented foundation provides:
 - Java 21 source generation from a validated schema through `tuprel-codegen-java`, with immutable model values, enums, typed field metadata, and create/update inputs.
 - A generated type-safe client per model:
   - `create`, `findById`, `findMany`, `findFirst`, and cursor pagination;
-  - projections, `count`, `exists`, `updateById`, `deleteById`, and SQL preview.
+  - projections, `count`, `exists`, `updateById`, `deleteById`, and SQL preview;
+  - explicit `include` of 1:1, 1:N, and N:N relations (through a join model), loaded in batches without N+1 queries;
+  - `createMany`, `updateMany`, `deleteMany`, streaming, row locks, query timeouts, and optimistic locking with `@version`.
 
   Conditions are typed by model and column type, so a condition from another model or an operator that does not fit the column does not compile.
 - `generate` and `generate --check` CLI commands. Generated files have an ownership manifest and are written under `build/generated/sources/tuprel/main` relative to the CLI process.
-- A PostgreSQL runtime with prepared statements for every value, explicit JDBC resource ownership, typed row mapping without reflection, and real PostgreSQL integration tests.
+- A PostgreSQL runtime with prepared statements for every value, explicit JDBC resource ownership, typed row mapping without reflection, explicit transactions with savepoints, isolation levels, read-only mode, and deadlines, and real PostgreSQL integration tests.
 
-The current modules are [`tuprel-schema`](tuprel-schema/), [`tuprel-codegen-java`](tuprel-codegen-java/), [`tuprel-cli`](tuprel-cli/), [`tuprel-sql`](tuprel-sql/), [`tuprel-runtime`](tuprel-runtime/), and [`tuprel-postgresql`](tuprel-postgresql/). The CLI has no public installer or binary release yet. The supported schema and Java mapping are defined in [RFC-001](docs/rfcs/RFC-001-schema-language.md) and [RFC-002](docs/rfcs/RFC-002-java-client-api.md). [ADR-0009](docs/adr/ADR-0009-runtime-postgresql-foundation.md) defines the runtime subset, and [RFC-004](docs/rfcs/RFC-004-type-safe-query-api.md) defines the generated client and query API.
+The current modules are [`tuprel-schema`](tuprel-schema/), [`tuprel-codegen-java`](tuprel-codegen-java/), [`tuprel-cli`](tuprel-cli/), [`tuprel-sql`](tuprel-sql/), [`tuprel-runtime`](tuprel-runtime/), and [`tuprel-postgresql`](tuprel-postgresql/). The CLI has no public installer or binary release yet. The supported schema and Java mapping are defined in [RFC-001](docs/rfcs/RFC-001-schema-language.md) and [RFC-002](docs/rfcs/RFC-002-java-client-api.md). [ADR-0009](docs/adr/ADR-0009-runtime-postgresql-foundation.md) defines the runtime subset, [RFC-004](docs/rfcs/RFC-004-type-safe-query-api.md) defines the generated client and query API, and [RFC-003](docs/rfcs/RFC-003-relation-loading.md) and [RFC-005](docs/rfcs/RFC-005-transactions-concurrency.md) define relations, transactions, and concurrency.
 
 ## Schema example
 
@@ -87,7 +89,23 @@ RenderedSql preview = db.customer().preview(query -> query.where(CustomerWhere.n
 // SELECT "id", ... FROM "Customer" WHERE "name" = ?   (the value stays a bound parameter)
 ```
 
-The application owns the `DataSource`. Each call runs one statement on its own connection, and tables and columns use the schema names until name mapping and migrations exist.
+The application owns the `DataSource`. Outside a transaction, each call runs its statements on their own autocommit connection. Tables and columns use the schema names until name mapping and migrations exist.
+
+Relations are loaded only when included, and several writes run atomically in an explicit transaction. The integration tests also run this example:
+
+```java
+List<Customer> customers = db.customer().findMany(query -> query
+        .include(CustomerInclude.notes(notes -> notes.orderBy(NoteOrder.id().desc()))));
+List<Note> notes = customers.getFirst().notes().get();
+
+Product updated = db.transaction(tx -> {
+    Product product = tx.product().findById(1L, query -> query.lock(RowLock.FOR_UPDATE)).orElseThrow();
+    return tx.product().updateById(product.id(), product.version(),
+            ProductUpdate.builder().stock(product.stock() - 1).build()).orElseThrow();
+});
+```
+
+Reading a relation that was not included fails with a message naming the include to add; it never queries the database.
 
 ## CLI from a source checkout
 
@@ -115,7 +133,7 @@ Replace `validate` with `format`, `format --check`, `generate`, or `generate --c
 
 ## Roadmap
 
-The engineering foundation, Phase 1 schema language, Phase 2 Java source generation, Phase 3 minimal PostgreSQL runtime, and Phase 4 type-safe query API are in place. The [master plan](plans/MASTER_PLAN.md) next calls for relations and transactions, migrations, and developer integrations. Broader tooling, including Studio, is later work. No release dates are promised.
+The engineering foundation, Phase 1 schema language, Phase 2 Java source generation, Phase 3 minimal PostgreSQL runtime, Phase 4 type-safe query API, and Phase 5 relations and transactions are in place. The [master plan](plans/MASTER_PLAN.md) next calls for migrations and developer integrations. Broader tooling, including Studio, is later work. No release dates are promised.
 
 ## Build from source
 

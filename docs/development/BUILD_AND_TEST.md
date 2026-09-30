@@ -1,7 +1,7 @@
 # Build e Testes
 
 Este é o documento canónico sobre como construir e verificar o repositório.
-Descreve o estado **actual** da Fase 4. Nada aqui descreve funcionalidade
+Descreve o estado **actual** da Fase 5. Nada aqui descreve funcionalidade
 planeada como se já existisse.
 
 Para a estratégia de testes do produto (unit, golden, integração PostgreSQL,
