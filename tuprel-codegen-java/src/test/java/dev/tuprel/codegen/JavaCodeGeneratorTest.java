@@ -12,6 +12,7 @@ import dev.tuprel.schema.model.ValidatedSchema;
 import dev.tuprel.schema.model.ValidatedSchema.ValidatedEnum;
 import dev.tuprel.schema.model.ValidatedSchema.ValidatedField;
 import dev.tuprel.schema.model.ValidatedSchema.ValidatedModel;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -69,6 +70,7 @@ class JavaCodeGeneratorTest {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         assertNotNull(compiler);
         List<String> arguments = new ArrayList<>(List.of("--release", "21", "-Xlint:all", "-Werror",
+                "-classpath", System.getProperty("java.class.path"),
                 "-d", classes.toString()));
         arguments.addAll(sourcePaths);
         assertEquals(0, compiler.run(null, null, null, arguments.toArray(String[]::new)));
@@ -151,6 +153,7 @@ class JavaCodeGeneratorTest {
         Path classes = temporaryDirectory.resolve("all-scalars-classes");
         Files.createDirectories(classes);
         List<String> arguments = new ArrayList<>(List.of("--release", "21", "-Xlint:all", "-Werror",
+                "-classpath", System.getProperty("java.class.path"),
                 "-d", classes.toString()));
         for (String relative : generated.files().keySet()) {
             arguments.add(sources.resolve(relative).toString());
@@ -266,6 +269,214 @@ class JavaCodeGeneratorTest {
 
         assertFalse(result.isSuccess());
         assertTrue(result.diagnostics().stream().anyMatch(d -> d.code().equals("TUPREL-CODEGEN-012")));
+    }
+
+    @Test
+    void reviewedGoldenOperationalSourcesMatchGeneratedBytes() throws IOException {
+        GeneratedJavaSources generated = generate("""
+                generator java { package = "dev.example.generated" }
+                enum Role {
+                    ADMIN
+                    MEMBER
+                }
+                model Account {
+                    id Long @id
+                    email String
+                    score Int?
+                    role Role
+                }
+                """);
+        for (String path : List.of("where/AccountWhere", "order/AccountOrder", "client/AccountClient",
+                "TuprelClient")) {
+            String golden = "/golden/" + path.substring(path.lastIndexOf('/') + 1) + ".java.txt";
+            try (InputStream expected = getClass().getResourceAsStream(golden)) {
+                assertNotNull(expected, golden);
+                assertEquals(new String(expected.readAllBytes(), StandardCharsets.UTF_8),
+                        generated.files().get("dev/example/generated/" + path + ".java"), golden);
+            }
+        }
+    }
+
+    @Test
+    void generatedApiCompilesForTypedUsageAndRejectsCrossModelOrInvalidOperations() throws IOException {
+        GeneratedJavaSources generated = generate("""
+                generator java { package = "dev.example.generated" }
+                model User {
+                    id UUID @id
+                    name String
+                    age Int?
+                }
+                model Post {
+                    id Long @id
+                    title String
+                }
+                """);
+        String valid = """
+                package dev.example.usage;
+
+                import dev.example.generated.TuprelClient;
+                import dev.example.generated.model.User;
+                import dev.example.generated.order.UserOrder;
+                import dev.example.generated.where.UserWhere;
+                import dev.tuprel.runtime.query.Condition;
+                import dev.tuprel.runtime.query.Projection;
+                import java.util.List;
+
+                final class Usage {
+                    private Usage() {}
+
+                    static List<String> names(TuprelClient db) {
+                        Condition<User> adults = UserWhere.age().gte(18).and(UserWhere.age().isNotNull());
+                        List<User> users = db.user().findMany(query -> query
+                                .where(Condition.anyOf(UserWhere.name().startsWith("A"), adults))
+                                .orderBy(UserOrder.name().asc(), UserOrder.id().desc())
+                                .skip(0)
+                                .take(20));
+                        return db.user().select(Projection.of(List.of(UserWhere.name()),
+                                row -> row.get(UserWhere.name())), query -> query.where(adults)).isEmpty()
+                                ? List.of() : users.stream().map(User::name).toList();
+                    }
+                }
+                """;
+        assertEquals(0, compile(generated, "dev/example/usage/Usage.java", valid).exitCode());
+
+        CompilationResult crossModel = compile(generated, "dev/example/usage/CrossModel.java", """
+                package dev.example.usage;
+
+                import dev.example.generated.TuprelClient;
+                import dev.example.generated.where.PostWhere;
+
+                final class CrossModel {
+                    private CrossModel() {}
+
+                    static Object misuse(TuprelClient db) {
+                        return db.user().findMany(query -> query.where(PostWhere.title().eq("x")));
+                    }
+                }
+                """);
+        assertTrue(crossModel.exitCode() != 0, "A Post condition must not compile in a User query");
+        assertTrue(crossModel.errors().contains("Condition<Post>"), crossModel.errors());
+
+        CompilationResult uuidPattern = compile(generated, "dev/example/usage/UuidPattern.java", """
+                package dev.example.usage;
+
+                import dev.example.generated.where.UserWhere;
+
+                final class UuidPattern {
+                    private UuidPattern() {}
+
+                    static Object misuse() {
+                        return UserWhere.id().contains("x");
+                    }
+                }
+                """);
+        assertTrue(uuidPattern.exitCode() != 0, "A UUID column must not expose text patterns");
+        assertTrue(uuidPattern.errors().contains("cannot find symbol")
+                && uuidPattern.errors().contains("contains"), uuidPattern.errors());
+    }
+
+    @Test
+    void runtimeTypeNamesDoNotReserveModelOrEnumNames() throws IOException {
+        GeneratedJavaSources generated = generate("""
+                generator java { package = "dev.example.generated" }
+                enum TextField { A B }
+                model Query {
+                    id Int @id
+                    kind TextField
+                }
+                model Field {
+                    id Int @id
+                    label String?
+                }
+                model Optional {
+                    id Int @id
+                }
+                """);
+        String client = generated.files().get("dev/example/generated/client/QueryClient.java");
+        assertTrue(client.contains("dev.tuprel.runtime.query.Query<Query>"));
+        assertEquals(0, compile(generated, null, null).exitCode());
+    }
+
+    @Test
+    void modelsWithListOrJsonColumnsGetTypedColumnsButNoClient() {
+        GeneratedJavaSources generated = generate("""
+                generator java { package = "dev.example.generated" }
+                model Document {
+                    id Int @id
+                    title String
+                    body Json
+                    tags String[]
+                }
+                model Note {
+                    id Int @id
+                }
+                """);
+        assertFalse(generated.files().containsKey("dev/example/generated/client/DocumentClient.java"));
+        assertTrue(generated.files().containsKey("dev/example/generated/client/NoteClient.java"));
+        String where = generated.files().get("dev/example/generated/where/DocumentWhere.java");
+        assertTrue(where.contains("TextField<Document> title()"));
+        assertFalse(where.contains("body()"));
+        assertFalse(where.contains("tags()"));
+        String root = generated.files().get("dev/example/generated/TuprelClient.java");
+        assertTrue(root.contains("NoteClient note()"));
+        assertFalse(root.contains("DocumentClient"));
+    }
+
+    @Test
+    void rejectsTableAndColumnNamesBeyondThePostgresqlIdentifierLimit() {
+        String longName = "a".repeat(64);
+        SchemaCompilation longColumn = compile("""
+                generator java { package = "dev.example.generated" }
+                model User {
+                    id Int @id
+                    %s String
+                }
+                """.formatted(longName));
+        JavaGenerationResult result = new JavaCodeGenerator().generate(
+                longColumn.validatedSchema().orElseThrow());
+        assertFalse(result.isSuccess());
+        assertTrue(result.diagnostics().stream().anyMatch(d -> d.code().equals("TUPREL-CODEGEN-014")));
+
+        SchemaCompilation longTable = compile("""
+                generator java { package = "dev.example.generated" }
+                model %s {
+                    id Int @id
+                }
+                """.formatted("U" + "a".repeat(63)));
+        assertTrue(new JavaCodeGenerator().generate(longTable.validatedSchema().orElseThrow())
+                .diagnostics().stream().anyMatch(d -> d.code().equals("TUPREL-CODEGEN-014")));
+        assertTrue(generate("""
+                generator java { package = "dev.example.generated" }
+                model User {
+                    id Int @id
+                    %s String
+                }
+                """.formatted("a".repeat(63))).files().containsKey("dev/example/generated/client/UserClient.java"));
+    }
+
+    private record CompilationResult(int exitCode, String errors) { }
+
+    private CompilationResult compile(GeneratedJavaSources generated, String extraPath, String extraSource)
+            throws IOException {
+        Path root = Files.createTempDirectory(temporaryDirectory, "compile");
+        Path sources = root.resolve("sources");
+        new GeneratedSourceWriter().write(sources, generated);
+        List<String> arguments = new ArrayList<>(List.of("--release", "21", "-Xlint:all", "-Werror",
+                "-classpath", System.getProperty("java.class.path"),
+                "-d", Files.createDirectories(root.resolve("classes")).toString()));
+        for (String relative : generated.files().keySet()) {
+            arguments.add(sources.resolve(relative).toString());
+        }
+        if (extraPath != null) {
+            Path extra = root.resolve("extra").resolve(extraPath);
+            Files.createDirectories(extra.getParent());
+            Files.writeString(extra, extraSource, StandardCharsets.UTF_8);
+            arguments.add(extra.toString());
+        }
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+        int exitCode = ToolProvider.getSystemJavaCompiler().run(null, null, errors,
+                arguments.toArray(String[]::new));
+        return new CompilationResult(exitCode, errors.toString(StandardCharsets.UTF_8));
     }
 
     private static GeneratedJavaSources generate(String schema) {
