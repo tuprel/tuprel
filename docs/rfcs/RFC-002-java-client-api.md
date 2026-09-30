@@ -11,6 +11,11 @@
 > enums, inputs, metadata e `TuprelSchema` continuam JDK-only. Todos os tipos
 > gerados de topo têm `@javax.annotation.processing.Generated`. O resto deste
 > RFC mantém-se.
+>
+> **Revisão da Fase 5.** O RFC-003 e o ADR-0011 substituem a regra da secção 5
+> segundo a qual as relações não aparecem nos valores. Os records passam a ter
+> componentes `TuprelRelation`, carregados só por `include`.
+
 
 ## 1. Fronteira da decisão
 

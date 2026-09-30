@@ -1,11 +1,14 @@
 # ADR-0009: Fundação de execução JDBC e PostgreSQL
 
-Estado: Aceite para o subconjunto da Fase 3; complementado pelo ADR-0010
+Estado: Aceite para o subconjunto da Fase 3; complementado pelos ADR-0010 e ADR-0011
 
 > Na Fase 4, o ADR-0010 define o contrato de mapeamento gerado que este ADR
 > deixou em aberto: tabelas e colunas usam os nomes do schema, citados. O
 > RFC-004 acrescenta queries estruturais e `RETURNING` sobre o mesmo lifecycle
 > JDBC, sem mudar as regras de connection, autocommit e erros aqui definidas.
+> Na Fase 5, o RFC-005 acrescenta transacções explícitas. Fora delas, as regras
+> deste ADR continuam a aplicar-se sem alterações.
+
 
 ## Contexto
 
