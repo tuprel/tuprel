@@ -44,7 +44,7 @@ target/generated-sources/tuprel/
 
 Nunca gerar por omissão em `src/main/java`.
 
-## Estrutura actual da Fase 3
+## Estrutura actual da Fase 4
 
 Além da fundação acima, a build actual contém os primeiros boundaries de
 produto:
@@ -64,8 +64,10 @@ tuprel/
 └── project/
 ```
 
-`tuprel-schema` implementa o subconjunto de linguagem aceite pelo RFC-001,
-`tuprel-codegen-java` implementa a geração definida no RFC-002, e `tuprel-cli`
-fornece `validate`, `format` e `generate`. `tuprel-sql`, `tuprel-runtime` e
-`tuprel-postgresql` fornecem o CRUD mínimo da Fase 3. Os restantes módulos do
-catálogo continuam fora da build.
+`tuprel-schema` implementa o subconjunto de linguagem aceite pelo RFC-001.
+`tuprel-codegen-java` implementa a geração definida no RFC-002 e o cliente
+operacional do RFC-004. `tuprel-cli` fornece `validate`, `format` e
+`generate`. `tuprel-sql`, `tuprel-runtime` e `tuprel-postgresql` fornecem o
+CRUD da Fase 3 e a query API type-safe da Fase 4. O schema de teste do cliente
+gerado vive em `tuprel-postgresql/src/integrationTest/tuprel/`. Os restantes
+módulos do catálogo continuam fora da build.

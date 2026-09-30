@@ -17,10 +17,10 @@ fundamentais, formatter e validator; `tuprel-cli` expõe `validate` e `format`.
 
 ## Fase 2 - Java code generation
 
-RFC-002 aceite para o subconjunto implementado. `tuprel-codegen-java` gera
-model values, enums, metadata e inputs a partir do schema validado, com output
-determinístico, escrita segura e compilation tests. `tuprel generate` expõe a
-geração; cliente operacional e execução de queries pertencem às fases seguintes.
+**Concluída.** RFC-002 aceite para o subconjunto implementado.
+`tuprel-codegen-java` gera model values, enums, metadata e inputs a partir do
+schema validado, com output determinístico, escrita segura e compilation tests.
+`tuprel generate` expõe a geração.
 
 ## Fase 3 - Runtime PostgreSQL mínimo
 
@@ -31,7 +31,11 @@ operacional gerado e a query API permanecem nas fases seguintes.
 
 ## Fase 4 - Query API type-safe
 
-Filtros, composição lógica, ordering, select, count, pagination e API ergonomics.
+**Concluída para o subconjunto do plano.** O RFC-004 e o ADR-0010 definem o
+cliente operacional gerado sobre o runtime da Fase 3. Inclui filtros tipados
+por model, composição lógica, predicados de `NULL`, ordering, projecções,
+`count`/`exists`, offset e cursor pagination determinística, e SQL preview.
+Relações, `include` e transacções ficam para a Fase 5.
 
 ## Fase 5 - Relações e transacções
 

@@ -41,12 +41,20 @@ Na Fase 3, o subconjunto implementado é CRUD por identificador, com
 valores tipados e row mapper síncrono. Transactions, streaming e timeout
 continuam fora do contrato actual (ADR-0009).
 
+A Fase 4 acrescenta queries estruturais e a API tipada
+`dev.tuprel.runtime.query`, sobre o mesmo lifecycle. O cliente gerado por
+model traduz chamadas tipadas em `ModelOperations`, que executa exactamente um
+statement por método. O mapping é código gerado, sem reflection (RFC-004,
+ADR-0010).
+
 ### SQL model e dialect
 
 Queries devem ser representadas estruturalmente. O dialect PostgreSQL transforma essa estrutura em SQL + bind parameters. Valores não entram directamente na string SQL.
 
-O renderer actual cobre apenas insert, find by id, update by id e delete by id;
-não implementa a futura query DSL.
+O renderer actual cobre CRUD por identificador (com `RETURNING` para o cliente
+gerado) e queries `SELECT` estruturais: colunas explícitas, condições, ordem,
+`LIMIT`/`OFFSET`, `COUNT(*)` e `EXISTS`. A política de escape de padrões
+`LIKE` pertence ao dialecto, não ao modelo estrutural.
 
 ### Migration engine
 

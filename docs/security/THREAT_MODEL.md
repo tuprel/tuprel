@@ -65,6 +65,19 @@ Dependência ou plugin comprometido entra no build.
 
 Mitigação: versões controladas, dependency locking, dependency verification, dependency review, vulnerability scanning, CodeQL e revisão de novas dependências.
 
+### Tokens de cursor forjados
+
+Um cliente HTTP devolve tokens de paginação por cursor, que podem ser
+alterados, truncados ou construídos à mão para injectar SQL, provocar
+alocação excessiva, ecoar conteúdo em mensagens de erro ou saltar para outra
+tabela ou ordenação.
+
+Mitigação: formato binário versionado com etiquetas de tipo estáveis, limite
+de tamanho e de número de valores, UTF-8 estrito, rejeição de bytes
+excedentes e `NULL`, e mensagem fixa sem causa original. Um token só é aceite
+para a mesma tabela, ordenação e tipos. Os valores descodificados são sempre
+binds. O token não é assinado: é uma posição, não uma autorização (RFC-004).
+
 ### Denial of service
 
 Schema/query patológico produz parser blow-up, query sem limite, allocation excessiva ou stream não fechado.
