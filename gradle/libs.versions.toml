@@ -13,7 +13,7 @@
 # Spotless 8.10.2 (release estável, 2026-09-04). Licença Apache-2.0.
 # Requer Gradle >= 8.1; compatibilidade com Gradle 9.7.1 verificada
 # empiricamente neste repositório.
-spotless = "8.10.2"
+spotless = "8.10.3"
 
 [libraries]
 
