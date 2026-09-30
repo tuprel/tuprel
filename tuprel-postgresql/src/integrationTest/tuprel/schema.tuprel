@@ -18,6 +18,14 @@ model Customer {
     createdAt Instant
     avatar Bytes?
     notes Note[]
+    profile Profile?
+}
+
+model Profile {
+    id Long @id
+    customerId UUID @unique
+    bio String
+    customer Customer @relation(fields: [customerId], references: [id])
 }
 
 model Note {
@@ -25,4 +33,28 @@ model Note {
     customerId UUID
     body String
     customer Customer @relation(fields: [customerId], references: [id])
+    tags NoteTag[]
+}
+
+model Tag {
+    id Long @id
+    label String @unique
+    notes NoteTag[]
+}
+
+model NoteTag {
+    id Long @id
+    noteId Long
+    tagId Long
+    note Note @relation(fields: [noteId], references: [id])
+    tag Tag @relation(fields: [tagId], references: [id])
+
+    @@unique([noteId, tagId])
+}
+
+model Product {
+    id Long @id
+    name String
+    stock Int
+    version Int @version @default(0)
 }
