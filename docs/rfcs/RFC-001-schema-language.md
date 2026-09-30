@@ -1,8 +1,12 @@
 # RFC-001: Linguagem de schema Tuprel
 
-- **Estado:** Aceite para o subconjunto implementado na Fase 1
+- **Estado:** Aceite para o subconjunto implementado na Fase 1; revisto na Fase 5
 - **Data:** 2026-09-20
 - **Âmbito:** `schema.tuprel`, parser, AST, validação, diagnostics e formatter
+
+> **Revisão da Fase 5.** A secção 11.4 ganha as regras de emparelhamento de
+> relações do RFC-003, e a secção 11.5 acrescenta `@version`. Os restantes
+> contratos mantêm-se.
 
 ## 1. Contexto
 
@@ -292,7 +296,21 @@ existir no model alvo e formar a chave `@id`, um `@unique`, ou exactamente um
 nulabilidade da relação e das colunas locais tem de ser coerente. Relações de
 lista são o lado inverso e não levam `fields`/`references` na Fase 1.
 
+Desde a Fase 5, um field de relação sem `@relation` (lista ou singular) é o lado
+inverso e tem de emparelhar com exactamente uma relação dona no model alvo que
+referencie o seu model (`TUPREL-SCHEMA-SEM-021` sem candidato,
+`TUPREL-SCHEMA-SEM-022` ambíguo ou já emparelhado). Um inverso singular (1:1)
+tem de ser opcional (`SEM-023`), e as colunas donas têm de ser únicas (`SEM-024`).
+As regras completas estão no RFC-003.
+
 Acções referenciais, nomes de relação e inferência de relações ficam adiados.
+
+### 11.5 `@version`
+
+Marca o contador de optimistic locking do model (RFC-005). Não aceita
+argumentos, exige um field `Int` ou `Long` singular e obrigatório que não seja
+o `@id` (`TUPREL-SCHEMA-SEM-025`) e aparece no máximo uma vez por model
+(`TUPREL-SCHEMA-SEM-026`). Pode ter `@default`, que dá a versão inicial.
 
 Um atributo desconhecido, repetido ou aplicado a uma categoria incompatível
 é erro. Isto evita que uma versão antiga aceite e ignore semântica nova.

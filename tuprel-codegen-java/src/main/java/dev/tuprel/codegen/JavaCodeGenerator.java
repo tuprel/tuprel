@@ -2,6 +2,8 @@ package dev.tuprel.codegen;
 
 import dev.tuprel.schema.SourceSpan;
 import dev.tuprel.schema.ast.SchemaDocument;
+import dev.tuprel.schema.model.RelationGraph;
+import dev.tuprel.schema.model.RelationGraph.RelationLink;
 import dev.tuprel.schema.model.ValidatedSchema;
 import dev.tuprel.schema.model.ValidatedSchema.ResolvedType;
 import dev.tuprel.schema.model.ValidatedSchema.TypeKind;
@@ -9,6 +11,7 @@ import dev.tuprel.schema.model.ValidatedSchema.ValidatedEnum;
 import dev.tuprel.schema.model.ValidatedSchema.ValidatedField;
 import dev.tuprel.schema.model.ValidatedSchema.ValidatedModel;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -36,7 +39,7 @@ public final class JavaCodeGenerator {
             "BigDecimal", "Boolean", "Byte", "Character", "Class", "Double", "Float",
             "Instant", "Integer", "List", "LocalDate", "LocalDateTime", "LocalTime",
             "Long", "Object", "Objects", "Short", "String", "TuprelBytes", "TuprelField",
-            "TuprelInput", "TuprelJson", "TuprelModel", "TuprelSchema", "TuprelClient", "UUID");
+            "TuprelInput", "TuprelJson", "TuprelModel", "TuprelRelation", "TuprelSchema", "TuprelClient", "UUID");
     private static final Set<String> RESERVED_MEMBERS = Set.of(
             "build", "builder", "clone", "equals", "finalize", "getClass", "hashCode",
             "notify", "notifyAll", "toString", "wait");
@@ -57,13 +60,25 @@ public final class JavaCodeGenerator {
         put(files, root, "TuprelBytes", renderBytes(root));
         put(files, root, "TuprelJson", renderJson(root));
         put(files, root, "TuprelSchema", renderSchema(root, schema.models()));
+        put(files, root, "TuprelRelation", renderRelationSupport(root));
         Set<String> schemaNames = schemaNames(schema);
+        RelationGraph graph = schema.relations();
+        Map<String, ValidatedModel> models = new HashMap<>();
+        schema.models().forEach(model -> models.put(model.name(), model));
         put(files, root, "TuprelClient", renderRootClient(root, schema.models(), schemaNames));
         for (ValidatedEnum declaration : schema.enums()) {
             put(files, root + ".model", declaration.name(), renderEnum(root, declaration));
         }
         for (ValidatedModel model : schema.models()) {
-            put(files, root + ".model", model.name(), renderModel(root, model));
+            put(files, root + ".model", model.name(), renderModel(root, model, graph, schemaNames));
+            if (operationallySupported(model)) {
+                put(files, root + ".metadata", model.name() + "Metadata", renderMetadata(root, model, schemaNames));
+                List<RelationLink> includable = includable(model, graph, models);
+                if (!includable.isEmpty()) {
+                    put(files, root + ".include", model.name() + "Include",
+                            renderInclude(root, model, graph, includable, schemaNames));
+                }
+            }
             put(files, root + ".create", model.name() + "Create", renderInput(root, model, false));
             put(files, root + ".update", model.name() + "Update", renderInput(root, model, true));
             put(files, root + ".fields", model.name() + "Fields", renderFields(root, model));
@@ -117,7 +132,8 @@ public final class JavaCodeGenerator {
         schema.models().forEach(model -> modelNames.add(model.name()));
         schema.enums().forEach(enumeration -> enumNames.add(enumeration.name()));
         for (ValidatedModel model : schema.models()) {
-            for (String suffix : List.of("Create", "Update", "Fields", "Where", "Order", "Client")) {
+            for (String suffix : List.of("Create", "Update", "Fields", "Where", "Order", "Client", "Include",
+                    "Metadata")) {
                 derivedNames.add((model.name() + suffix).toLowerCase(Locale.ROOT));
             }
         }
@@ -306,10 +322,13 @@ public final class JavaCodeGenerator {
                 + String.join(",\n    ", enumeration.values()) + "\n}\n");
     }
 
-    private static String renderModel(String root, ValidatedModel model) {
+    private static String renderModel(String root, ValidatedModel model, RelationGraph graph,
+            Set<String> schemaNames) {
         Set<String> imports = new TreeSet<>();
+        TypeRefs refs = new TypeRefs(imports, schemaNames);
         List<ValidatedField> fields = model.fields().stream()
                 .filter(field -> field.type().kind() != TypeKind.MODEL).toList();
+        List<RelationLink> relations = relations(model, graph);
         for (ValidatedField field : fields) {
             importsFor(imports, field, root);
             imports.remove(root + ".model." + field.type().name());
@@ -318,39 +337,89 @@ public final class JavaCodeGenerator {
                 imports.add("java.util.Objects");
             }
         }
-        StringBuilder body = new StringBuilder("/** Immutable value for model ")
-                .append(model.name()).append("; relations are represented by metadata only. */\n")
-                .append("public record ").append(model.name()).append("(");
-        for (int index = 0; index < fields.size(); index++) {
-            ValidatedField field = fields.get(index);
-            if (index > 0) {
-                body.append(", ");
-            }
-            body.append(javaType(field, false)).append(' ').append(field.name());
+        if (!relations.isEmpty()) {
+            imports.add(root + ".TuprelRelation");
+            imports.add("java.util.Objects");
         }
-        body.append(") {\n");
-        if (!fields.isEmpty()) {
-            body.append("    public ").append(model.name()).append(" {\n");
-            for (ValidatedField field : fields) {
-                if (field.cardinality() == SchemaDocument.Cardinality.LIST) {
-                    body.append("        ").append(field.name()).append(" = List.copyOf(")
-                            .append(field.name()).append(");\n");
-                } else if (field.cardinality() == SchemaDocument.Cardinality.REQUIRED
-                        && !javaType(field, false).matches("boolean|short|int|long|float|double")) {
-                    body.append("        Objects.requireNonNull(").append(field.name()).append(", ")
-                            .append(quote(field.name())).append(");\n");
-                }
+        if (relations.stream().anyMatch(RelationLink::toMany)) {
+            imports.add("java.util.List");
+        }
+        StringBuilder body = new StringBuilder();
+        if (relations.isEmpty()) {
+            body.append("/** Immutable value for model ").append(model.name())
+                    .append("; relations are represented by metadata only. */\n");
+        } else {
+            body.append("/**\n * Immutable value for model ").append(model.name()).append(".\n *\n")
+                    .append(" * <p>Relation components hold a value only when a query includes them; reading an\n")
+                    .append(" * unloaded relation fails instead of querying the database.\n */\n");
+        }
+        body.append("public record ").append(model.name()).append("(");
+        List<String> components = new ArrayList<>();
+        for (ValidatedField field : fields) {
+            components.add(javaType(field, false) + " " + field.name());
+        }
+        for (RelationLink link : relations) {
+            components.add(relationType(link, refs) + " " + link.field());
+        }
+        body.append(String.join(", ", components)).append(") {\n");
+        body.append("    public ").append(model.name()).append(" {\n");
+        for (ValidatedField field : fields) {
+            if (field.cardinality() == SchemaDocument.Cardinality.LIST) {
+                body.append("        ").append(field.name()).append(" = List.copyOf(")
+                        .append(field.name()).append(");\n");
+            } else if (field.cardinality() == SchemaDocument.Cardinality.REQUIRED
+                    && !javaType(field, false).matches("boolean|short|int|long|float|double")) {
+                body.append("        Objects.requireNonNull(").append(field.name()).append(", ")
+                        .append(quote(field.name())).append(");\n");
             }
-            body.append("    }\n");
+        }
+        for (RelationLink link : relations) {
+            body.append("        Objects.requireNonNull(").append(link.field()).append(", ")
+                    .append(quote(link.field())).append(");\n");
+        }
+        body.append("    }\n");
+        if (!relations.isEmpty()) {
+            body.append("\n    /** Creates a value whose relations are not loaded. */\n    public ")
+                    .append(model.name()).append('(')
+                    .append(String.join(", ", components.subList(0, fields.size()))).append(") {\n        this(");
+            List<String> arguments = new ArrayList<>();
+            fields.forEach(field -> arguments.add(field.name()));
+            for (RelationLink link : relations) {
+                arguments.add("TuprelRelation.notLoaded(" + quote(model.name()) + ", " + quote(link.field()) + ")");
+            }
+            body.append(String.join(", ", arguments)).append(");\n    }\n");
         }
         return source(root + ".model", imports, body.append("}\n").toString());
+    }
+
+    /** Relation fields of a model in declaration order. */
+    private static List<RelationLink> relations(ValidatedModel model, RelationGraph graph) {
+        return model.fields().stream()
+                .filter(field -> field.type().kind() == TypeKind.MODEL)
+                .map(field -> graph.link(model.name(), field.name()).orElseThrow(
+                        () -> new IllegalStateException("A validated relation field has no link")))
+                .toList();
+    }
+
+    private static String relationType(RelationLink link, TypeRefs refs) {
+        String value;
+        if (link.toMany()) {
+            value = "List<" + link.target() + ">";
+        } else if (link.side() == RelationGraph.Side.OWNING
+                && link.cardinality() == SchemaDocument.Cardinality.REQUIRED) {
+            value = link.target();
+        } else {
+            value = refs.use("java.util.Optional") + "<" + link.target() + ">";
+        }
+        return "TuprelRelation<" + value + ">";
     }
 
     private static String renderInput(String root, ValidatedModel model, boolean update) {
         String suffix = update ? "Update" : "Create";
         String name = model.name() + suffix;
         List<ValidatedField> fields = model.fields().stream()
-                .filter(field -> field.type().kind() != TypeKind.MODEL && (!update || !field.id()))
+                .filter(field -> field.type().kind() != TypeKind.MODEL
+                        && (!update || (!field.id() && !field.version())))
                 .toList();
         Set<String> imports = new TreeSet<>();
         imports.add(root + ".TuprelInput");
@@ -564,37 +633,62 @@ public final class JavaCodeGenerator {
         return source(root + ".order", imports, body.append("}\n").toString());
     }
 
+    /** A type variable name that no schema model or enum shadows. */
+    private static String typeVariable(Set<String> schemaNames, String preferred) {
+        String name = preferred;
+        for (int suffix = 0; schemaNames.contains(name); suffix++) {
+            name = preferred + suffix;
+        }
+        return name;
+    }
+
     private static String renderRootClient(String root, List<ValidatedModel> models, Set<String> schemaNames) {
         Set<String> imports = new TreeSet<>();
         TypeRefs refs = new TypeRefs(imports, schemaNames);
         String database = refs.use(RUNTIME + "TuprelDatabase");
+        String objects = refs.use("java.util.Objects");
+        String function = refs.use("java.util.function.Function");
+        String options = refs.use(RUNTIME + "TransactionOptions");
+        String result = typeVariable(schemaNames, "T");
         List<ValidatedModel> operational = models.stream()
                 .filter(JavaCodeGenerator::operationallySupported).toList();
         StringBuilder body = new StringBuilder("""
                 /**
-                 * Entry point to the generated model clients. It holds no connection: every client
-                 * operation obtains and releases its own connection from the runtime's DataSource.
-                 * Models with list or Json fields have no client yet.
+                 * Entry point to the generated model clients. It holds no connection: outside a
+                 * transaction every client operation obtains and releases its own connection from the
+                 * runtime's DataSource. Models with list or Json fields have no client yet.
                  */
                 public final class TuprelClient {
                 """);
+        body.append("    private final ").append(database).append(" database;\n");
         for (ValidatedModel model : operational) {
             imports.add(root + ".client." + model.name() + "Client");
             body.append("    private final ").append(model.name()).append("Client ")
                     .append(lowerFirst(model.name())).append(";\n");
         }
-        if (!operational.isEmpty()) {
-            body.append('\n');
-        }
-        body.append("    /** Creates the clients over an explicit runtime; the caller owns its DataSource. */\n")
+        body.append("\n    /** Creates the clients over an explicit runtime; the caller owns its DataSource. */\n")
                 .append("    public TuprelClient(").append(database).append(" database) {\n")
-                .append("        ").append(refs.use("java.util.Objects"))
-                .append(".requireNonNull(database, \"database\");\n");
+                .append("        this.database = ").append(objects).append(".requireNonNull(database, \"database\");\n");
         for (ValidatedModel model : operational) {
             body.append("        this.").append(lowerFirst(model.name())).append(" = new ")
                     .append(model.name()).append("Client(database);\n");
         }
         body.append("    }\n");
+        body.append("\n    /**\n     * Runs work in one transaction with connection defaults and commits when it returns;\n")
+                .append("     * an exception rolls it back. Called on a client passed to such work, it runs a nested\n")
+                .append("     * block with a savepoint. The client passed to the work is unusable afterwards.\n     */\n")
+                .append("    public <").append(result).append("> ").append(result).append(" transaction(")
+                .append(function).append("<TuprelClient, ").append(result).append("> work) {\n")
+                .append("        ").append(objects).append(".requireNonNull(work, \"work\");\n")
+                .append("        return database.transaction(transaction -> work.apply(new TuprelClient(transaction)));\n")
+                .append("    }\n");
+        body.append("\n    /** Runs work in one transaction with the given isolation, access mode and deadline. */\n")
+                .append("    public <").append(result).append("> ").append(result).append(" transaction(")
+                .append(options).append(" options, ").append(function).append("<TuprelClient, ").append(result)
+                .append("> work) {\n")
+                .append("        ").append(objects).append(".requireNonNull(work, \"work\");\n")
+                .append("        return database.transaction(options, transaction -> work.apply(new TuprelClient(transaction)));\n")
+                .append("    }\n");
         for (ValidatedModel model : operational) {
             body.append("\n    /** Operations on model {@code ").append(model.name()).append("}. */\n")
                     .append("    public ").append(model.name()).append("Client ")
@@ -604,7 +698,11 @@ public final class JavaCodeGenerator {
         return source(root, imports, body.append("}\n").toString());
     }
 
-    private static String renderClient(String root, ValidatedModel model, Set<String> schemaNames) {
+    private static Optional<ValidatedField> versionField(ValidatedModel model) {
+        return columns(model).stream().filter(ValidatedField::version).findFirst();
+    }
+
+    private static String renderMetadata(String root, ValidatedModel model, Set<String> schemaNames) {
         String name = model.name();
         List<ValidatedField> columns = columns(model);
         ValidatedField id = columns.stream().filter(ValidatedField::id).findFirst()
@@ -612,21 +710,10 @@ public final class JavaCodeGenerator {
         Set<String> imports = new TreeSet<>();
         TypeRefs refs = new TypeRefs(imports, schemaNames);
         imports.add(root + ".model." + name);
-        imports.add(root + ".create." + name + "Create");
-        imports.add(root + ".update." + name + "Update");
         imports.add(root + ".where." + name + "Where");
         importsFor(imports, id, root);
         String where = name + "Where";
-        String idType = javaType(id, true);
-        String list = refs.use("java.util.List");
-        String objects = refs.use("java.util.Objects");
-        String optional = refs.use("java.util.Optional");
-        String operator = refs.use("java.util.function.UnaryOperator");
-        String query = refs.use(QUERY + "Query") + "<" + name + ">";
-        String configure = operator + "<" + query + "> query";
-        String assignments = refs.use(QUERY + "Assignments") + "<" + name + ">";
-        String emptyQuery = refs.use(QUERY + "Query") + ".all()";
-
+        String table = refs.use(QUERY + "ModelTable");
         StringBuilder mapper = new StringBuilder();
         StringBuilder fieldList = new StringBuilder();
         for (int index = 0; index < columns.size(); index++) {
@@ -635,41 +722,171 @@ public final class JavaCodeGenerator {
                     .append("().read(row)");
             fieldList.append(separator).append(where).append('.').append(columns.get(index).name()).append("()");
         }
+        Optional<ValidatedField> version = versionField(model);
+        StringBuilder body = new StringBuilder("/**\n * Table mapping of model {@code ").append(name)
+                .append("}: table {@code \"").append(name)
+                .append("\"}, with each column named exactly like its field.\n */\n")
+                .append("public final class ").append(name).append("Metadata {\n")
+                .append("    /** Table, identifier, ").append(version.isPresent() ? "version, " : "")
+                .append("columns and row mapper. */\n")
+                .append("    public static final ").append(table).append('<').append(name).append(", ")
+                .append(javaType(id, true)).append("> TABLE = ").append(table)
+                .append(version.isPresent() ? ".versioned(" : ".of(").append("\n            ").append(quote(name))
+                .append(",\n            ").append(where).append('.').append(id.name()).append("(),\n");
+        version.ifPresent(field -> body.append("            ").append(where).append('.').append(field.name())
+                .append("(),\n"));
+        body.append("            ").append(refs.use("java.util.List")).append(".of(\n                    ")
+                .append(fieldList).append("),\n            row -> new ").append(name).append("(\n                    ")
+                .append(mapper).append("));\n\n    private ").append(name).append("Metadata() {}\n}\n");
+        return source(root + ".metadata", imports, body.toString());
+    }
+
+    /** Relations of a model that a query can include: both models have clients and the keys are columns. */
+    private static List<RelationLink> includable(ValidatedModel model, RelationGraph graph,
+            Map<String, ValidatedModel> models) {
+        if (!operationallySupported(model)) {
+            return List.of();
+        }
+        return relations(model, graph).stream()
+                .filter(link -> operationallySupported(models.get(link.target()))
+                        && columnsExist(model, link.localFields())
+                        && columnsExist(models.get(link.target()), link.targetFields()))
+                .toList();
+    }
+
+    private static boolean columnsExist(ValidatedModel model, List<String> names) {
+        return names.stream().allMatch(name -> columns(model).stream().anyMatch(field -> field.name().equals(name)));
+    }
+
+    private static String renderInclude(String root, ValidatedModel model, RelationGraph graph,
+            List<RelationLink> links, Set<String> schemaNames) {
+        String name = model.name();
+        Set<String> imports = new TreeSet<>();
+        TypeRefs refs = new TypeRefs(imports, schemaNames);
+        imports.add(root + ".TuprelRelation");
+        imports.add(root + ".model." + name);
+        imports.add(root + ".where." + name + "Where");
+        String relation = refs.use(QUERY + "Relation");
+        String include = refs.use(QUERY + "Include");
+        String query = refs.use(QUERY + "Query");
+        String operator = refs.use("java.util.function.UnaryOperator");
+        String list = refs.use("java.util.List");
+        List<ValidatedField> columns = columns(model);
+        List<RelationLink> all = relations(model, graph);
+        StringBuilder constants = new StringBuilder();
+        StringBuilder methods = new StringBuilder();
+        for (RelationLink link : links) {
+            String target = link.target();
+            imports.add(root + ".model." + target);
+            imports.add(root + ".where." + target + "Where");
+            imports.add(root + ".metadata." + target + "Metadata");
+            String factory = link.toMany() ? "toMany"
+                    : link.side() == RelationGraph.Side.OWNING
+                            && link.cardinality() == SchemaDocument.Cardinality.REQUIRED ? "toOne" : "toOptional";
+            List<String> arguments = new ArrayList<>();
+            columns.forEach(field -> arguments.add("row." + field.name() + "()"));
+            for (RelationLink other : all) {
+                arguments.add(other.field().equals(link.field())
+                        ? "TuprelRelation.loaded(" + quote(name) + ", " + quote(link.field()) + ", value)"
+                        : "row." + other.field() + "()");
+            }
+            String constant = link.field().toUpperCase(Locale.ROOT);
+            constants.append("    private static final ").append(relation).append('<').append(name).append(", ")
+                    .append(target).append("> ").append(constant).append(" = ").append(relation).append('.')
+                    .append(factory).append("(\n            ").append(quote(name + "." + link.field()))
+                    .append(",\n            ").append(list).append(".of(")
+                    .append(fieldCalls(name + "Where", link.localFields())).append("),\n            () -> ")
+                    .append(target).append("Metadata.TABLE,\n            ").append(list).append(".of(")
+                    .append(fieldCalls(target + "Where", link.targetFields())).append("),\n            (row, value) -> new ")
+                    .append(name).append('(').append(String.join(", ", arguments)).append("));\n");
+            String description = link.toMany()
+                    ? "every related {@code " + target + "}, ordered by its identifier unless the nested query orders them"
+                    : "the related {@code " + target + "}";
+            methods.append("\n    /** Loads {@code ").append(name).append('.').append(link.field()).append("}: ")
+                    .append(description).append(". */\n    public static ").append(include).append('<').append(name)
+                    .append("> ").append(link.field()).append("() {\n        return ").append(constant)
+                    .append(".include();\n    }\n");
+            methods.append("\n    /** Loads {@code ").append(name).append('.').append(link.field()).append("} with ")
+                    .append(link.toMany() ? "a nested condition, ordering and includes" : "nested includes")
+                    .append(". */\n    public static ").append(include).append('<').append(name).append("> ")
+                    .append(link.field()).append('(').append(operator).append('<').append(query).append('<')
+                    .append(target).append(">> query) {\n        return ").append(constant)
+                    .append(".include(query);\n    }\n");
+        }
+        String body = "/**\n * Relations of {@code " + name
+                + "} that a query loads explicitly with {@code include}. Each included\n"
+                + " * relation runs one query for all rows together, never one query per row.\n */\n"
+                + "public final class " + name + "Include {\n" + constants
+                + "\n    private " + name + "Include() {}\n" + methods + "}\n";
+        return source(root + ".include", imports, body);
+    }
+
+    private static String fieldCalls(String owner, List<String> fields) {
+        return String.join(", ", fields.stream().map(field -> owner + "." + field + "()").toList());
+    }
+
+    private static String renderClient(String root, ValidatedModel model, Set<String> schemaNames) {
+        String name = model.name();
+        List<ValidatedField> columns = columns(model);
+        ValidatedField id = columns.stream().filter(ValidatedField::id).findFirst()
+                .orElseThrow(() -> new IllegalStateException("A validated model has exactly one @id field"));
+        Optional<ValidatedField> version = versionField(model);
+        Set<String> imports = new TreeSet<>();
+        TypeRefs refs = new TypeRefs(imports, schemaNames);
+        imports.add(root + ".model." + name);
+        imports.add(root + ".create." + name + "Create");
+        imports.add(root + ".update." + name + "Update");
+        imports.add(root + ".where." + name + "Where");
+        imports.add(root + ".metadata." + name + "Metadata");
+        importsFor(imports, id, root);
+        String where = name + "Where";
+        String idType = javaType(id, false);
+        String list = refs.use("java.util.List");
+        String objects = refs.use("java.util.Objects");
+        String optional = refs.use("java.util.Optional");
+        String operator = refs.use("java.util.function.UnaryOperator");
+        String query = refs.use(QUERY + "Query") + "<" + name + ">";
+        String configure = operator + "<" + query + "> query";
+        String assignments = refs.use(QUERY + "Assignments") + "<" + name + ">";
+        String emptyAssignments = refs.use(QUERY + "Assignments") + ".empty()";
+        String emptyQuery = refs.use(QUERY + "Query") + ".all()";
+        String condition = refs.use(QUERY + "Condition") + "<" + name + "> where";
+        String projected = typeVariable(schemaNames, "R");
 
         StringBuilder body = new StringBuilder("/**\n * Explicit operations on table {@code \"")
                 .append(name).append("\"} for model {@code ").append(name).append("}.\n *\n")
-                .append(" * <p>Each method runs exactly one SQL statement with bound parameters, on its own\n")
-                .append(" * connection in autocommit mode. Nothing is cached, tracked or loaded lazily.\n */\n")
+                .append(" * <p>Each method runs one SQL statement with bound parameters, plus one statement per\n")
+                .append(" * included relation. Outside a transaction each statement uses its own autocommit\n")
+                .append(" * connection. Nothing is cached, tracked or loaded lazily.\n */\n")
                 .append("public final class ").append(name).append("Client {\n")
-                .append("    private static final ").append(refs.use(QUERY + "ModelTable")).append('<')
-                .append(name).append(", ").append(idType).append("> TABLE = ")
-                .append(refs.use(QUERY + "ModelTable")).append(".of(\n            ").append(quote(name))
-                .append(",\n            ").append(where).append('.').append(id.name()).append("(),\n            ")
-                .append(list).append(".of(\n                    ").append(fieldList).append("),\n            row -> new ")
-                .append(name).append("(\n                    ").append(mapper).append("));\n\n")
                 .append("    private final ").append(refs.use(QUERY + "ModelOperations")).append('<')
-                .append(name).append(", ").append(idType).append("> operations;\n\n")
+                .append(name).append(", ").append(javaType(id, true)).append("> operations;\n\n")
                 .append("    /** Creates the client over an explicit runtime; the caller owns its DataSource. */\n")
                 .append("    public ").append(name).append("Client(").append(refs.use(RUNTIME + "TuprelDatabase"))
                 .append(" database) {\n        this.operations = new ")
                 .append(refs.use(QUERY + "ModelOperations")).append("<>(").append(objects)
-                .append(".requireNonNull(database, \"database\"), TABLE);\n    }\n");
+                .append(".requireNonNull(database, \"database\"), ").append(name).append("Metadata.TABLE);\n    }\n");
 
         body.append("\n    /** Inserts the present input fields and returns the stored row. */\n")
                 .append("    public ").append(name).append(" create(").append(name).append("Create input) {\n")
-                .append("        ").append(objects).append(".requireNonNull(input, \"input\");\n")
-                .append("        ").append(assignments).append(" values = ")
-                .append(refs.use(QUERY + "Assignments")).append(".empty();\n");
-        appendAssignments(body, columns, where, false);
-        body.append("        return operations.create(values);\n    }\n");
-
+                .append("        return operations.create(values(input));\n    }\n");
+        body.append("\n    /**\n     * Inserts rows with multi-row statements and returns the number of inserted rows;\n")
+                .append("     * a batch that needs several statements requires a transaction.\n     */\n")
+                .append("    public long createMany(").append(list).append('<').append(name)
+                .append("Create> inputs) {\n        ").append(objects).append(".requireNonNull(inputs, \"inputs\");\n")
+                .append("        return operations.createMany(inputs.stream().map(")
+                .append(name).append("Client::values).toList());\n    }\n");
         body.append("\n    /** Reads the row with the identifier. */\n")
                 .append("    public ").append(optional).append('<').append(name).append("> findById(")
-                .append(javaType(id, false)).append(" id) {\n        return operations.findById(id);\n    }\n");
+                .append(idType).append(" id) {\n        return operations.findById(id);\n    }\n");
+        body.append("\n    /** Reads the row with the identifier; the query may only include relations, lock or time out. */\n")
+                .append("    public ").append(optional).append('<').append(name).append("> findById(")
+                .append(idType).append(" id, ").append(configure)
+                .append(") {\n        return operations.findById(id, configured(query));\n    }\n");
         body.append("\n    /** Reads every row, in unspecified order. */\n")
                 .append("    public ").append(list).append('<').append(name).append("> findMany() {\n")
                 .append("        return operations.findMany(").append(emptyQuery).append(");\n    }\n");
-        body.append("\n    /** Reads every row matching the query. */\n")
+        body.append("\n    /** Reads every row matching the query, with its included relations. */\n")
                 .append("    public ").append(list).append('<').append(name).append("> findMany(")
                 .append(configure).append(") {\n        return operations.findMany(configured(query));\n    }\n");
         body.append("\n    /** Reads the first row matching the query; order it to make \"first\" well defined. */\n")
@@ -679,35 +896,65 @@ public final class JavaCodeGenerator {
                 .append("    public ").append(refs.use(QUERY + "CursorPage")).append('<').append(name)
                 .append("> findManyCursor(").append(configure)
                 .append(") {\n        return operations.findManyCursor(configured(query));\n    }\n");
-        String projection = refs.use(QUERY + "Projection") + "<" + name + ", R> projection";
+        body.append("\n    /** Opens a forward-only stream; requires a transaction and must be closed. */\n")
+                .append("    public ").append(refs.use(RUNTIME + "TuprelStream")).append('<').append(name)
+                .append("> stream(").append(configure)
+                .append(") {\n        return operations.stream(configured(query));\n    }\n");
+        String projection = refs.use(QUERY + "Projection") + "<" + name + ", " + projected + "> projection";
         body.append("\n    /** Reads only the projected columns of every row. */\n")
-                .append("    public <R> ").append(list).append("<R> select(").append(projection)
-                .append(") {\n        return operations.select(projection, ").append(emptyQuery)
-                .append(");\n    }\n");
+                .append("    public <").append(projected).append("> ").append(list).append('<').append(projected)
+                .append("> select(").append(projection)
+                .append(") {\n        return operations.select(projection, ").append(emptyQuery).append(");\n    }\n");
         body.append("\n    /** Reads only the projected columns of every row matching the query. */\n")
-                .append("    public <R> ").append(list).append("<R> select(").append(projection).append(", ")
-                .append(configure).append(") {\n        return operations.select(projection, configured(query));\n    }\n");
+                .append("    public <").append(projected).append("> ").append(list).append('<').append(projected)
+                .append("> select(").append(projection).append(", ").append(configure)
+                .append(") {\n        return operations.select(projection, configured(query));\n    }\n");
         body.append("\n    /** Counts every row. */\n    public long count() {\n        return operations.count(")
                 .append(emptyQuery).append(");\n    }\n");
         body.append("\n    /** Counts rows matching the query condition. */\n    public long count(")
                 .append(configure).append(") {\n        return operations.count(configured(query));\n    }\n");
         body.append("\n    /** Whether any row matches the query condition. */\n    public boolean exists(")
                 .append(configure).append(") {\n        return operations.exists(configured(query));\n    }\n");
-
-        body.append("\n    /** Changes the present input fields and returns the changed row, if it exists. */\n")
-                .append("    public ").append(optional).append('<').append(name).append("> updateById(")
-                .append(javaType(id, false)).append(" id, ").append(name).append("Update input) {\n")
-                .append("        ").append(objects).append(".requireNonNull(input, \"input\");\n")
-                .append("        ").append(assignments).append(" values = ")
-                .append(refs.use(QUERY + "Assignments")).append(".empty();\n");
-        appendAssignments(body, columns, where, true);
-        body.append("        return operations.updateById(id, values);\n    }\n");
+        if (version.isPresent()) {
+            body.append("\n    /**\n     * Changes the present input fields if the stored version equals {@code expectedVersion},\n")
+                    .append("     * increments the version and returns the changed row; empty if no row has the\n")
+                    .append("     * identifier. A different stored version throws OptimisticLockException.\n     */\n")
+                    .append("    public ").append(optional).append('<').append(name).append("> updateById(")
+                    .append(idType).append(" id, long expectedVersion, ").append(name).append("Update input) {\n")
+                    .append("        return operations.updateById(id, expectedVersion, values(input));\n    }\n");
+        } else {
+            body.append("\n    /** Changes the present input fields and returns the changed row, if it exists. */\n")
+                    .append("    public ").append(optional).append('<').append(name).append("> updateById(")
+                    .append(idType).append(" id, ").append(name).append("Update input) {\n")
+                    .append("        return operations.updateById(id, values(input));\n    }\n");
+        }
+        body.append("\n    /** Changes the present input fields of every row matching the condition; returns the count. */\n")
+                .append("    public long updateMany(").append(condition).append(", ").append(name)
+                .append("Update input) {\n        return operations.updateMany(where, values(input));\n    }\n");
         body.append("\n    /** Deletes the row with the identifier; returns whether a row was deleted. */\n")
-                .append("    public boolean deleteById(").append(javaType(id, false))
+                .append("    public boolean deleteById(").append(idType)
                 .append(" id) {\n        return operations.deleteById(id);\n    }\n");
-        body.append("\n    /** Renders the statement findMany would execute, without running it. */\n")
+        body.append("\n    /** Deletes every row matching the condition; returns the count. */\n")
+                .append("    public long deleteMany(").append(condition)
+                .append(") {\n        return operations.deleteMany(where);\n    }\n");
+        body.append("\n    /** Renders the statement findMany would execute for the rows, without running it. */\n")
                 .append("    public ").append(refs.use("dev.tuprel.sql.RenderedSql")).append(" preview(")
                 .append(configure).append(") {\n        return operations.preview(configured(query));\n    }\n");
+        for (boolean update : List.of(false, true)) {
+            body.append("\n    private static ").append(assignments).append(" values(").append(name)
+                    .append(update ? "Update" : "Create").append(" input) {\n        ").append(objects)
+                    .append(".requireNonNull(input, \"input\");\n        ").append(assignments).append(" values = ")
+                    .append(emptyAssignments).append(";\n");
+            for (ValidatedField field : columns) {
+                if (update && (field.id() || field.version())) {
+                    continue;
+                }
+                body.append("        if (input.").append(field.name()).append("().present()) {\n")
+                        .append("            values = values.set(").append(where).append('.').append(field.name())
+                        .append("(), input.").append(field.name()).append("().value());\n        }\n");
+            }
+            body.append("        return values;\n    }\n");
+        }
         body.append("\n    private static ").append(query).append(" configured(").append(configure)
                 .append(") {\n        ").append(objects).append(".requireNonNull(query, \"query\");\n")
                 .append("        return ").append(objects).append(".requireNonNull(query.apply(")
@@ -715,16 +962,65 @@ public final class JavaCodeGenerator {
         return source(root + ".client", imports, body.toString());
     }
 
-    private static void appendAssignments(StringBuilder body, List<ValidatedField> columns, String where,
-            boolean update) {
-        for (ValidatedField field : columns) {
-            if (update && field.id()) {
-                continue;
-            }
-            body.append("        if (input.").append(field.name()).append("().present()) {\n")
-                    .append("            values = values.set(").append(where).append('.').append(field.name())
-                    .append("(), input.").append(field.name()).append("().value());\n        }\n");
-        }
+    private static String renderRelationSupport(String root) {
+        return source(root, Set.of("java.util.Objects"), """
+                /**
+                 * State of one relation component: loaded with a value, or not loaded. A relation is
+                 * loaded only when a query includes it; reading it otherwise fails with a message that
+                 * names the include to add, and never queries the database.
+                 */
+                public final class TuprelRelation<T> {
+                    private final String model;
+                    private final String field;
+                    private final boolean loaded;
+                    private final T value;
+
+                    private TuprelRelation(String model, String field, boolean loaded, T value) {
+                        this.model = Objects.requireNonNull(model, "model");
+                        this.field = Objects.requireNonNull(field, "field");
+                        this.loaded = loaded;
+                        this.value = value;
+                    }
+
+                    /** A relation that was not requested. */
+                    public static <T> TuprelRelation<T> notLoaded(String model, String field) {
+                        return new TuprelRelation<>(model, field, false, null);
+                    }
+
+                    /** A relation loaded with a value: a list, an optional or a single row. */
+                    public static <T> TuprelRelation<T> loaded(String model, String field, T value) {
+                        return new TuprelRelation<>(model, field, true, Objects.requireNonNull(value, "value"));
+                    }
+
+                    /** Whether the relation was loaded. */
+                    public boolean isLoaded() {
+                        return loaded;
+                    }
+
+                    /** The loaded value; fails if the relation was not included. */
+                    public T get() {
+                        if (!loaded) {
+                            throw new IllegalStateException(model + "." + field + " was not loaded. Add include("
+                                    + model + "Include." + field + "()) to the query.");
+                        }
+                        return value;
+                    }
+
+                    @Override public boolean equals(Object other) {
+                        return other instanceof TuprelRelation<?> relation && loaded == relation.loaded
+                                && model.equals(relation.model) && field.equals(relation.field)
+                                && Objects.equals(value, relation.value);
+                    }
+
+                    @Override public int hashCode() {
+                        return Objects.hash(model, field, loaded, value);
+                    }
+
+                    @Override public String toString() {
+                        return loaded ? "TuprelRelation[" + value + "]" : "TuprelRelation[not loaded]";
+                    }
+                }
+                """);
     }
 
     private static String lowerFirst(String name) {

@@ -78,6 +78,24 @@ excedentes e `NULL`, e mensagem fixa sem causa original. Um token só é aceite
 para a mesma tabela, ordenação e tipos. Os valores descodificados são sempre
 binds. O token não é assinado: é uma posição, não uma autorização (RFC-004).
 
+### Esgotamento por locks, transacções e volume
+
+Uma transacção esquecida, um lock mantido ou um resultado enorme podem bloquear
+linhas, esgotar connections do pool ou encher a memória.
+
+Mitigação:
+- Não há transacção nem lock implícitos: locks fora de uma transacção são
+  rejeitados.
+- O handle transaccional é confinado ao bloco e à thread, e a connection é
+  restaurada e fechada em todos os caminhos.
+- Existem prazo de transacção, timeout por query, `NOWAIT` e `SKIP LOCKED`.
+- O streaming só existe dentro de transacções e é fechado quando elas
+  terminam.
+- Batches estão limitados por statement e exigem transacção quando precisam de
+  vários statements.
+- Relações carregam-se em lotes de chaves, e escritas em massa exigem sempre
+  uma condição (RFC-003, RFC-005).
+
 ### Denial of service
 
 Schema/query patológico produz parser blow-up, query sem limite, allocation excessiva ou stream não fechado.

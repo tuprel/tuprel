@@ -287,7 +287,7 @@ class JavaCodeGeneratorTest {
                 }
                 """);
         for (String path : List.of("where/AccountWhere", "order/AccountOrder", "client/AccountClient",
-                "TuprelClient")) {
+                "metadata/AccountMetadata", "TuprelClient")) {
             String golden = "/golden/" + path.substring(path.lastIndexOf('/') + 1) + ".java.txt";
             try (InputStream expected = getClass().getResourceAsStream(golden)) {
                 assertNotNull(expected, golden);
@@ -295,6 +295,143 @@ class JavaCodeGeneratorTest {
                         generated.files().get("dev/example/generated/" + path + ".java"), golden);
             }
         }
+    }
+
+    @Test
+    void reviewedGoldenRelationSourcesMatchGeneratedBytes() throws IOException {
+        GeneratedJavaSources generated = generate("""
+                generator java { package = "dev.example.generated" }
+                model Author {
+                    id Long @id
+                    name String
+                    books Book[]
+                }
+                model Book {
+                    id Long @id
+                    authorId Long
+                    version Int @version @default(0)
+                    author Author @relation(fields: [authorId], references: [id])
+                }
+                """);
+        for (String path : List.of("model/Author", "include/AuthorInclude", "include/BookInclude")) {
+            String golden = "/golden/" + path.substring(path.lastIndexOf('/') + 1) + ".java.txt";
+            try (InputStream expected = getClass().getResourceAsStream(golden)) {
+                assertNotNull(expected, golden);
+                assertEquals(new String(expected.readAllBytes(), StandardCharsets.UTF_8),
+                        generated.files().get("dev/example/generated/" + path + ".java"), golden);
+            }
+        }
+        assertFalse(generated.files().get("dev/example/generated/update/BookUpdate.java").contains("version"));
+    }
+
+    @Test
+    void relationsTransactionsAndBulkOperationsCompileAndStayTypedByModel() throws IOException {
+        GeneratedJavaSources generated = generate("""
+                generator java { package = "dev.example.generated" }
+                model User {
+                    id UUID @id
+                    name String
+                    profile Profile?
+                    posts Post[]
+                }
+                model Profile {
+                    id UUID @id
+                    userId UUID @unique
+                    user User @relation(fields: [userId], references: [id])
+                }
+                model Post {
+                    id Long @id
+                    authorId UUID
+                    version Long @version
+                    author User @relation(fields: [authorId], references: [id])
+                }
+                """);
+        String valid = """
+                package dev.example.usage;
+
+                import dev.example.generated.TuprelClient;
+                import dev.example.generated.create.PostCreate;
+                import dev.example.generated.include.PostInclude;
+                import dev.example.generated.include.UserInclude;
+                import dev.example.generated.model.Post;
+                import dev.example.generated.model.Profile;
+                import dev.example.generated.model.User;
+                import dev.example.generated.order.PostOrder;
+                import dev.example.generated.update.PostUpdate;
+                import dev.example.generated.where.PostWhere;
+                import dev.tuprel.runtime.IsolationLevel;
+                import dev.tuprel.runtime.TransactionOptions;
+                import dev.tuprel.runtime.TuprelStream;
+                import dev.tuprel.runtime.query.RowLock;
+                import java.time.Duration;
+                import java.util.List;
+                import java.util.Optional;
+                import java.util.UUID;
+
+                final class Usage {
+                    private Usage() {}
+
+                    static long run(TuprelClient db, UUID userId) {
+                        List<User> users = db.user().findMany(query -> query
+                                .include(UserInclude.posts(posts -> posts
+                                        .where(PostWhere.id().gt(0L))
+                                        .orderBy(PostOrder.id().desc())
+                                        .include(PostInclude.author())))
+                                .include(UserInclude.profile()));
+                        List<Post> posts = users.getFirst().posts().get();
+                        Optional<Profile> profile = users.getFirst().profile().get();
+                        return db.transaction(TransactionOptions.defaults()
+                                .withIsolation(IsolationLevel.SERIALIZABLE).withTimeout(Duration.ofSeconds(5)), tx -> {
+                            tx.post().findById(1L, query -> query.lock(RowLock.FOR_UPDATE));
+                            tx.post().updateById(1L, 3L, PostUpdate.builder().authorId(userId).build());
+                            long created = tx.post().createMany(List.of(
+                                    PostCreate.builder().id(2L).authorId(userId).version(0L).build()));
+                            try (TuprelStream<Post> stream = tx.post().stream(query -> query.fetchSize(50))) {
+                                stream.forEach(post -> { });
+                            }
+                            long changed = tx.post().updateMany(PostWhere.authorId().eq(userId),
+                                    PostUpdate.builder().authorId(userId).build());
+                            return created + changed + tx.post().deleteMany(PostWhere.id().lt(0L))
+                                    + posts.size() + (profile.isPresent() ? 1 : 0);
+                        });
+                    }
+                }
+                """;
+        CompilationResult validResult = compile(generated, "dev/example/usage/Usage.java", valid);
+        assertEquals(0, validResult.exitCode(), validResult.errors());
+
+        CompilationResult foreignInclude = compile(generated, "dev/example/usage/ForeignInclude.java", """
+                package dev.example.usage;
+
+                import dev.example.generated.TuprelClient;
+                import dev.example.generated.include.PostInclude;
+
+                final class ForeignInclude {
+                    private ForeignInclude() {}
+
+                    static Object misuse(TuprelClient db) {
+                        return db.user().findMany(query -> query.include(PostInclude.author()));
+                    }
+                }
+                """);
+        assertTrue(foreignInclude.exitCode() != 0, "A Post include must not compile in a User query");
+        assertTrue(foreignInclude.errors().contains("Include<Post>"), foreignInclude.errors());
+
+        CompilationResult unversioned = compile(generated, "dev/example/usage/Unversioned.java", """
+                package dev.example.usage;
+
+                import dev.example.generated.TuprelClient;
+                import dev.example.generated.update.PostUpdate;
+
+                final class Unversioned {
+                    private Unversioned() {}
+
+                    static Object misuse(TuprelClient db) {
+                        return db.post().updateById(1L, PostUpdate.builder().build());
+                    }
+                }
+                """);
+        assertTrue(unversioned.exitCode() != 0, "A versioned model must not offer an unversioned update");
     }
 
     @Test

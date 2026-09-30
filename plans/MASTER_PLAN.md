@@ -39,7 +39,16 @@ Relações, `include` e transacções ficam para a Fase 5.
 
 ## Fase 5 - Relações e transacções
 
-1:1, 1:N, N:N, include explícito, transactions, batch, optimistic locking, locks/timeouts/streaming essenciais.
+**Concluída para o subconjunto do plano.** O RFC-003, o RFC-005 e o ADR-0011
+definem:
+- 1:1, 1:N e N:N através de um model de junção, com `include` explícito e
+  carregamento em lote sem N+1;
+- transacções explícitas com savepoints, isolamento, read-only e prazo;
+- row locks, timeouts de query e streaming;
+- `createMany`, `updateMany` e `deleteMany`;
+- optimistic locking com `@version`.
+
+A relação N:N implícita espera pelas migrations.
 
 ## Fase 6 - Migration engine
 

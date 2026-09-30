@@ -15,7 +15,13 @@ type-safe do RFC-004:
 - offset e cursor pagination;
 - SQL preview.
 
-Relações, `include` e transacções continuam fora. Os itens abaixo descrevem o
+A Fase 5 acrescentou:
+- relações 1:1, 1:N e N:N por model de junção, com `include` explícito;
+- transacções com savepoints;
+- row locks, timeouts e streaming;
+- batch, `updateMany`/`deleteMany` e optimistic locking.
+
+Os itens abaixo descrevem o
 roadmap e não são todos funcionalidades disponíveis nesta fase.
 
 ## Tuprel 0.1 - Foundation preview

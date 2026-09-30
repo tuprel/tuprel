@@ -40,7 +40,10 @@ public record ValidatedSchema(
         }
     }
 
-    /** A validated field with its resolved type and core attributes. */
+    /**
+     * A validated field with its resolved type and core attributes. {@code version} marks the
+     * optimistic-locking counter declared with {@code @version}.
+     */
     public record ValidatedField(
             String name,
             ResolvedType type,
@@ -49,7 +52,8 @@ public record ValidatedSchema(
             boolean unique,
             Optional<SchemaDocument.Expression> defaultValue,
             Optional<ValidatedRelation> relation,
-            SourceSpan span) {
+            SourceSpan span,
+            boolean version) {
         /** Validates required field data. */
         public ValidatedField {
             Objects.requireNonNull(name, "name");
@@ -59,6 +63,24 @@ public record ValidatedSchema(
             Objects.requireNonNull(relation, "relation");
             Objects.requireNonNull(span, "span");
         }
+
+        /** A field without {@code @version}, as declared before optimistic locking existed. */
+        public ValidatedField(
+                String name,
+                ResolvedType type,
+                SchemaDocument.Cardinality cardinality,
+                boolean id,
+                boolean unique,
+                Optional<SchemaDocument.Expression> defaultValue,
+                Optional<ValidatedRelation> relation,
+                SourceSpan span) {
+            this(name, type, cardinality, id, unique, defaultValue, relation, span, false);
+        }
+    }
+
+    /** Relation fields paired with their foreign keys (RFC-003). */
+    public RelationGraph relations() {
+        return RelationGraph.of(models);
     }
 
     /** A validated enum. */

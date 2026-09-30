@@ -2,22 +2,41 @@
 package dev.example.generated;
 
 import dev.example.generated.client.AccountClient;
+import dev.tuprel.runtime.TransactionOptions;
 import dev.tuprel.runtime.TuprelDatabase;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
- * Entry point to the generated model clients. It holds no connection: every client
- * operation obtains and releases its own connection from the runtime's DataSource.
- * Models with list or Json fields have no client yet.
+ * Entry point to the generated model clients. It holds no connection: outside a
+ * transaction every client operation obtains and releases its own connection from the
+ * runtime's DataSource. Models with list or Json fields have no client yet.
  */
 @javax.annotation.processing.Generated("dev.tuprel.codegen")
 public final class TuprelClient {
+    private final TuprelDatabase database;
     private final AccountClient account;
 
     /** Creates the clients over an explicit runtime; the caller owns its DataSource. */
     public TuprelClient(TuprelDatabase database) {
-        Objects.requireNonNull(database, "database");
+        this.database = Objects.requireNonNull(database, "database");
         this.account = new AccountClient(database);
+    }
+
+    /**
+     * Runs work in one transaction with connection defaults and commits when it returns;
+     * an exception rolls it back. Called on a client passed to such work, it runs a nested
+     * block with a savepoint. The client passed to the work is unusable afterwards.
+     */
+    public <T> T transaction(Function<TuprelClient, T> work) {
+        Objects.requireNonNull(work, "work");
+        return database.transaction(transaction -> work.apply(new TuprelClient(transaction)));
+    }
+
+    /** Runs work in one transaction with the given isolation, access mode and deadline. */
+    public <T> T transaction(TransactionOptions options, Function<TuprelClient, T> work) {
+        Objects.requireNonNull(work, "work");
+        return database.transaction(options, transaction -> work.apply(new TuprelClient(transaction)));
     }
 
     /** Operations on model {@code Account}. */
