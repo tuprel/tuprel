@@ -5,9 +5,9 @@ plugins {
 dependencies {
     api(project(":tuprel-runtime"))
     implementation(project(":tuprel-sql"))
-    runtimeOnly("org.postgresql:postgresql:42.7.13")
+    runtimeOnly("org.postgresql:postgresql:42.7.14")
 
-    integrationTestImplementation("org.postgresql:postgresql:42.7.13")
+    integrationTestImplementation("org.postgresql:postgresql:42.7.14")
     integrationTestImplementation("org.testcontainers:testcontainers-postgresql:2.0.5")
 }
 
