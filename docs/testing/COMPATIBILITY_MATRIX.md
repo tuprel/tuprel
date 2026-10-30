@@ -17,9 +17,10 @@ A matriz exacta de versões suportadas será fixada antes de 1.0 com base em ver
 
 Não declarar uma versão suportada sem integration tests relevantes.
 
-As suites das Fases 3 e 4 exercitam PostgreSQL `17.11` via a imagem de teste
-`postgres:17.11-trixie`. Isto é uma baseline de integração para o CRUD e para a
-query API gerada, não uma promessa de suporte para todas as versões 17.x nem
+As suites das Fases 3 a 5 exercitam PostgreSQL `17.11` via a imagem de teste
+`postgres:17.11-trixie`. Isto é uma baseline de integração para o CRUD, a
+query API, relações e transacções geradas, não uma promessa de suporte para
+todas as versões 17.x nem
 uma matriz 1.0.
 
 ## Spring Boot

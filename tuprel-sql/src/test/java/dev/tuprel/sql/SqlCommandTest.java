@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class SqlCommandTest {
@@ -107,5 +108,37 @@ class SqlCommandTest {
         assertFalse(rendered.toString().contains("secret-token"));
         assertFalse(rendered.toString().contains("42"));
         assertTrue(rendered.toString().contains("2 redacted"));
+    }
+
+    @Test
+    void bulkCommandsRequireConditionsShapeAndUnassignedVersionColumns() {
+        SqlIdentifier table = new SqlIdentifier("items");
+        SqlIdentifier name = new SqlIdentifier("name");
+        SqlIdentifier version = new SqlIdentifier("version");
+        SqlCondition condition = new SqlCondition.NullCheck(name, false);
+        List<SqlCommand.Assignment> rename = List.of(new SqlCommand.Assignment(name, new SqlValue.Text("x")));
+        assertThrows(IllegalArgumentException.class, () -> new SqlCommand.InsertMany(table, List.of(name), List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new SqlCommand.InsertMany(table, List.of(name),
+                List.of(List.of(Optional.empty(), Optional.empty()))));
+        assertThrows(NullPointerException.class, () -> new SqlCommand.DeleteWhere(table, null));
+        assertThrows(NullPointerException.class,
+                () -> new SqlCommand.UpdateWhere(table, rename, null, Optional.empty()));
+        assertThrows(IllegalArgumentException.class, () -> new SqlCommand.UpdateWhere(table,
+                List.of(new SqlCommand.Assignment(version, new SqlValue.Int32(9))), condition, Optional.of(version)));
+        SqlIdentifier id = new SqlIdentifier("id");
+        assertThrows(IllegalArgumentException.class, () -> new SqlCommand.UpdateByIdReturning(table, id,
+                new SqlValue.Int32(1), List.of(new SqlCommand.Assignment(version, new SqlValue.Int32(2))), List.of(id),
+                Optional.of(new SqlCommand.VersionCheck(version, new SqlValue.Int32(1)))));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SqlCommand.VersionCheck(version, new SqlValue.Null(SqlValue.Type.INT32)));
+    }
+
+    @Test
+    void onlyColumnQueriesCanLockRows() {
+        SqlIdentifier table = new SqlIdentifier("items");
+        SqlQuery.Lock lock = new SqlQuery.Lock(SqlQuery.Lock.Strength.UPDATE, SqlQuery.Lock.Wait.NOWAIT);
+        assertEquals(Optional.of(lock), SqlQuery.select(table, List.of(new SqlIdentifier("id"))).lock(lock).lock());
+        assertThrows(IllegalArgumentException.class, () -> SqlQuery.count(table).lock(lock));
+        assertThrows(IllegalArgumentException.class, () -> SqlQuery.exists(table).lock(lock));
     }
 }

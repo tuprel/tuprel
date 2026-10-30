@@ -2,7 +2,7 @@ name: CodeQL
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/relations-transactions]
   push:
     branches: [main]
   schedule:
@@ -43,6 +43,8 @@ jobs:
         with:
           languages: java-kotlin
       - name: Build for analysis
-        run: ./gradlew build --no-daemon --dependency-verification strict
+        run: |
+          ./gradlew build --no-daemon --dependency-verification strict -PtuprelTestDatabase=container
+          ./gradlew -p examples/tuprel-playground classes --no-daemon --dependency-verification strict
       - name: Analyze
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1

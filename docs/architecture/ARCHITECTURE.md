@@ -47,6 +47,17 @@ model traduz chamadas tipadas em `ModelOperations`, que executa exactamente um
 statement por método. O mapping é código gerado, sem reflection (RFC-004,
 ADR-0010).
 
+A Fase 5 acrescenta o seguinte:
+- relações incluídas explicitamente, carregadas em lote com uma query por
+  relação e nível (RFC-003);
+- transacções explícitas: `TuprelDatabase.transaction` liga uma instância a
+  uma connection, com commit/rollback, savepoints, isolamento, read-only e
+  prazo;
+- row locks, timeouts de statement e streaming dentro de transacções;
+- batch multi-linha e optimistic locking (RFC-005, ADR-0011).
+
+Fora de uma transacção, as regras da Fase 3 mantêm-se.
+
 ### SQL model e dialect
 
 Queries devem ser representadas estruturalmente. O dialect PostgreSQL transforma essa estrutura em SQL + bind parameters. Valores não entram directamente na string SQL.

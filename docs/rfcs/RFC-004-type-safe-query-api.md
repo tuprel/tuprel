@@ -6,6 +6,13 @@
   gerado por model e renderização PostgreSQL
 - **Relacionados:** RFC-001, RFC-002, ADR-0006, ADR-0009, ADR-0010
 
+> **Revisão da Fase 5.** O RFC-003 acrescenta `include` e componentes de relação
+> nos valores. O RFC-005 acrescenta transacções, locks, timeouts, streaming,
+> `createMany`, `updateMany`, `deleteMany` e `updateById` com versão, e o
+> ADR-0011 move o `ModelTable` gerado para `P.metadata`. Já não é verdade que
+> cada operação execute um único statement: cada relação incluída acrescenta
+> um statement por nível. Continua a não haver transacções implícitas.
+
 ## 1. Fronteira da decisão
 
 A Fase 4 transforma os tipos gerados da Fase 2 num cliente operacional sobre o
