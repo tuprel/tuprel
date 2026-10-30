@@ -264,3 +264,5 @@ configuração local não versionada ficam de fora.
 - `examples/tuprel-playground/src/main/java/dev/tuprel/playground/CheckConnection.java`
 - `test-support/src/main/java/dev/tuprel/testsupport/LocalTestEnvironment.java`
 - `tuprel-postgresql/src/test/java/dev/tuprel/testsupport/LocalTestEnvironmentTest.java`
+- `docs/development/FINAL_REVIEW_2026-10-30.md`
+- `docs/rfcs/RFC-006-migration-engine-proposal.md`

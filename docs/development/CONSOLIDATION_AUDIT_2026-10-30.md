@@ -1,10 +1,13 @@
 # Auditoria e consolidação — 30 de Outubro de 2026
 
-**Resultado final:** ligação JDBC confirmada em PostgreSQL 17.11 local;
+**Resultado da primeira entrega:** ligação JDBC confirmada em PostgreSQL 17.11 local;
 `check` completo aprovado, com os 22 testes de integração executados; playground
 executado duas vezes com sucesso e persistência confirmada por uma connection
 independente. Totais dos relatórios: 154 testes aprovados, zero falhas e um
 teste de symlinks ignorado por limitação do Windows. Sem Docker local.
+
+A segunda etapa de revisão e preparação de integração está registada em
+[`FINAL_REVIEW_2026-10-30.md`](FINAL_REVIEW_2026-10-30.md).
 
 ## Estado verificado do repositório
 
