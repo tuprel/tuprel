@@ -32,12 +32,29 @@ mesmo que a aplicação trate a excepção do bloco interior. Savepoints reverti
 com sucesso são libertados. Uma falha de configuração inicial tenta repor as
 definições antes de fechar a connection.
 
+Uma falha JDBC na execução ou leitura de um statement marca o bloco actual
+apenas para rollback, mesmo se a aplicação capturar a excepção. Ao terminar
+esse bloco normalmente, o runtime recusa o commit com SQLState `25000` e
+preserva a causa original. Isto impede que PostgreSQL reverta uma transacção
+abortada enquanto a aplicação recebe um falso resultado de sucesso.
+Num bloco aninhado, o rollback ao savepoint permite recuperar a transacção
+exterior; só uma falha de criação, rollback ou libertação do savepoint invalida
+também os pais. O cliente exterior tem de tratar a falha do bloco aninhado.
+
+Falhas não verificadas de proxies JDBC durante commit/restauro/fecho também
+percorrem a recuperação e o fecho. Um restauro falhado tenta abortar a ligação
+antes de a devolver ao DataSource. Uma falha `CLOSING` depois de commit não
+anula o commit já efectuado: o chamador não deve repetir escritas cegamente.
+
 - **Isolamento:** `READ_COMMITTED`, `REPEATABLE_READ` ou `SERIALIZABLE`. Sem
   opção, usa-se o nível da connection.
 - **Read-only:** escritas falham na base de dados (`25006`).
 - **Prazo:** o timeout é um deadline da transacção inteira. Cada statement
   recebe como statement timeout o tempo restante. Um statement que começaria
   depois do prazo falha sem executar, com `SQLTimeoutException` como causa.
+  O prazo é novamente verificado ao terminar o trabalho e imediatamente antes
+  do commit. O callback Java e um commit já iniciado não são interrompidos
+  assincronamente; os timeouts JDBC continuam a ter granularidade de segundos.
 - **Confinamento:** o handle da transacção só é utilizável na thread que a
   começou e enquanto o trabalho corre. Usá-lo depois, ou noutra thread, lança
   `IllegalStateException`.

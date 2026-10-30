@@ -2,10 +2,12 @@ package dev.tuprel.runtime;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.LongSupplier;
 
 /**
  * State of one transaction or savepoint block: the shared connection, the owning thread, the
@@ -16,25 +18,31 @@ final class TransactionScope {
     private final Thread owner;
     private final Optional<Long> deadlineNanos;
     private final Optional<TransactionScope> parent;
+    private final LongSupplier nanoTime;
     private final List<TuprelStream<?>> streams = new ArrayList<>();
     private boolean active = true;
     private Optional<Throwable> rollbackOnly = Optional.empty();
 
     private TransactionScope(Connection connection, Thread owner, Optional<Long> deadlineNanos,
-            Optional<TransactionScope> parent) {
+            Optional<TransactionScope> parent, LongSupplier nanoTime) {
         this.connection = connection;
         this.owner = owner;
         this.deadlineNanos = deadlineNanos;
         this.parent = parent;
+        this.nanoTime = nanoTime;
     }
 
     static TransactionScope root(Connection connection, Optional<Duration> timeout) {
+        return root(connection, timeout, System::nanoTime);
+    }
+
+    static TransactionScope root(Connection connection, Optional<Duration> timeout, LongSupplier nanoTime) {
         return new TransactionScope(connection, Thread.currentThread(),
-                timeout.map(value -> System.nanoTime() + value.toNanos()), Optional.empty());
+                timeout.map(value -> nanoTime.getAsLong() + value.toNanos()), Optional.empty(), nanoTime);
     }
 
     TransactionScope child() {
-        return new TransactionScope(connection, owner, deadlineNanos, Optional.of(this));
+        return new TransactionScope(connection, owner, deadlineNanos, Optional.of(this), nanoTime);
     }
 
     /** Fails when used from another thread or after the block has ended. */
@@ -54,7 +62,7 @@ final class TransactionScope {
 
     /** Remaining time before the deadline; empty without a deadline, zero or negative when due. */
     Optional<Duration> remaining() {
-        return deadlineNanos.map(deadline -> Duration.ofNanos(deadline - System.nanoTime()));
+        return deadlineNanos.map(deadline -> Duration.ofNanos(deadline - nanoTime.getAsLong()));
     }
 
     void register(TuprelStream<?> stream) {
@@ -72,11 +80,22 @@ final class TransactionScope {
         parent.ifPresent(scope -> scope.markRollbackOnly(failure));
     }
 
+    void markStatementFailure(SQLException failure) {
+        if (rollbackOnly.isEmpty()) {
+            rollbackOnly = Optional.of(failure);
+        }
+    }
+
     void requireCommittable() {
         if (rollbackOnly.isPresent()) {
             throw new TuprelDatabaseException(TuprelDatabaseException.Phase.TRANSACTION,
-                    new SQLException("Transaction cannot commit after savepoint recovery failed", "25000",
+                    new SQLException("Transaction cannot commit after a failed JDBC operation or savepoint recovery", "25000",
                             rollbackOnly.get()));
+        }
+        Optional<Duration> time = remaining();
+        if (time.isPresent() && (time.get().isZero() || time.get().isNegative())) {
+            throw new TuprelDatabaseException(TuprelDatabaseException.Phase.TRANSACTION,
+                    new SQLTimeoutException("Transaction deadline exceeded"));
         }
     }
 

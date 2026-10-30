@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 
@@ -315,6 +316,94 @@ class TransactionTest {
         assertEquals("close", recorder.events.getLast());
     }
 
+    @Test
+    void uncheckedCommitFailureRollsBackAndClosesTheConnection() {
+        Recorder recorder = new Recorder();
+        recorder.commitFailure = new IllegalStateException("pool commit failed");
+        TuprelDatabaseException failure = assertThrows(TuprelDatabaseException.class,
+                () -> recorder.database().transaction(tx -> tx.deleteById(DELETE)));
+        assertSame(recorder.commitFailure, failure.getCause());
+        assertEquals(TuprelDatabaseException.Phase.TRANSACTION, failure.phase());
+        assertTrue(recorder.events.contains("rollback"));
+        assertEquals("close", recorder.events.getLast());
+    }
+
+    @Test
+    void uncheckedRestorationFailureStillAbortsAndClosesAfterCommitWithoutRetryingIt() {
+        Recorder recorder = new Recorder();
+        recorder.restorationFailure = new IllegalStateException("pool reset failed");
+        recorder.connectionCloseFailure = new IllegalStateException("pool close failed");
+        TuprelDatabaseException failure = assertThrows(TuprelDatabaseException.class,
+                () -> recorder.database().transaction(tx -> 1));
+        assertSame(recorder.restorationFailure, failure.getCause());
+        assertEquals(TuprelDatabaseException.Phase.CLOSING, failure.phase());
+        assertEquals(List.of(recorder.connectionCloseFailure), List.of(failure.getSuppressed()));
+        assertTrue(recorder.events.contains("commit"));
+        assertTrue(recorder.events.contains("abort"));
+        assertFalse(recorder.events.contains("rollback"), "The transaction was already committed");
+        assertEquals("close", recorder.events.getLast());
+    }
+
+    @Test
+    void uncheckedResultAndStatementCloseFailuresAreAggregatedAndPreventCommit() {
+        Recorder recorder = new Recorder();
+        recorder.resultCloseFailure = new IllegalStateException("result close failed");
+        recorder.statementCloseFailure = new IllegalStateException("statement close failed");
+        TuprelDatabaseException failure = assertThrows(TuprelDatabaseException.class,
+                () -> recorder.database().transaction(tx -> {
+                    tx.stream(QUERY, row -> 1, StatementOptions.defaults());
+                    return 1;
+                }));
+        assertSame(recorder.resultCloseFailure, failure.getCause());
+        assertEquals(List.of(recorder.statementCloseFailure), List.of(failure.getCause().getSuppressed()));
+        assertEquals(1, recorder.statementsClosed);
+        assertTrue(recorder.events.contains("rollback"));
+        assertFalse(recorder.events.contains("commit"));
+        assertEquals("close", recorder.events.getLast());
+    }
+
+    @Test
+    void streamOpeningErrorClosesItsUnregisteredStatementAndRollsBack() {
+        Recorder recorder = new Recorder();
+        recorder.streamOpeningFailure = new AssertionError("stream setup failed");
+        AssertionError failure = assertThrows(AssertionError.class, () -> recorder.database().transaction(
+                tx -> tx.stream(QUERY, row -> 1, StatementOptions.defaults())));
+        assertSame(recorder.streamOpeningFailure, failure);
+        assertEquals(1, recorder.statementsClosed);
+        assertTrue(recorder.events.contains("rollback"));
+        assertEquals("close", recorder.events.getLast());
+    }
+
+    @Test
+    void caughtSavepointCreationFailureCannotLeadToAnOuterCommit() {
+        Recorder recorder = new Recorder();
+        recorder.savepointFailure = new SQLException("savepoint failed", "3B001");
+        TuprelDatabaseException failure = assertThrows(TuprelDatabaseException.class,
+                () -> recorder.database().transaction(tx -> {
+                    assertThrows(TuprelDatabaseException.class, () -> tx.transaction(inner -> 1));
+                    return 1;
+                }));
+        assertEquals("25000", failure.sqlState());
+        assertFalse(recorder.events.contains("commit"));
+        assertTrue(recorder.events.contains("rollback"));
+    }
+
+    @Test
+    void deadlineIsCheckedBeforeCommitAndInheritedBySavepointsWithADeterministicClock() {
+        Recorder recorder = new Recorder();
+        AtomicLong clock = new AtomicLong(Long.MAX_VALUE - 2);
+        TransactionScope scope = TransactionScope.root(recorder.connection(),
+                Optional.of(Duration.ofNanos(5)), clock::get);
+        TransactionScope child = scope.child();
+        scope.requireCommittable();
+        child.requireCommittable();
+        clock.addAndGet(5);
+        assertInstanceOf(SQLTimeoutException.class,
+                assertThrows(TuprelDatabaseException.class, scope::requireCommittable).getCause());
+        assertInstanceOf(SQLTimeoutException.class,
+                assertThrows(TuprelDatabaseException.class, child::requireCommittable).getCause());
+    }
+
     /** JDBC fake recording connection-level events in order. */
     private static final class Recorder implements SqlRenderer {
         private final List<String> events = new ArrayList<>();
@@ -322,6 +411,7 @@ class TransactionTest {
         private final List<Integer> fetchSizes = new ArrayList<>();
         private int connectionsOpened;
         private int resultsClosed;
+        private int statementsClosed;
         private int rows;
         private boolean failCommit;
         private boolean failRollback;
@@ -331,6 +421,13 @@ class TransactionTest {
         private boolean failSetup;
         private boolean originalReadOnly;
         private boolean autoCommit = true;
+        private RuntimeException commitFailure;
+        private RuntimeException restorationFailure;
+        private RuntimeException connectionCloseFailure;
+        private RuntimeException resultCloseFailure;
+        private RuntimeException statementCloseFailure;
+        private Error streamOpeningFailure;
+        private SQLException savepointFailure;
 
         TuprelDatabase database() {
             return new TuprelDatabase(dataSource(), this, (statement, index, value) -> { });
@@ -374,6 +471,10 @@ class TransactionTest {
                 }
                 case "setTransactionIsolation", "setReadOnly" -> {
                     events.add(method + "(" + arguments[0] + ")");
+                    if (restorationFailure != null && method.equals("setTransactionIsolation")
+                            && arguments[0].equals(Connection.TRANSACTION_READ_COMMITTED)) {
+                        throw restorationFailure;
+                    }
                     if (failSetup && method.equals("setTransactionIsolation")
                             && arguments[0].equals(Connection.TRANSACTION_SERIALIZABLE)) {
                         throw new SQLException("setup failed");
@@ -382,6 +483,9 @@ class TransactionTest {
                 }
                 case "commit" -> {
                     events.add("commit");
+                    if (commitFailure != null) {
+                        throw commitFailure;
+                    }
                     if (failCommit) {
                         throw new SQLException("serialization failure", "40001");
                     }
@@ -396,10 +500,16 @@ class TransactionTest {
                 }
                 case "setSavepoint" -> {
                     events.add("setSavepoint");
+                    if (savepointFailure != null) {
+                        throw savepointFailure;
+                    }
                     yield savepoint;
                 }
                 case "releaseSavepoint", "abort", "close" -> {
                     events.add(method);
+                    if (method.equals("close") && connectionCloseFailure != null) {
+                        throw connectionCloseFailure;
+                    }
                     if (method.equals("abort") && failAbort) {
                         throw new SQLException("abort failed", "08006");
                     }
@@ -425,10 +535,19 @@ class TransactionTest {
                     yield null;
                 }
                 case "setFetchSize" -> {
+                    if (streamOpeningFailure != null) {
+                        throw streamOpeningFailure;
+                    }
                     fetchSizes.add((Integer) arguments[0]);
                     yield null;
                 }
-                case "close" -> null;
+                case "close" -> {
+                    statementsClosed++;
+                    if (statementCloseFailure != null) {
+                        throw statementCloseFailure;
+                    }
+                    yield null;
+                }
                 default -> throw new UnsupportedOperationException(method);
             });
         }
@@ -441,6 +560,9 @@ class TransactionTest {
                 case "wasNull" -> false;
                 case "close" -> {
                     resultsClosed++;
+                    if (resultCloseFailure != null) {
+                        throw resultCloseFailure;
+                    }
                     yield null;
                 }
                 default -> throw new UnsupportedOperationException(method);

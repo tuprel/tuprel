@@ -70,6 +70,20 @@ class PostgresqlDatabaseIntegrationTest {
     }
 
     @Test
+    void everyConnectionUsesOnlyTheSuitesPrivateSchema() throws SQLException {
+        String schema = dataSource.getCurrentSchema();
+        assertTrue(schema.matches("tuprel_it_[0-9a-f]{32}"));
+        for (int index = 0; index < 2; index++) {
+            try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement();
+                    ResultSet result = statement.executeQuery("SELECT current_schema(), current_setting('search_path')")) {
+                assertTrue(result.next());
+                assertEquals(schema, result.getString(1));
+                assertEquals(schema, result.getString(2));
+            }
+        }
+    }
+
+    @Test
     void crudAndInjectionPayloadAreBoundData() throws SQLException {
         UUID id = UUID.randomUUID();
         String hostile = "Robert'); DROP TABLE runtime_probe;--";

@@ -170,15 +170,15 @@ public final class TuprelDatabase {
             try {
                 result = statement.executeQuery();
             } catch (SQLException exception) {
-                throw new TuprelDatabaseException(TuprelDatabaseException.Phase.EXECUTION, exception);
+                throw executionFailure(exception);
             }
             TuprelStream<T> stream = new TuprelStream<>(statement, result, mapper, transaction);
             transaction.register(stream);
             return stream;
-        } catch (RuntimeException failure) {
+        } catch (RuntimeException | Error failure) {
             try {
                 statement.close();
-            } catch (SQLException closeFailure) {
+            } catch (SQLException | RuntimeException closeFailure) {
                 failure.addSuppressed(closeFailure);
             }
             throw failure;
@@ -255,22 +255,24 @@ public final class TuprelDatabase {
             throw streamFailure.get();
         }
         try {
+            transaction.requireCommittable();
             connection.commit();
-        } catch (SQLException exception) {
-            TuprelDatabaseException failure =
-                    new TuprelDatabaseException(TuprelDatabaseException.Phase.TRANSACTION, exception);
+        } catch (SQLException | RuntimeException exception) {
+            TuprelDatabaseException failure = exception instanceof TuprelDatabaseException existing ? existing
+                    : new TuprelDatabaseException(TuprelDatabaseException.Phase.TRANSACTION, exception);
             restore(connection, original, failure, rollback(connection, failure));
             throw failure;
         }
         TuprelDatabaseException closing = null;
         try {
             restoreSettings(connection, original);
-        } catch (SQLException exception) {
+        } catch (SQLException | RuntimeException exception) {
             closing = new TuprelDatabaseException(TuprelDatabaseException.Phase.CLOSING, exception);
+            abortQuietly(connection, closing);
         }
         try {
             connection.close();
-        } catch (SQLException exception) {
+        } catch (SQLException | RuntimeException exception) {
             if (closing == null) {
                 closing = new TuprelDatabaseException(TuprelDatabaseException.Phase.CLOSING, exception);
             } else {
@@ -291,13 +293,15 @@ public final class TuprelDatabase {
         Savepoint savepoint;
         try {
             savepoint = connection.setSavepoint();
-        } catch (SQLException exception) {
+        } catch (SQLException | RuntimeException exception) {
+            parent.markRollbackOnly(exception);
             throw new TuprelDatabaseException(TuprelDatabaseException.Phase.TRANSACTION, exception);
         }
         TransactionScope child = parent.child();
         T result;
         try {
             result = work.execute(new TuprelDatabase(dataSource, renderer, binder, Optional.of(child)));
+            child.requireCommittable();
             Optional<RuntimeException> streamFailure = child.end();
             if (streamFailure.isPresent()) {
                 throw streamFailure.get();
@@ -342,16 +346,21 @@ public final class TuprelDatabase {
                 restoreSettings(connection, original);
             } catch (SQLException | RuntimeException restoreFailure) {
                 failure.addSuppressed(restoreFailure);
+                abortQuietly(connection, failure);
             }
         } else {
             // A pooled close may reset settings. Terminate the unsafe connection first.
-            try {
-                connection.abort(Runnable::run);
-            } catch (SQLException | RuntimeException abortFailure) {
-                failure.addSuppressed(abortFailure);
-            }
+            abortQuietly(connection, failure);
         }
         closeQuietly(connection, failure);
+    }
+
+    private static void abortQuietly(Connection connection, Throwable failure) {
+        try {
+            connection.abort(Runnable::run);
+        } catch (SQLException | RuntimeException abortFailure) {
+            failure.addSuppressed(abortFailure);
+        }
     }
 
     private static void restoreSettings(Connection connection, ConnectionState original) throws SQLException {
@@ -394,7 +403,7 @@ public final class TuprelDatabase {
             try {
                 return statement.executeUpdate();
             } catch (SQLException exception) {
-                throw new TuprelDatabaseException(TuprelDatabaseException.Phase.EXECUTION, exception);
+                throw executionFailure(exception);
             }
         } catch (SQLException exception) {
             throw new TuprelDatabaseException(TuprelDatabaseException.Phase.CLOSING, exception);
@@ -416,7 +425,7 @@ public final class TuprelDatabase {
             try {
                 opened = statement.executeQuery();
             } catch (SQLException exception) {
-                throw new TuprelDatabaseException(TuprelDatabaseException.Phase.EXECUTION, exception);
+                throw executionFailure(exception);
             }
             try (ResultSet result = opened) {
                 List<T> values = new ArrayList<>();
@@ -425,6 +434,7 @@ public final class TuprelDatabase {
                     try {
                         hasRow = result.next();
                     } catch (SQLException exception) {
+                        scope.ifPresent(transaction -> transaction.markStatementFailure(exception));
                         throw new TuprelDatabaseException(TuprelDatabaseException.Phase.MAPPING, exception);
                     }
                     if (!hasRow) {
@@ -443,6 +453,11 @@ public final class TuprelDatabase {
         } catch (SQLException exception) {
             throw new TuprelDatabaseException(TuprelDatabaseException.Phase.CLOSING, exception);
         }
+    }
+
+    private TuprelDatabaseException executionFailure(SQLException failure) {
+        scope.ifPresent(transaction -> transaction.markStatementFailure(failure));
+        return new TuprelDatabaseException(TuprelDatabaseException.Phase.EXECUTION, failure);
     }
 
     /** A connection for one statement: owned and closed outside a transaction, borrowed inside. */
@@ -510,7 +525,7 @@ public final class TuprelDatabase {
         } catch (SQLException | RuntimeException exception) {
             try {
                 connection.close();
-            } catch (SQLException closeFailure) {
+            } catch (SQLException | RuntimeException closeFailure) {
                 exception.addSuppressed(closeFailure);
             }
             throw new TuprelDatabaseException(TuprelDatabaseException.Phase.CONNECTION, exception);

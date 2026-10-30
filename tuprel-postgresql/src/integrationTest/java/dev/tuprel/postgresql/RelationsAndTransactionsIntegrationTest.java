@@ -213,6 +213,40 @@ class RelationsAndTransactionsIntegrationTest {
     }
 
     @Test
+    void catchingAStatementFailureCannotReportASuccessfulCommitOfAnAbortedTransaction() {
+        customer("existing@example.com", "Existing");
+        TuprelDatabaseException failure = assertThrows(TuprelDatabaseException.class, () -> db.transaction(tx -> {
+            tx.customer().create(input("pending@example.com", "Pending"));
+            TuprelDatabaseException duplicate = assertThrows(TuprelDatabaseException.class,
+                    () -> tx.customer().create(input("existing@example.com", "Duplicate")));
+            assertEquals("23505", duplicate.sqlState());
+            return 1;
+        }));
+        assertEquals("25000", failure.sqlState());
+        assertEquals(1, db.customer().count());
+        assertFalse(db.customer().exists(query -> query.where(CustomerWhere.email().eq("pending@example.com"))));
+    }
+
+    @Test
+    void aCaughtStatementFailureInASavepointIsRolledBackWithoutPoisoningTheOuterTransaction() {
+        db.transaction(tx -> {
+            tx.customer().create(input("before@example.com", "Before"));
+            TuprelDatabaseException failedBlock = assertThrows(TuprelDatabaseException.class,
+                    () -> tx.transaction(inner -> {
+                        inner.customer().create(input("discarded@example.com", "Discarded"));
+                        assertThrows(TuprelDatabaseException.class,
+                                () -> inner.customer().create(input("before@example.com", "Duplicate")));
+                        return 1;
+                    }));
+            assertEquals("25000", failedBlock.sqlState());
+            tx.customer().create(input("after@example.com", "After"));
+            return 1;
+        });
+        assertEquals(List.of("After", "Before"), db.customer().findMany(query -> query
+                .orderBy(CustomerOrder.name().asc())).stream().map(Customer::name).toList());
+    }
+
+    @Test
     void transactionOptionsAreAppliedAndConnectionsAreRestored() {
         List<Long> repeatable = db.transaction(TransactionOptions.defaults()
                 .withIsolation(IsolationLevel.REPEATABLE_READ), tx -> {
