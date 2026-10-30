@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/relations-transactions]
   push:
     branches: [main]
 
@@ -43,3 +43,14 @@ jobs:
         run: |
           cmp gradle/verification-metadata.xml examples/tuprel-playground/gradle/verification-metadata.xml
           ./gradlew -p examples/tuprel-playground build --no-daemon --dependency-verification strict
+      - name: Require symlink confinement test on Linux
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          report = ET.parse('tuprel-codegen-java/build/test-results/test/TEST-dev.tuprel.codegen.GeneratedSourceWriterTest.xml')
+          cases = [case for case in report.getroot().findall('testcase')
+                   if case.get('name') == 'rejectsSymlinkInsideOutputTree()']
+          if len(cases) != 1 or any(cases[0].find(tag) is not None for tag in ('skipped', 'failure', 'error')):
+              raise SystemExit('Symlink confinement test must execute and pass on Linux')
+          print('Symlink confinement test executed and passed on Linux')
+          PY

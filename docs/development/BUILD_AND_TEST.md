@@ -383,9 +383,18 @@ mínimas. Apenas o job CodeQL recebe `security-events: write`. O cache de
 dependências Gradle é gerido exclusivamente por `gradle/actions/setup-gradle`;
 `actions/setup-java` não configura um segundo cache.
 
-O repositório é público e a CI corre nos pull requests e em `main`.
+O repositório é público e a CI corre nos pull requests dirigidos a `main` ou
+`feat/relations-transactions`, e nos pushes em `main`. O segundo alvo permite
+rever a consolidação como PR encadeado com o #11 sem duplicar o diff original.
 O `build` da CI selecciona explicitamente `-PtuprelTestDatabase=container` para
 iniciar PostgreSQL no runner Linux. Nenhum container é iniciado pelo modo local.
+CodeQL usa a mesma selecção explícita e compila também o playground. No job
+principal, um gate confirma no XML de JUnit que o teste de confinamento por
+symlink executou e passou no Linux; um skip nesse runner faz falhar a CI.
+No Windows, a assumption existente permanece para máquinas sem suporte a symlinks.
+
+Executar os rebuilds da raiz e do playground sequencialmente: o composite build
+compila os mesmos módulos e partilha os outputs locais com a raiz.
 
 As origens de artefactos que a build usa actualmente estão inventariadas em
 `docs/security/SUPPLY_CHAIN.md`. Esse é o documento canónico sobre supply
