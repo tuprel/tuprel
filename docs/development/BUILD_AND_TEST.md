@@ -358,7 +358,7 @@ Nenhum destes deve ser descrito como activo enquanto não for implementado.
 
 O configuration cache e o build cache local estão activos tanto na raiz como
 em invocações directas de `build-logic`. A compatibilidade foi validada com
-Gradle 9.7.1 e dependency verification estrita:
+Gradle 9.8.2 e dependency verification estrita:
 
 - `check` na raiz armazenou e reutilizou a configuração sem problemas;
 - `check` directo de build-logic armazenou e reutilizou a configuração sem
