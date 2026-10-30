@@ -57,11 +57,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /** Relations, transactions, locks, streaming, batches and optimistic locking on real PostgreSQL. */
 class RelationsAndTransactionsIntegrationTest {
-    private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17.11-trixie");
+    private static TestPostgresql postgres;
     private static final Instant CREATED = Instant.parse("2026-09-30T10:00:00Z");
     private static final AtomicInteger STATEMENTS = new AtomicInteger();
     private static PGSimpleDataSource dataSource;
@@ -69,11 +68,8 @@ class RelationsAndTransactionsIntegrationTest {
 
     @BeforeAll
     static void startDatabase() throws SQLException {
-        POSTGRES.start();
-        dataSource = new PGSimpleDataSource();
-        dataSource.setURL(POSTGRES.getJdbcUrl());
-        dataSource.setUser(POSTGRES.getUsername());
-        dataSource.setPassword(POSTGRES.getPassword());
+        postgres = TestPostgresql.open();
+        dataSource = postgres.dataSource();
         db = new TuprelClient(PostgresqlDatabase.using(counting(dataSource)));
         execute("""
                 CREATE TABLE "Customer" (
@@ -102,8 +98,10 @@ class RelationsAndTransactionsIntegrationTest {
     }
 
     @AfterAll
-    static void stopDatabase() {
-        POSTGRES.stop();
+    static void stopDatabase() throws SQLException {
+        if (postgres != null) {
+            postgres.close();
+        }
     }
 
     @BeforeEach

@@ -29,7 +29,15 @@ O output do codegen deve ser compilado numa test fixture. Isto impede que snapsh
 
 ## 4. PostgreSQL integration tests
 
-Usar Testcontainers com PostgreSQL real para:
+Usar PostgreSQL real: local por omissão, numa base dedicada `tuprel_devtest`,
+com variáveis `TUPREL_TEST_JDBC_URL`, `TUPREL_TEST_DB_USER` e
+`TUPREL_TEST_DB_PASSWORD`. Testcontainers permanece disponível por opção
+explícita (`-PtuprelTestDatabase=container`), usada na CI. Não há fallback
+automático nem testes ignorados por falta de configuração. As suites existentes
+executam os mesmos casos em ambos os modos, num schema aleatório por suite,
+eliminado no final. Nunca limpar tabelas de schemas pré-existentes.
+
+Cobrir:
 
 - CRUD;
 - relations;
