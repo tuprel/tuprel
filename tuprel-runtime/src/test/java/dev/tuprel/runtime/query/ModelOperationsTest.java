@@ -271,6 +271,117 @@ class ModelOperationsTest {
         assertEquals(0, recorder.connections);
     }
 
+    private record Pet(long id, long ownerId) { }
+
+    private static final ComparableField<Pet, Long> PET_ID = ComparableField.int64("id", false, Pet::id);
+    private static final ComparableField<Pet, Long> OWNER = ComparableField.int64("ownerId", false, Pet::ownerId);
+    private static final ModelTable<Pet, Long> PETS = ModelTable.of("pet", PET_ID, List.of(PET_ID, OWNER),
+            row -> new Pet(PET_ID.read(row), OWNER.read(row)));
+    private static final Relation<Person, Pet> PERSON_PETS = Relation.toMany("Person.pets", List.of(ID),
+            () -> PETS, List.of(OWNER), (person, pets) -> person);
+    private static final Relation<Pet, Person> PET_OWNER = Relation.toOne("Pet.owner", List.of(OWNER),
+            () -> TABLE, List.of(ID), (pet, owner) -> pet);
+
+    @Test
+    void rowLocksRequireAnExplicitTransaction() {
+        Recorder recorder = new Recorder();
+        ModelOperations<Person, Long> people = recorder.operations();
+        Query<Person> locked = Query.<Person>all().lock(RowLock.FOR_UPDATE_SKIP_LOCKED);
+        assertThrows(IllegalStateException.class, () -> people.findMany(locked));
+        assertThrows(IllegalStateException.class, () -> people.findById(1L, Query.<Person>all().lock(RowLock.FOR_SHARE)));
+        assertThrows(IllegalArgumentException.class, () -> people.count(locked));
+        assertEquals(0, recorder.connections);
+        recorder.database().transaction(tx -> new ModelOperations<>(tx, TABLE).findMany(locked.take(1)));
+        assertEquals(Optional.of(new SqlQuery.Lock(SqlQuery.Lock.Strength.UPDATE, SqlQuery.Lock.Wait.SKIP_LOCKED)),
+                recorder.queries.getLast().lock());
+    }
+
+    @Test
+    void createManyUsesOneStatementWithDefaultCellsAndRefusesSplittingOutsideTransactions() {
+        Recorder recorder = new Recorder();
+        ModelOperations<Person, Long> people = recorder.operations();
+        people.createMany(List.of(Assignments.<Person>empty().set(NAME, "a"),
+                Assignments.<Person>empty().set(AGE, 3).set(NAME, "b")));
+        assertEquals(new SqlCommand.InsertMany(C_TABLE, List.of(C_NAME, C_AGE), List.of(
+                List.of(Optional.of(new SqlValue.Text("a")), Optional.empty()),
+                List.of(Optional.of(new SqlValue.Text("b")), Optional.of(new SqlValue.Int32(3))))),
+                recorder.commands.getLast());
+        assertThrows(IllegalArgumentException.class, () -> people.createMany(List.of()));
+        assertThrows(IllegalArgumentException.class, () -> people.createMany(List.of(Assignments.empty())));
+        List<Assignments<Person>> large = new ArrayList<>();
+        for (int index = 0; index <= ModelOperations.BATCH_BINDS; index++) {
+            large.add(Assignments.<Person>empty().set(NAME, "n"));
+        }
+        int before = recorder.connections;
+        assertThrows(IllegalStateException.class, () -> people.createMany(large));
+        assertEquals(before, recorder.connections);
+        recorder.database().transaction(tx -> new ModelOperations<>(tx, TABLE).createMany(large));
+        assertEquals(2, recorder.commands.stream().filter(SqlCommand.InsertMany.class::isInstance).count() - 1);
+    }
+
+    @Test
+    void bulkWritesRequireConditionsAndProtectIdentifierAndVersion() {
+        Recorder recorder = new Recorder();
+        ModelOperations<Person, Long> people = recorder.operations();
+        people.updateMany(AGE.lt(18), Assignments.<Person>empty().set(NAME, "minor"));
+        assertEquals(new SqlCommand.UpdateWhere(C_TABLE, List.of(new SqlCommand.Assignment(C_NAME,
+                new SqlValue.Text("minor"))), AGE.lt(18).toSql(), Optional.empty()), recorder.commands.getLast());
+        people.deleteMany(AGE.isNull());
+        assertEquals(new SqlCommand.DeleteWhere(C_TABLE, AGE.isNull().toSql()), recorder.commands.getLast());
+        assertThrows(NullPointerException.class, () -> people.deleteMany(null));
+        assertThrows(IllegalArgumentException.class, () -> people.updateMany(AGE.lt(1), Assignments.empty()));
+        assertThrows(IllegalArgumentException.class,
+                () -> people.updateMany(AGE.lt(1), Assignments.<Person>empty().set(ID, 9L)));
+
+        ModelTable<Person, Long> versioned = ModelTable.versioned("person", ID, AGE_VERSION, List.of(ID, NAME,
+                AGE_VERSION), row -> new Person(ID.read(row), NAME.read(row), AGE_VERSION.read(row)));
+        ModelOperations<Person, Long> versionedPeople = new ModelOperations<>(recorder.database(), versioned);
+        assertThrows(IllegalStateException.class,
+                () -> versionedPeople.updateById(1L, Assignments.<Person>empty().set(NAME, "x")));
+        assertThrows(IllegalArgumentException.class,
+                () -> versionedPeople.updateMany(ID.eq(1L), Assignments.<Person>empty().set(AGE_VERSION, 4)));
+        assertThrows(IllegalArgumentException.class,
+                () -> versionedPeople.updateById(1L, Long.MAX_VALUE, Assignments.<Person>empty().set(NAME, "x")));
+        versionedPeople.updateMany(ID.eq(1L), Assignments.<Person>empty().set(NAME, "x"));
+        assertEquals(Optional.of(C_AGE), ((SqlCommand.UpdateWhere) recorder.commands.getLast()).incrementVersion());
+        assertThrows(IllegalStateException.class,
+                () -> people.updateById(1L, 1, Assignments.<Person>empty().set(NAME, "x")));
+        assertThrows(IllegalArgumentException.class, () -> ModelTable.versioned("person", ID, AGE,
+                List.of(ID, NAME, AGE), row -> new Person(1, "a", null)));
+    }
+
+    private static final ComparableField<Person, Integer> AGE_VERSION =
+            ComparableField.int32("age", false, Person::age);
+
+    @Test
+    void includesRejectPartsTheyCannotHonourAndDuplicates() {
+        ModelOperations<Person, Long> people = new Recorder().operations();
+        assertThrows(IllegalArgumentException.class, () -> Query.<Person>all()
+                .include(PERSON_PETS.include(), PERSON_PETS.include(q -> q.where(OWNER.gt(1L)))));
+        ModelOperations<Pet, Long> pets = new ModelOperations<>(new Recorder().database(), PETS);
+        List<Query<Pet>> invalidToOne = List.of(
+                Query.<Pet>all().include(PET_OWNER.include(q -> q.where(NAME.eq("x")))),
+                Query.<Pet>all().include(PET_OWNER.include(q -> q.orderBy(NAME.asc()))));
+        for (Query<Pet> query : invalidToOne) {
+            assertThrows(IllegalArgumentException.class, () -> pets.findMany(query));
+        }
+        List<Query<Person>> invalidToMany = List.of(
+                Query.<Person>all().include(PERSON_PETS.include(q -> q.take(1))),
+                Query.<Person>all().include(PERSON_PETS.include(q -> q.skip(1))),
+                Query.<Person>all().include(PERSON_PETS.include(q -> q.timeout(java.time.Duration.ofSeconds(1)))));
+        for (Query<Person> query : invalidToMany) {
+            assertThrows(IllegalArgumentException.class, () -> people.findMany(query));
+        }
+        assertThrows(IllegalArgumentException.class,
+                () -> people.select(Projection.of(List.of(NAME), row -> "x"), Query.<Person>all()
+                        .include(PERSON_PETS.include())));
+        assertThrows(IllegalArgumentException.class, () -> people.count(Query.<Person>all()
+                .include(PERSON_PETS.include())));
+        assertThrows(IllegalArgumentException.class, () -> people.findById(1L, Query.<Person>all().take(1)));
+        assertThrows(IllegalArgumentException.class, () -> Relation.toMany("Person.pets", List.of(ID, NAME),
+                () -> PETS, List.of(OWNER), (person, related) -> person));
+    }
+
     /** Records structural statements and answers every query with zero rows. */
     private static final class Recorder implements SqlRenderer {
         private final List<SqlQuery> queries = new ArrayList<>();
@@ -278,9 +389,17 @@ class ModelOperationsTest {
         private final RenderedSql preview = new RenderedSql("SELECT 1", List.of());
         private int connections;
 
+        private TuprelDatabase database;
+
+        TuprelDatabase database() {
+            if (database == null) {
+                database = new TuprelDatabase(dataSource(), this, (statement, index, value) -> { });
+            }
+            return database;
+        }
+
         ModelOperations<Person, Long> operations() {
-            return new ModelOperations<>(new TuprelDatabase(dataSource(), this, (statement, index, value) -> { }),
-                    TABLE);
+            return new ModelOperations<>(database(), TABLE);
         }
 
         @Override
@@ -307,6 +426,8 @@ class ModelOperationsTest {
             });
             Connection connection = proxy(Connection.class, (name) -> switch (name) {
                 case "getAutoCommit" -> true;
+                case "getTransactionIsolation" -> java.sql.Connection.TRANSACTION_READ_COMMITTED;
+                case "isReadOnly" -> false;
                 case "prepareStatement" -> statement;
                 default -> null;
             });

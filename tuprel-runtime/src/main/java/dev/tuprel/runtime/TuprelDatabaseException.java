@@ -7,7 +7,7 @@ public final class TuprelDatabaseException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     /** Phase in which the operation failed. */
-    public enum Phase { CONNECTION, PREPARATION, BINDING, EXECUTION, MAPPING, CLOSING }
+    public enum Phase { CONNECTION, PREPARATION, BINDING, EXECUTION, MAPPING, TRANSACTION, CLOSING }
 
     private final Phase phase;
     private final String sqlState;

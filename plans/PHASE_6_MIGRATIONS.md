@@ -1,5 +1,9 @@
 # Fase 6 - Migration Engine
 
+Proposta de desenho incremental em
+[`RFC-006`](../docs/rfcs/RFC-006-migration-engine-proposal.md), ainda não aprovada.
+Nenhuma implementação desta fase foi iniciada na consolidação da Fase 5.
+
 ## Comandos alvo
 
 - `tuprel migrate dev --name <nome>`
