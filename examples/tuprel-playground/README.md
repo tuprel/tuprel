@@ -1,8 +1,9 @@
 # Tuprel Playground — PostgreSQL local, Java 21
 
-Aplicação consumidora independente para experimentar o Tuprel implementado na
-branch de relações/transacções (PR #11). Não corresponde ainda ao código de
-`main` enquanto esse PR não for integrado. Sem Docker ou Testcontainers.
+Aplicação consumidora independente para experimentar o Tuprel da Fase 5,
+integrada em `main`. Sem Docker ou Testcontainers. A fundação offline F6-001
+não substitui o bootstrap por migrations: essa adopção terá tarefa própria,
+baseline revisto e preservação dos dados existentes.
 
 ## Preparação no Windows
 

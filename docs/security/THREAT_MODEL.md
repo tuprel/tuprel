@@ -59,6 +59,17 @@ Nome/configuração tenta escrever generated files ou migrations fora do direct�
 
 Mitigação: canonicalização, root confinement, nomes gerados controlados e testes `../`/symlink.
 
+### F6-001: CLI, snapshots e filesystem
+
+A CLI não mostra linhas/valores de schema nem mensagens cruas de I/O. Init
+cria paths fixos exclusivamente; um target existente, mesmo linked/case alias,
+é recusado. Dry-run do gerador reutiliza ownership e confinamento do writer.
+O catálogo de migrations recusa links/traversal/entradas extra, limita bytes e
+contagem e devolve snapshots imutáveis; o checksum não é aprovação de SQL.
+Não há ligação/execução de DB nesta fatia. O workspace tem de ser controlado
+pelo developer e sem writers concorrentes: não se promete sandbox contra
+trocas hostis de directorias por outro processo com as mesmas permissões.
+
 ### Supply chain
 
 Dependência ou plugin comprometido entra no build.

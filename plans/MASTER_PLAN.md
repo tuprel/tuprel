@@ -52,7 +52,10 @@ A relação N:N implícita espera pelas migrations.
 
 ## Fase 6 - Migration engine
 
-Diff, migration files, history, checksum, locking, drift, safety, dev/deploy/status/reset-dev.
+**F6-001 em implementação para revisão.** Fundação CLI e ficheiros puros,
+conforme RFC-006 revisto e ADR-0012 proposto. Histórico, adapter PostgreSQL e
+execução dependem da aprovação dos ADRs 0013/0014. Entregas seguintes: history,
+checksum, locking, diff/drift, safety e dev/deploy/status. Reset fora do MVP.
 
 ## Fase 7 - Developer integrations
 

@@ -71,6 +71,11 @@ gerado) e queries `SELECT` estruturais: colunas explícitas, condições, ordem,
 
 Calcula diferenças conhecidas, gera/aplica migrations conforme o comando, guarda history/checksums e coordena execução concorrente.
 
+Essa é a responsabilidade alvo. A F6-001 implementa apenas identificação,
+catálogo offline limitado e SHA-256 em `tuprel-migrate`; não contém JDBC ou
+execução. CLI e ficheiros estão no ADR-0012 proposto. Adapter separado e
+contratos de histórico/execução nos ADRs 0013/0014 aguardam aprovação.
+
 ### Introspection
 
 Lê metadata PostgreSQL e converte-a para o modelo interno. Inputs de metadata devem ser tratados como dados, não como Java/SQL confiável.

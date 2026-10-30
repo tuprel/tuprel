@@ -22,7 +22,21 @@ public final class GeneratedSourceWriter {
 
     /** Whether generated files exactly match the desired sources and ownership manifest. */
     public boolean isCurrent(Path outputRoot, GeneratedJavaSources sources) throws IOException {
-        State state = inspect(outputRoot, sources, false);
+        return matches(inspect(outputRoot, sources, false));
+    }
+
+    /**
+     * Validates ownership and paths as a write would, without changing any file.
+     * @param outputRoot generated-source root
+     * @param sources desired generated sources
+     * @return whether a successful write would change output
+     * @throws IOException if ownership, paths or filesystem access prevent writing
+     */
+    public boolean wouldChange(Path outputRoot, GeneratedJavaSources sources) throws IOException {
+        return !matches(inspect(outputRoot, sources, true));
+    }
+
+    private static boolean matches(State state) throws IOException {
         if (state.modified() || !state.current().equals(state.desired())) {
             return false;
         }

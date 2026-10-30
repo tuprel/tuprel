@@ -39,6 +39,23 @@ jobs:
           validate-wrappers: true
       - name: Build and verify
         run: ./gradlew build --no-daemon --dependency-verification strict -PtuprelTestDatabase=container
+      - name: Smoke test packaged CLI in Bash
+        run: |
+          ./gradlew :tuprel-cli:installDist --no-daemon --dependency-verification strict
+          tuprel_cli="$PWD/tuprel-cli/build/install/tuprel/bin/tuprel"
+          tuprel_demo="$(mktemp -d)"
+          cd "$tuprel_demo"
+          "$tuprel_cli" --help
+          "$tuprel_cli" --version
+          "$tuprel_cli" init --dry-run
+          test ! -e tuprel
+          "$tuprel_cli" init
+          "$tuprel_cli" validate
+          "$tuprel_cli" format --check
+          "$tuprel_cli" generate --dry-run
+          test ! -e build
+          "$tuprel_cli" generate
+          "$tuprel_cli" generate --check
       - name: Compile consumer playground
         run: |
           cmp gradle/verification-metadata.xml examples/tuprel-playground/gradle/verification-metadata.xml
@@ -47,10 +64,15 @@ jobs:
         run: |
           python3 - <<'PY'
           import xml.etree.ElementTree as ET
-          report = ET.parse('tuprel-codegen-java/build/test-results/test/TEST-dev.tuprel.codegen.GeneratedSourceWriterTest.xml')
-          cases = [case for case in report.getroot().findall('testcase')
-                   if case.get('name') == 'rejectsSymlinkInsideOutputTree()']
-          if len(cases) != 1 or any(cases[0].find(tag) is not None for tag in ('skipped', 'failure', 'error')):
-              raise SystemExit('Symlink confinement test must execute and pass on Linux')
-          print('Symlink confinement test executed and passed on Linux')
+          checks = [
+              ('tuprel-codegen-java', 'dev.tuprel.codegen.GeneratedSourceWriterTest', 'rejectsSymlinkInsideOutputTree()'),
+              ('tuprel-migrate', 'dev.tuprel.migrate.MigrationDirectoryTest', 'rejectsSymlinksThroughoutCatalog()'),
+              ('tuprel-cli', 'dev.tuprel.cli.CliExperienceTest', 'rejectsSymlinksForInitAndSchemaWrites()'),
+          ]
+          for module, suite, name in checks:
+              report = ET.parse(f'{module}/build/test-results/test/TEST-{suite}.xml')
+              cases = [case for case in report.getroot().findall('testcase') if case.get('name') == name]
+              if len(cases) != 1 or any(cases[0].find(tag) is not None for tag in ('skipped', 'failure', 'error')):
+                  raise SystemExit(f'Symlink confinement test must execute and pass on Linux: {suite}.{name}')
+              print(f'Symlink confinement test executed and passed on Linux: {suite}.{name}')
           PY

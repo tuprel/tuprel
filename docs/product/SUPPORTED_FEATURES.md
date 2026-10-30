@@ -32,7 +32,10 @@ roadmap e não são todos funcionalidades disponíveis nesta fase.
 - PostgreSQL connection/runtime mínimo;
 - `create`, `findUnique`, `findMany`, `update`, `delete` básicos;
 - SQL sempre parametrizado;
-- CLI `validate`, `format`, `generate`;
+- CLI `validate`, `format`, `generate` (positional paths and `--schema`),
+  help/version, safe init and dry-run; see `CLI_EXPERIENCE.md`;
+- migration file format v1, IDs, bounded read-only discovery and exact SHA-256;
+  no JDBC/history/execution/diff commands yet (F6-001);
 - testes em PostgreSQL real;
 - nenhum compromisso de compatibilidade binária.
 

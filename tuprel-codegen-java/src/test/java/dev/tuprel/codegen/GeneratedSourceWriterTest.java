@@ -81,4 +81,18 @@ class GeneratedSourceWriterTest {
         assertThrows(IOException.class, () -> new GeneratedSourceWriter().write(root, source));
         assertFalse(Files.exists(external.resolve("A.java")));
     }
+
+    @Test
+    void dryRunReusesOwnershipRulesWithoutCreatingOrChangingFiles() throws IOException {
+        Path root = temporaryDirectory.resolve("preview");
+        GeneratedSourceWriter writer = new GeneratedSourceWriter();
+        GeneratedJavaSources source = new GeneratedJavaSources(Map.of("p/A.java", "class A {}\n"));
+        assertTrue(writer.wouldChange(root, source));
+        assertFalse(Files.exists(root));
+        writer.write(root, source);
+        assertFalse(writer.wouldChange(root, source));
+        Files.writeString(root.resolve("p/A.java"), "private edit\n");
+        assertThrows(IOException.class, () -> writer.wouldChange(root, source));
+        assertEquals("private edit\n", Files.readString(root.resolve("p/A.java")));
+    }
 }

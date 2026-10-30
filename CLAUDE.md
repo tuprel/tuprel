@@ -89,6 +89,7 @@ Construir um ORM Java robusto, explícito, type-safe, seguro e simples de utiliz
 
 ## Git e releases
 
+- Segue as convenções de branches, commits e escrita técnica em `CONTRIBUTING.md`.
 - Não faças `git push`, force push, reset destrutivo, publicação Maven ou release sem pedido explícito do utilizador.
 - Não incluas segredos no repositório.
 - Commits, quando pedidos, devem ser pequenos e semanticamente coesos.

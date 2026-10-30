@@ -26,8 +26,9 @@ A Fase 1 declara `tuprel-schema` e o adapter inicial `tuprel-cli`; a Fase 2
 acrescenta `tuprel-codegen-java`. A Fase 3 acrescenta `tuprel-sql`,
 `tuprel-runtime` e `tuprel-postgresql`, com código e testes reais. As Fases 4 e 5 não
 criam módulos: estendem estes três, `tuprel-schema` e o código gerado (RFC-003,
-RFC-004, RFC-005, ADR-0010, ADR-0011). Os
-restantes módulos continuam planeados. `build-logic` é um included build de
+RFC-004, RFC-005, ADR-0010, ADR-0011).
+A F6-001 acrescenta `tuprel-migrate`, com identificação, ficheiros e checksums
+puros (ADR-0012 proposto). Os restantes módulos continuam planeados. `build-logic` é um included build de
 infraestrutura e não faz parte deste grafo de produto.
 
 `test-support/src/main/java` contém apenas suporte local partilhado pelas
@@ -88,7 +89,20 @@ Depende dos contratos de `tuprel-sql` e runtime necessários.
 
 ### `tuprel-migrate`
 
-Migration model, history, checksums, locking, planner/applier e safety analysis. Integra com dialect/introspection por interfaces explícitas.
+Implementado na F6-001: IDs, snapshots imutáveis, SHA-256, formato versionado,
+leitura limitada e validação de ficheiros/paths. Depende exclusivamente de
+`java.base`; não tem JDBC, schema parser, runtime ou dialecto. A CLI consome
+o contrato de formato no init.
+
+History, locking, planner/applier e safety analysis continuam planeados, não
+disponíveis. Planner poderá depender do modelo validado de schema quando existir.
+Ports só serão criados com consumidores reais. Ver ADR-0012/0014.
+
+### `tuprel-migrate-postgresql` (proposto, ainda não criado)
+
+ADR-0013 recomenda adapter separado: CLI → migrate-postgresql → migrate/sql,
+sem aresta do driver CRUD para migrate. Histórico/JDBC/lock/catálogo ficam nesse
+adapter; migrate nunca depende dele. Aprovação obrigatória antes de F6-002.
 
 ### `tuprel-introspection-postgresql`
 
@@ -96,8 +110,9 @@ Leitura de catálogos PostgreSQL e transformação no modelo de schema.
 
 ### `tuprel-cli`
 
-Orquestra comandos. Actualmente expõe `validate`, `format` e `generate`,
-delegando análise no `tuprel-schema` e geração no `tuprel-codegen-java`; não
+Orquestra comandos. Na F6-001 expõe help/version, init, `validate`, `format` e `generate`,
+delegando análise no `tuprel-schema`, geração no `tuprel-codegen-java` e formato
+de migrations no `tuprel-migrate`; não
 deve duplicar lógica do parser, codegen ou migrate.
 
 ### `tuprel-spring-boot-starter`
