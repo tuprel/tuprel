@@ -1,7 +1,7 @@
 # Build e Testes
 
 Este é o documento canónico sobre como construir e verificar o repositório.
-Descreve o estado **actual** da Fase 4. Nada aqui descreve funcionalidade
+Descreve o estado **actual** da Fase 5. Nada aqui descreve funcionalidade
 planeada como se já existisse.
 
 Para a estratégia de testes do produto (unit, golden, integração PostgreSQL,
@@ -16,8 +16,8 @@ documento trata apenas do que a build faz hoje.
 |---|---|
 | JDK 21 | Obrigatório (ver `docs/adr/ADR-0002-java-21-baseline.md`) |
 | Gradle instalado globalmente | Não é necessário e não deve ser usado |
-| Docker compatível com Testcontainers | Necessário para o `integrationTest` PostgreSQL e para `check`/`build` completos |
-| PostgreSQL instalado localmente | Não é necessário; Testcontainers usa uma imagem `postgres:17.11-trixie` |
+| PostgreSQL instalado localmente | Obrigatório por omissão para integração, `check` e `build`; base dedicada `tuprel_devtest` |
+| Docker compatível com Testcontainers | Apenas no modo explícito `-PtuprelTestDatabase=container`, usado na CI |
 | Maven | Não é necessário nesta fase |
 | Spring Boot | Não é necessário nesta fase |
 
@@ -299,7 +299,8 @@ configurações `integrationTestImplementation`, `integrationTestCompileOnly` e
 `integrationTestRuntimeOnly` estendem as equivalentes de `test`, e o source set
 vê o output de `main`.
 
-`tuprel-postgresql:integrationTest` usa PostgreSQL real via Testcontainers.
+`tuprel-postgresql:integrationTest` usa PostgreSQL real local por omissão.
+O modo Testcontainers só é seleccionado explicitamente, nunca como fallback.
 `check` e `build` executam esses testes; Docker deve estar disponível para um
 resultado completo. Os outros módulos mantêm testes unitários sem Docker.
 
@@ -382,8 +383,18 @@ mínimas. Apenas o job CodeQL recebe `security-events: write`. O cache de
 dependências Gradle é gerido exclusivamente por `gradle/actions/setup-gradle`;
 `actions/setup-java` não configura um segundo cache.
 
-O repositório é público e a CI corre nos pull requests e em `main`.
-Testcontainers inicia PostgreSQL durante o `build` da CI no runner Linux.
+O repositório é público e a CI corre nos pull requests dirigidos a `main` ou
+`feat/relations-transactions`, e nos pushes em `main`. O segundo alvo permite
+rever a consolidação como PR encadeado com o #11 sem duplicar o diff original.
+O `build` da CI selecciona explicitamente `-PtuprelTestDatabase=container` para
+iniciar PostgreSQL no runner Linux. Nenhum container é iniciado pelo modo local.
+CodeQL usa a mesma selecção explícita e compila também o playground. No job
+principal, um gate confirma no XML de JUnit que o teste de confinamento por
+symlink executou e passou no Linux; um skip nesse runner faz falhar a CI.
+No Windows, a assumption existente permanece para máquinas sem suporte a symlinks.
+
+Executar os rebuilds da raiz e do playground sequencialmente: o composite build
+compila os mesmos módulos e partilha os outputs locais com a raiz.
 
 As origens de artefactos que a build usa actualmente estão inventariadas em
 `docs/security/SUPPLY_CHAIN.md`. Esse é o documento canónico sobre supply
@@ -636,3 +647,65 @@ confirmar que participam no grafo:
 ```bash
 ./gradlew check --dry-run
 ```
+
+## PostgreSQL local no Windows
+
+O modo por omissão é `local`. Configurar as três variáveis no **ambiente do
+processo** ou no `.env` local do playground, nunca em argumentos Gradle,
+ficheiros versionados ou URL com password.
+
+### Configuração no IntelliJ por .env
+
+Copiar `examples/tuprel-playground/.env.example` para
+`examples/tuprel-playground/.env` e preencher a password no editor. O `.env`
+está ignorado pelo Git. A aplicação e os integration tests carregam-no
+directamente no processo Java. Variáveis de ambiente não vazias têm precedência;
+Gradle não lê nem guarda o conteúdo do ficheiro na configuration cache.
+
+Abrir o projecto do playground no IntelliJ e executar `checkConnection`, seguido
+de `run`. Para as suites internas, executar `:tuprel-postgresql:integrationTest`
+ou `check` no projecto raiz. Não é preciso configurar variáveis no PowerShell.
+O carregador só aceita as três chaves do template e valores literais de uma
+linha, opcionalmente entre aspas; não executa comandos ou interpolação. Ver o
+[README do playground](../../examples/tuprel-playground/README.md).
+
+### Alternativa por variáveis de ambiente
+
+```powershell
+$env:TUPREL_TEST_JDBC_URL = Read-Host 'URL JDBC (loopback, porta explícita, /tuprel_devtest)'
+$env:TUPREL_TEST_DB_USER = Read-Host 'Utilizador de testes'
+$securePassword = Read-Host 'Password de testes' -AsSecureString
+$env:TUPREL_TEST_DB_PASSWORD = [System.Net.NetworkCredential]::new('', $securePassword).Password
+
+# Unitários: não precisam de PostgreSQL e não iniciam containers.
+.\gradlew.bat test --dependency-verification strict
+
+# Mesmos testes de integração de CRUD, queries, relações e transacções.
+.\gradlew.bat :tuprel-postgresql:integrationTest --dependency-verification strict
+.\gradlew.bat check --dependency-verification strict
+
+Remove-Item Env:TUPREL_TEST_DB_PASSWORD
+```
+
+Criar previamente uma base vazia chamada `tuprel_devtest`, por exemplo no pgAdmin,
+com utilizador próprio como proprietário. O teste não cria nem apaga bases.
+Confirmar a instalação/serviço com `Get-Service *postgres*`; usar `pg_isready`
+com a porta real se a instalação não for um serviço. Não se presume porta,
+utilizador nem password. São aceites apenas URLs `jdbc:postgresql://` com host
+`localhost`, `127.0.0.1` ou `[::1]`, porta explícita e base exacta, sem parâmetros.
+A connection confirma também o catálogo antes de executar DDL.
+
+Cada suite cria um schema `tuprel_it_<UUID>` novo e configura-o como o único
+`search_path` para todas as connections, incluindo as concorrentes. Os TRUNCATE
+existentes ficam nesse schema. No final, só esse schema gerado é eliminado, com
+CASCADE. O schema persistente `tuprel_playground` não é tocado. Uma interrupção
+abrupta pode deixar o schema temporário, para inspecção manual; o próximo teste
+usa outro nome. Não executar testes com uma conta de produção.
+
+A task de integração não usa resultados anteriores nem build cache, porque o
+estado da base é externo. A falta de configuração/ligação faz falhar a suite,
+sem a ignorar e sem tentar Docker. Testcontainers foi preservado, e a CI mantém
+cobertura com `./gradlew build -PtuprelTestDatabase=container`.
+
+A aplicação [tuprel-playground](../../examples/tuprel-playground/README.md) usa
+as mesmas variáveis e tem comandos próprios para IntelliJ e PowerShell.

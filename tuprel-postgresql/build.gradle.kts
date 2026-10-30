@@ -5,9 +5,9 @@ plugins {
 dependencies {
     api(project(":tuprel-runtime"))
     implementation(project(":tuprel-sql"))
-    runtimeOnly("org.postgresql:postgresql:42.7.13")
+    runtimeOnly("org.postgresql:postgresql:42.7.14")
 
-    integrationTestImplementation("org.postgresql:postgresql:42.7.13")
+    integrationTestImplementation("org.postgresql:postgresql:42.7.14")
     integrationTestImplementation("org.testcontainers:testcontainers-postgresql:2.0.5")
 }
 
@@ -48,4 +48,20 @@ val generateIntegrationTestClient = tasks.register<JavaExec>("generateIntegratio
 
 sourceSets.named("integrationTest") {
     java.srcDir(generateIntegrationTestClient.map { it.outputs.files.singleFile })
+    java.srcDir("src/testSupport/java")
+    java.srcDir("../test-support/src/main/java")
+}
+
+sourceSets.named("test") {
+    java.srcDir("src/testSupport/java")
+    java.srcDir("../test-support/src/main/java")
+}
+
+tasks.named<Test>("integrationTest") {
+    // Local by default, including when configuration is missing. Never fall back to Docker.
+    systemProperty("tuprel.test.database", providers.gradleProperty("tuprelTestDatabase").getOrElse("local"))
+    systemProperty("tuprel.test.env.file", rootProject.layout.projectDirectory
+        .file("examples/tuprel-playground/.env").asFile.absolutePath)
+    outputs.upToDateWhen { false }
+    outputs.doNotCacheIf("Integration tests use external database state") { true }
 }

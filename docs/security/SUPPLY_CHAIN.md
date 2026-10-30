@@ -155,6 +155,10 @@ A configuração `tuprelGeneratorClasspath` de `tuprel-postgresql` resolve apena
 `tuprel-cli` e os seus módulos do próprio repositório, para gerar o cliente
 usado pelos integration tests.
 
+## Dependências da Fase 5
+
+A Fase 5 não acrescenta dependências externas, repositórios nem checksums.
+
 ## GitHub
 
 A automação de GitHub está configurada e activa no repositório público.

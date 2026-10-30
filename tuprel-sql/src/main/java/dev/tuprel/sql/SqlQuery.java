@@ -19,7 +19,8 @@ public record SqlQuery(
         Optional<SqlCondition> condition,
         List<SqlOrder> orderBy,
         Optional<Integer> limit,
-        Optional<Integer> offset) {
+        Optional<Integer> offset,
+        Optional<SqlQuery.Lock> lock) {
 
     /** What the query returns. */
     public sealed interface Selection permits Selection.Columns, Selection.Count, Selection.Exists {
@@ -63,48 +64,84 @@ public record SqlQuery(
                 throw new IllegalArgumentException("Offset cannot be negative");
             }
         });
+        Objects.requireNonNull(lock, "lock");
         if (!(selection instanceof Selection.Columns)
-                && (!orderBy.isEmpty() || limit.isPresent() || offset.isPresent())) {
-            throw new IllegalArgumentException("Count and exists queries cannot be ordered or paged");
+                && (!orderBy.isEmpty() || limit.isPresent() || offset.isPresent() || lock.isPresent())) {
+            throw new IllegalArgumentException("Count and exists queries cannot be ordered, paged or locked");
         }
+    }
+
+    /**
+     * Row lock taken on the rows a column query returns. A lock is only meaningful inside a
+     * transaction; the runtime enforces that.
+     */
+    public record Lock(Strength strength, Wait waitPolicy) {
+        public Lock {
+            Objects.requireNonNull(strength, "strength");
+            Objects.requireNonNull(waitPolicy, "waitPolicy");
+        }
+
+        /** Lock strength. */
+        public enum Strength {
+            /** Exclusive lock for rows that will be updated or deleted. */
+            UPDATE,
+            /** Shared lock that blocks concurrent updates and deletes. */
+            SHARE
+        }
+
+        /** Behaviour when a row is already locked by another transaction. */
+        public enum Wait {
+            /** Wait for the other transaction, subject to statement timeouts. */
+            WAIT,
+            /** Fail immediately. */
+            NOWAIT,
+            /** Omit locked rows from the result. */
+            SKIP_LOCKED
+        }
+    }
+
+    /** Returns a copy that locks the returned rows. */
+    public SqlQuery lock(Lock value) {
+        return new SqlQuery(table, selection, condition, orderBy, limit, offset,
+                Optional.of(Objects.requireNonNull(value, "value")));
     }
 
     /** Starts a query reading the given columns of a table. */
     public static SqlQuery select(SqlIdentifier table, List<SqlIdentifier> columns) {
         return new SqlQuery(table, new Selection.Columns(columns), Optional.empty(), List.of(),
-                Optional.empty(), Optional.empty());
+                Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     /** Starts a query counting rows of a table. */
     public static SqlQuery count(SqlIdentifier table) {
         return new SqlQuery(table, new Selection.Count(), Optional.empty(), List.of(),
-                Optional.empty(), Optional.empty());
+                Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     /** Starts a query testing whether a table has a matching row. */
     public static SqlQuery exists(SqlIdentifier table) {
         return new SqlQuery(table, new Selection.Exists(), Optional.empty(), List.of(),
-                Optional.empty(), Optional.empty());
+                Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     /** Returns a copy with the given condition, replacing any previous one. */
     public SqlQuery where(SqlCondition value) {
         return new SqlQuery(table, selection, Optional.of(Objects.requireNonNull(value, "value")),
-                orderBy, limit, offset);
+                orderBy, limit, offset, lock);
     }
 
     /** Returns a copy with the given ordering, replacing any previous one. */
     public SqlQuery orderBy(List<SqlOrder> values) {
-        return new SqlQuery(table, selection, condition, values, limit, offset);
+        return new SqlQuery(table, selection, condition, values, limit, offset, lock);
     }
 
     /** Returns a copy returning at most {@code value} rows. */
     public SqlQuery limit(int value) {
-        return new SqlQuery(table, selection, condition, orderBy, Optional.of(value), offset);
+        return new SqlQuery(table, selection, condition, orderBy, Optional.of(value), offset, lock);
     }
 
     /** Returns a copy skipping the first {@code value} rows. */
     public SqlQuery offset(int value) {
-        return new SqlQuery(table, selection, condition, orderBy, limit, Optional.of(value));
+        return new SqlQuery(table, selection, condition, orderBy, limit, Optional.of(value), lock);
     }
 }
