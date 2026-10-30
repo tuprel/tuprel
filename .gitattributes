@@ -7,3 +7,5 @@
 *.gif binary
 *.jar binary
 *.zip binary
+**/migrations/**/migration.sql text eol=lf
+**/migrations/.tuprel-migrations text eol=lf
