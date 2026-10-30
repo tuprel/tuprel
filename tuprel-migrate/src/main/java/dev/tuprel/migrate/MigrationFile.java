@@ -69,7 +69,7 @@ public final class MigrationFile {
         validateName(directoryName.substring(16));
     }
 
-    private static void validateName(String name) {
+    static void validateName(String name) {
         if (name.length() > 64 || !name.matches("[a-z][a-z0-9]*(?:[_-][a-z0-9]+)*")) {
             throw new IllegalArgumentException("Migration name must be 1-64 portable lowercase ASCII characters");
         }
