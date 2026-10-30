@@ -1,0 +1,40 @@
+generator java {
+    package = "dev.tuprel.playground.generated"
+}
+
+model Customer {
+    id UUID @id
+    email String @unique
+    name String
+    orders SalesOrder[]
+}
+
+model Product {
+    id UUID @id
+    name String
+    price Decimal
+    stock Int
+    version Int @version @default(0)
+    items OrderItem[]
+}
+
+model SalesOrder {
+    id UUID @id
+    customerId UUID
+    status String
+    createdAt Instant
+    customer Customer @relation(fields: [customerId], references: [id])
+    items OrderItem[]
+}
+
+model OrderItem {
+    id UUID @id
+    orderId UUID
+    productId UUID
+    quantity Int
+    unitPrice Decimal
+    order SalesOrder @relation(fields: [orderId], references: [id])
+    product Product @relation(fields: [productId], references: [id])
+
+    @@unique([orderId, productId])
+}
