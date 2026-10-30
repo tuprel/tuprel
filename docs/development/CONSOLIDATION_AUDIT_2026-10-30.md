@@ -1,5 +1,11 @@
 # Auditoria e consolidação — 30 de Outubro de 2026
 
+**Resultado final:** ligação JDBC confirmada em PostgreSQL 17.11 local;
+`check` completo aprovado, com os 22 testes de integração executados; playground
+executado duas vezes com sucesso e persistência confirmada por uma connection
+independente. Totais dos relatórios: 154 testes aprovados, zero falhas e um
+teste de symlinks ignorado por limitação do Windows. Sem Docker local.
+
 ## Estado verificado do repositório
 
 Inspecção local e GitHub, sem push, merge ou publicação:
@@ -150,7 +156,8 @@ Foi obtido Temurin JDK 21.0.13+9 através da API oficial Adoptium, verificado
 com SHA-256 e extraído em `.jdks` do utilizador. Sem alteração de PATH/JAVA_HOME
 global: os comandos abaixo seleccionam o JDK apenas no processo PowerShell.
 
-Comandos executados na raiz (todos com `--dependency-verification strict`):
+Primeiras validações, antes de disponibilizar as credenciais (todos os comandos
+Gradle com `--dependency-verification strict`):
 
 | Comando PowerShell | Resultado observado |
 |---|---|
@@ -180,11 +187,11 @@ compilação também encontrou erro interno de Error Prone enquanto os fontes
 estavam a ser alterados; repetida com fontes estáveis, passou. As depreciações
 do DSL Gradle do exemplo foram corrigidas e a build repetida sem esses avisos.
 
-**Gate ainda aberto:** não há confirmação local de CRUD/relações/transacções,
-locks, timeouts ou gravação persistente pelo exemplo enquanto não estiverem
-disponíveis URL, utilizador e password de testes. O `check` completo não está
-verde e a primeira entrega não deve ser aceite como validação funcional
-concluída. No final da preparação já foi detectado o serviço
+**Estado da primeira tentativa, resolvido na continuação abaixo:** ainda não
+havia confirmação local de CRUD/relações/transacções, locks, timeouts ou gravação
+persistente pelo exemplo por falta de configuração. O `check` completo falhava
+e essa tentativa não constituía validação funcional concluída. No final da
+preparação já tinha sido detectado o serviço
 `postgresql-x64-17` em execução; faltava a configuração de acesso.
 O listener do processo PostgreSQL foi confirmado na porta 5432, sem presumir
 essa porta a partir de defaults. Não foram lidos ficheiros de credenciais.
@@ -205,8 +212,8 @@ essa porta a partir de defaults. Não foram lidos ficheiros de credenciais.
 
 ## Próximos passos e gate de migrations
 
-1. Completar a execução em PostgreSQL local com configuração do utilizador,
-   incluindo `check`, os testes concorrentes e duas execuções do playground.
+1. Execução local concluída: rever os resultados e abrir o playground no IntelliJ
+   para explorar os dados sintéticos conservados em `tuprel_playground`.
 2. Rever os commits locais de runtime, infra-estrutura e exemplo.
    Push/merge do PR #11 ou de qualquer outra branch requer autorização separada.
 3. Antes de implementar migrations: aprovar RFC/ADR sobre formato imutável dos
@@ -231,6 +238,9 @@ Sem push ou merge. O relatório e plano desta entrega ficam num commit de
 documentação adicional.
 
 ## Lista exacta dos ficheiros alterados face ao head do PR #11
+
+Esta lista descreve a entrega inicial. A adaptação posterior a `.env` é
+registada na secção seguinte e no inventário de ficheiros.
 
 - `.github/workflows/ci.yml`
 - `FILE_INVENTORY.md`
@@ -270,3 +280,56 @@ documentação adicional.
 - `tuprel-runtime/src/main/java/dev/tuprel/runtime/TuprelDatabase.java`
 - `tuprel-runtime/src/main/java/dev/tuprel/runtime/TuprelStream.java`
 - `tuprel-runtime/src/test/java/dev/tuprel/runtime/TransactionTest.java`
+
+## Continuação — configuração local por .env
+
+O utilizador confirmou `localhost:5432`, base `tuprel_devtest` e utilizador
+`tuprel_test_user`, e pediu para preencher as credenciais num `.env` dentro do
+projecto de demonstração. Este pedido substitui a preferência anterior por
+configuração exclusivamente através do ambiente do processo.
+
+- Criado `.env` local com URL/utilizador indicados e password em branco, sem
+  sobrescrever ficheiros existentes. Confirmado `git check-ignore`.
+- Template `.env.example` versionado, sem password. O agente não inspecciona
+  o conteúdo do `.env` preenchido; apenas os programas Java o carregam.
+- Carregador sem dependências externas em `test-support`, partilhado apenas
+  pelo exemplo e pelas fixtures; não entra nos artefactos de produto.
+- O ambiente não vazio tem precedência. Parser limitado às três chaves,
+  valores literais e aspas opcionais; sem shell, interpolação ou erros que
+  revelem valores. Apenas um caminho explícito, sem procura em pastas superiores.
+- `checkConnection` no painel Gradle confirma a identidade JDBC por SELECT,
+  antes de `run` ou das suites funcionais. Não cria nem altera objectos da base.
+- Testes novos usam apenas ficheiros sintéticos em pastas temporárias.
+
+Validação final, após o preenchimento local do `.env`:
+
+| Validação | Resultado |
+|---|---|
+| `checkConnection` | **JDBC OK**, base `tuprel_devtest`, utilizador `tuprel_test_user`, PostgreSQL **17.11**, porta **5432**. Apenas SELECT |
+| `check --continue --no-daemon --dependency-verification strict` | **BUILD SUCCESSFUL**, incluindo as três suites PostgreSQL |
+| `GeneratedQueryIntegrationTest` | 8 aprovados |
+| `PostgresqlDatabaseIntegrationTest` | 4 aprovados |
+| `RelationsAndTransactionsIntegrationTest` | 10 aprovados, incluindo locks/timeouts e escritores concorrentes |
+| `LocalTestEnvironmentTest` | 4 aprovados: parsing literal, precedência, erros redigidos, ficheiros inválidos/limites |
+| `-p examples/tuprel-playground build` | Compilação, distribuição e dois testes de segurança do exemplo aprovados |
+| `-p examples/tuprel-playground run` | Duas execuções completas aprovadas: CRUD, batch, filtros, paginação, includes, versão, commit, rollback, savepoint e erros esperados |
+| SELECT independente após terminar os processos | **2 clientes, 4 produtos, 2 encomendas, 4 itens** conservados; **zero schemas temporários** `tuprel_it_*` remanescentes |
+
+O SELECT independente foi executado por um pequeno programa JDBC temporário
+em `build/local-validation`, ignorado pelo Git, que usa o mesmo carregador e
+uma connection read-only. Não se modificaram outras bases. As duas encomendas
+do exemplo são `1e727270-f27a-475c-b53a-76f61690a966` e
+`b9fbcb20-976a-442c-98b2-cd71ecc5dbc3`.
+
+Totais finais: 124 testes dos módulos aprovados, 22 de integração, seis de
+build-logic e dois do exemplo: **154 aprovados**. O teste de symlinks permanece
+ignorado (um), sem o contar como aprovado. Nenhuma suite PostgreSQL foi ignorada.
+
+A primeira execução expôs um problema de codificação da consola Windows;
+fixou-se UTF-8 para stdout/stderr da aplicação. A segunda execução confirmou
+mensagens portuguesas legíveis. Os dados já estavam correctamente armazenados.
+
+Para repetir sem PowerShell, abrir `examples/tuprel-playground` no IntelliJ,
+manter o `.env` local e executar `checkConnection`, seguido de `run`, no painel
+Gradle. O ficheiro de credenciais continua fora do Git e não foi inspeccionado
+pelo agente. O bootstrap continua manual; migrations aguardam desenho/aprovação.

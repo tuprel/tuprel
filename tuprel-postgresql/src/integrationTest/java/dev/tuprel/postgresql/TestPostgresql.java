@@ -1,5 +1,7 @@
 package dev.tuprel.postgresql;
 
+import dev.tuprel.testsupport.LocalTestEnvironment;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -27,11 +29,13 @@ final class TestPostgresql implements AutoCloseable {
         Optional<PostgreSQLContainer> container;
         String mode = System.getProperty("tuprel.test.database", "local");
         if (mode.equals("local")) {
-            String url = required("TUPREL_TEST_JDBC_URL");
+            LocalTestEnvironment configuration = LocalTestEnvironment.load(
+                    Path.of(System.getProperty("tuprel.test.env.file", "examples/tuprel-playground/.env")));
+            String url = configuration.required("TUPREL_TEST_JDBC_URL");
             LocalPostgresqlTarget.validate(url);
             dataSource.setURL(url);
-            dataSource.setUser(required("TUPREL_TEST_DB_USER"));
-            dataSource.setPassword(required("TUPREL_TEST_DB_PASSWORD"));
+            dataSource.setUser(configuration.required("TUPREL_TEST_DB_USER"));
+            dataSource.setPassword(configuration.required("TUPREL_TEST_DB_PASSWORD"));
             container = Optional.empty();
         } else if (mode.equals("container")) {
             PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17.11-trixie");
@@ -65,15 +69,6 @@ final class TestPostgresql implements AutoCloseable {
 
     PGSimpleDataSource dataSource() {
         return dataSource;
-    }
-
-    private static String required(String name) {
-        String value = System.getenv(name);
-        if (value == null || value.isBlank()) {
-            throw new IllegalStateException("Set " + name + " for the dedicated local PostgreSQL test database. "
-                    + "No containers are started in local mode.");
-        }
-        return value;
     }
 
     private void verifyCatalog(Connection connection) throws SQLException {

@@ -150,7 +150,7 @@ spotless {
      * determinística de whitespace, sem acrescentar um formatter de Java.
      */
     format("javaSources") {
-        target("tuprel-schema/src/**/*.java", "tuprel-cli/src/**/*.java", "tuprel-codegen-java/src/**/*.java", "tuprel-sql/src/**/*.java", "tuprel-runtime/src/**/*.java", "tuprel-postgresql/src/**/*.java", "examples/tuprel-playground/src/**/*.java")
+        target("tuprel-schema/src/**/*.java", "tuprel-cli/src/**/*.java", "tuprel-codegen-java/src/**/*.java", "tuprel-sql/src/**/*.java", "tuprel-runtime/src/**/*.java", "tuprel-postgresql/src/**/*.java", "examples/tuprel-playground/src/**/*.java", "test-support/src/**/*.java")
         leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         endWithNewline()

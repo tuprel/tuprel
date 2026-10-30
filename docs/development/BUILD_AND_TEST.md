@@ -642,7 +642,25 @@ confirmar que participam no grafo:
 ## PostgreSQL local no Windows
 
 O modo por omissão é `local`. Configurar as três variáveis no **ambiente do
-processo**, nunca em argumentos Gradle, ficheiros versionados ou URL com password:
+processo** ou no `.env` local do playground, nunca em argumentos Gradle,
+ficheiros versionados ou URL com password.
+
+### Configuração no IntelliJ por .env
+
+Copiar `examples/tuprel-playground/.env.example` para
+`examples/tuprel-playground/.env` e preencher a password no editor. O `.env`
+está ignorado pelo Git. A aplicação e os integration tests carregam-no
+directamente no processo Java. Variáveis de ambiente não vazias têm precedência;
+Gradle não lê nem guarda o conteúdo do ficheiro na configuration cache.
+
+Abrir o projecto do playground no IntelliJ e executar `checkConnection`, seguido
+de `run`. Para as suites internas, executar `:tuprel-postgresql:integrationTest`
+ou `check` no projecto raiz. Não é preciso configurar variáveis no PowerShell.
+O carregador só aceita as três chaves do template e valores literais de uma
+linha, opcionalmente entre aspas; não executa comandos ou interpolação. Ver o
+[README do playground](../../examples/tuprel-playground/README.md).
+
+### Alternativa por variáveis de ambiente
 
 ```powershell
 $env:TUPREL_TEST_JDBC_URL = Read-Host 'URL JDBC (loopback, porta explícita, /tuprel_devtest)'

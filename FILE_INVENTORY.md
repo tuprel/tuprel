@@ -260,3 +260,7 @@ configuração local não versionada ficam de fora.
 - `tuprel-postgresql/src/integrationTest/java/dev/tuprel/postgresql/TestPostgresql.java`
 - `tuprel-postgresql/src/test/java/dev/tuprel/postgresql/LocalPostgresqlTargetTest.java`
 - `tuprel-postgresql/src/testSupport/java/dev/tuprel/postgresql/LocalPostgresqlTarget.java`
+- `examples/tuprel-playground/.env.example`
+- `examples/tuprel-playground/src/main/java/dev/tuprel/playground/CheckConnection.java`
+- `test-support/src/main/java/dev/tuprel/testsupport/LocalTestEnvironment.java`
+- `tuprel-postgresql/src/test/java/dev/tuprel/testsupport/LocalTestEnvironmentTest.java`

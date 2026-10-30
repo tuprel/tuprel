@@ -38,7 +38,7 @@ public final class Playground {
             String state = failure instanceof TuprelDatabaseException databaseFailure ? databaseFailure.sqlState()
                     : failure instanceof SQLException sqlFailure ? sqlFailure.getSQLState() : "n/a";
             System.err.println("Playground failed (" + failure.getClass().getSimpleName() + ", SQLState=" + state
-                    + "). Check the three TUPREL_TEST_* variables, local service and dedicated database."
+                    + "). Check the three TUPREL_TEST_* entries in the playground .env, local service and dedicated database."
                     + " Details are available in the IntelliJ debugger; credentials are never printed.");
             System.exit(1);
         }

@@ -14,29 +14,42 @@ branch de relações/transacções (PR #11). Não corresponde ainda ao código d
    Pode usar pgAdmin. A aplicação não cria/apaga bases nem altera utilizadores.
    O utilizador precisa de CONNECT e CREATE nessa base; não precisa de superuser.
 
-Configurar estas variáveis no ambiente do processo, usando o URL, a porta e o
-utilizador reais. O URL deve apontar para `localhost`, `127.0.0.1` ou `[::1]`,
-ter porta explícita e terminar em `/tuprel_devtest`, sem parâmetros.
+Abrir `.env` nesta pasta no IntelliJ e preencher a password. O ficheiro local
+já foi preparado para a base indicada; noutro checkout, copiar `.env.example`
+para `.env`. Nunca colocar a password em `.env.example`.
 
-```powershell
-# Na raiz do repositório. Substituir o caminho, porta e utilizador pelos reais.
-$env:JAVA_HOME = 'C:\caminho\para\jdk-21'
-$env:TUPREL_TEST_JDBC_URL = Read-Host 'URL JDBC da base tuprel_devtest'
-$env:TUPREL_TEST_DB_USER = Read-Host 'Utilizador de testes'
-$securePassword = Read-Host 'Password de testes' -AsSecureString
-$env:TUPREL_TEST_DB_PASSWORD = [System.Net.NetworkCredential]::new('', $securePassword).Password
-
-.\gradlew.bat -p examples/tuprel-playground validateSchema
-.\gradlew.bat -p examples/tuprel-playground build --dependency-verification strict
-.\gradlew.bat -p examples/tuprel-playground run --dependency-verification strict
-
-# Remover a password do ambiente quando terminar.
-Remove-Item Env:TUPREL_TEST_DB_PASSWORD
+```dotenv
+TUPREL_TEST_JDBC_URL=jdbc:postgresql://localhost:5432/tuprel_devtest
+TUPREL_TEST_DB_USER=tuprel_test_user
+TUPREL_TEST_DB_PASSWORD=
 ```
 
-Não passar credenciais em argumentos Gradle, no URL ou em ficheiros versionados.
-Nenhum `.env` é lido. As variáveis são herdadas pelo processo Java lançado pelo
-Gradle. Não usar `--debug`, que pode revelar informações do ambiente.
+Não é preciso configurar variáveis no PowerShell. A aplicação e as suites de
+integração internas carregam o mesmo `examples/tuprel-playground/.env` no
+processo Java. O ficheiro está excluído do Git. O agente não precisa de abrir
+nem mostrar o seu conteúdo. Não activar logs `--debug` com credenciais reais.
+
+O carregador aceita as três entradas acima, comentários em linhas próprias,
+linhas vazias e valores opcionalmente entre aspas simples/duplas. Os valores
+são literais: `#`, `=`, `$` e barras não executam comandos nem interpolação;
+aspas permitem conservar espaços nas extremidades. Não suporta valores
+multilinha, `export`, comentários no fim de atribuições ou substituição de
+variáveis. Entradas desconhecidas, duplicadas ou malformadas falham sem mostrar
+valores. Variáveis de ambiente não vazias, quando existirem, têm precedência.
+Não se procuram outros ficheiros `.env` nas pastas superiores.
+
+No painel Gradle do IntelliJ executar, por ordem:
+
+1. `checkConnection` — SELECT de diagnóstico JDBC, sem alterar dados/tabelas.
+2. `run` — aplicação e verificações funcionais completas.
+
+Os mesmos comandos podem ser executados num terminal, a partir da raiz:
+
+```text
+.\gradlew.bat -p examples/tuprel-playground checkConnection
+.\gradlew.bat -p examples/tuprel-playground run --dependency-verification strict
+.\gradlew.bat check --dependency-verification strict
+```
 
 ## IntelliJ
 
@@ -50,11 +63,11 @@ Executar `generateClient` no painel Gradle e sincronizar o projecto. O cliente
 fica em `build/generated/sources/tuprel/main`, integrado no source set; não se
 edita nem se versiona. `compileJava` gera e valida o schema automaticamente.
 
-Executar a classe `dev.tuprel.playground.Playground` com as três variáveis
-definidas na Run Configuration (evitar guardar a configuração com password).
-Alternativamente, executar a task Gradle `run` num processo que herde esse
-ambiente. O campo de environment variables do IntelliJ é local à configuração;
-uma task Gradle separada não herda automaticamente as variáveis de outra Run Configuration.
+Para correr classes directamente, começar por `dev.tuprel.playground.CheckConnection`
+e depois `dev.tuprel.playground.Playground`. Na Run Configuration, seleccionar
+JDK 21 e **Working directory = esta pasta, `examples/tuprel-playground`**, para
+que o caminho relativo `.env` seja inequívoco. Não é necessário guardar passwords
+na Run Configuration. As tasks Gradle já fixam essa pasta automaticamente.
 
 ## O que comprova
 

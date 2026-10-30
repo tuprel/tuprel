@@ -1,10 +1,12 @@
 package dev.tuprel.playground;
 
+import dev.tuprel.testsupport.LocalTestEnvironment;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -16,12 +18,13 @@ final class LocalDatabase {
     private LocalDatabase() { }
 
     static PGSimpleDataSource connect() {
-        String url = required("TUPREL_TEST_JDBC_URL");
+        LocalTestEnvironment configuration = LocalTestEnvironment.load(Path.of(".env"));
+        String url = configuration.required("TUPREL_TEST_JDBC_URL");
         validateUrl(url);
         PGSimpleDataSource source = new PGSimpleDataSource();
         source.setURL(url);
-        source.setUser(required("TUPREL_TEST_DB_USER"));
-        source.setPassword(required("TUPREL_TEST_DB_PASSWORD"));
+        source.setUser(configuration.required("TUPREL_TEST_DB_USER"));
+        source.setPassword(configuration.required("TUPREL_TEST_DB_PASSWORD"));
         source.setCurrentSchema("tuprel_playground");
         source.setConnectTimeout(5);
         return source;
@@ -75,11 +78,4 @@ final class LocalDatabase {
         }
     }
 
-    private static String required(String name) {
-        String value = System.getenv(name);
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Set " + name + " in the application environment");
-        }
-        return value;
-    }
 }
