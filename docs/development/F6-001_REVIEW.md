@@ -1,7 +1,7 @@
 # F6-001 — Entrega e revisão técnica
 
 Base: `6c771ef` (main após Fase 5). Branch:
-`codex/f6-001-cli-migration-foundation`. Estado: pronta para revisão, sem merge.
+`feat/f6-001-cli-migration-foundation`. Estado: pronta para revisão, sem merge.
 Contratos de DB permanecem propostos; este relatório não os aprova.
 
 ## Implementado

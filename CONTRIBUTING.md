@@ -13,6 +13,29 @@ As contribuições para este projecto open source são feitas sob a [Apache Lice
 7. actualiza documentação quando o contrato público muda;
 8. submete PR com riscos, compatibilidade e evidência de testes.
 
+## Branches e commits
+
+Usa branches baseadas no trabalho realizado: `feat/`, `fix/`, `refactor/`,
+`docs/`, `test/`, `chore/` ou `perf/`. O nome deve ser curto, descritivo, em
+inglês e kebab-case, por exemplo `feat/f6-001-cli-migration-foundation`.
+Não uses prefixos que identifiquem ferramentas, automações ou autores.
+Esta convenção aplica-se a todas as fases e tarefas seguintes.
+
+Usa commits pequenos e coesos no formato `type(scope): summary`, com resumo
+em inglês e no imperativo. Tipos usuais: `feat`, `fix`, `refactor`, `docs`,
+`test`, `chore`, `perf`, `build` e `ci`; o scope é opcional. Exemplo:
+`docs(contributing): define branch and writing conventions`.
+Preserva commits publicados e a atribuição verdadeira de autores e colaboradores;
+não reescrevas histórico para alterar a apresentação.
+
+## Escrita técnica e Pull Requests
+
+Descreve o problema, a solução, os testes executados e as limitações reais.
+Mantém títulos e descrições objectivos, sem promoção, repetições ou referências
+irrelevantes ao processo de desenvolvimento. Comentários devem explicar decisões
+ou restrições úteis. Não acrescentes assinaturas/créditos automáticos nem
+afirmações não verificadas sobre autoria, testes, decisões ou desempenho.
+
 ## Alterações de arquitectura
 
 Mudanças em módulos, dependências, formato do schema, API pública, modelo de migrações, compatibilidade de base de dados ou segurança exigem ADR.
