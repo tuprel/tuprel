@@ -44,7 +44,7 @@ jobs:
           languages: java-kotlin
       - name: Build for analysis
         run: |
-          ./gradlew build --no-daemon --dependency-verification strict -PtuprelTestDatabase=container
-          ./gradlew -p examples/tuprel-playground classes --no-daemon --dependency-verification strict
+          ./gradlew build --rerun-tasks --no-build-cache --no-daemon --dependency-verification strict -PtuprelTestDatabase=container
+          ./gradlew -p examples/tuprel-playground classes --rerun-tasks --no-build-cache --no-daemon --dependency-verification strict
       - name: Analyze
         uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
