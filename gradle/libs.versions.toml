@@ -10,10 +10,10 @@
 #   superfície transitiva e peso (ver CLAUDE.md e .claude/rules/security.md).
 
 [versions]
-# Spotless 8.10.2 (release estável, 2026-09-04). Licença Apache-2.0.
+# Spotless 8.10.4 (actualização do PR #17). Licença Apache-2.0.
 # Requer Gradle >= 8.1; compatibilidade com Gradle 9.8.2 verificada
 # empiricamente neste repositório.
-spotless = "8.10.2"
+spotless = "8.10.4"
 
 [libraries]
 
