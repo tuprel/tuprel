@@ -1,7 +1,7 @@
 # TUPREL CLI — Produto, arquitectura e contrato v1
 
-Estado: contrato proposto para aprovação na F6-001; a tabela distingue código
-entregue de roadmap. Java 21. Sem publicação, instalador ou integração automática
+Estado: contrato F6-001 aceite (ADR-0012); criação offline F6-002A em revisão.
+A tabela distingue código entregue de roadmap. Java 21. Sem publicação, instalador ou integração automática
 com frameworks nesta entrega. A CLI é uma superfície principal do toolkit.
 
 ## Experiência implementada
@@ -13,6 +13,7 @@ tuprel init [--dry-run]
 tuprel validate [--schema <ficheiro> | schema.tuprel]
 tuprel format [--check | --dry-run] [--schema <ficheiro> | schema.tuprel]
 tuprel generate [--check | --dry-run] [--schema <ficheiro> | schema.tuprel]
+tuprel migrate create --name <nome> [--dry-run]
 ```
 
 Cada comando implementado aceita `--help` ou `-h`, sem ler ficheiros. Help
@@ -41,9 +42,38 @@ da CLI actual e pode ser integrado manualmente como source root. A convenção
 `target/generated-sources/tuprel` do ADR-0007 pertence à futura integração Maven;
 não se muda silenciosamente o destino ao detectar um pom.xml.
 
+## Criação offline de migrations (F6-002A)
+
+Requer catálogo v1 existente em `tuprel/migrations`; num projecto novo, executar
+`tuprel init` primeiro. Não lê schema, `.env` ou base de dados. Não aceita
+`--schema`, ID manual nem flags de aplicação. A CLI só anuncia `migrate create`.
+
+O nome segue o ADR-0012: 1–64 caracteres ASCII minúsculos, começa por letra,
+palavras separadas por `_` ou `-`. Exemplo: `add_products-v2`. Não converte
+maiúsculas, espaços ou acentos silenciosamente. IDs UTC têm precisão de segundo;
+colisão, relógio regressivo e limites excedidos são erros (exit 2), sem retries.
+
+Cria `<uuuuMMdd_HHmmss>_<nome>/migration.sql` com comentário UTF-8/LF, pronto
+para edição manual. Nenhum statement é inventado, executado ou aprovado.
+`--dry-run` valida e mostra a pasta prevista sem escrever nem reservar o ID.
+
+Criadores cooperam com lock não bloqueante num ficheiro vazio persistente
+`tuprel/.migrations.create.lock`, fora do catálogo v1. Não apagar/substituir
+com criadores activos; a sua presença não significa que há um lock activo.
+O proprietário pode adicionar `/tuprel/.migrations.create.lock` ao `.gitignore`;
+a CLI não modifica configurações. Precisa de escrita no catálogo e no pai.
+
+Falha após criar a pasta preserva ficheiros e devolve PARTIAL_CREATION: inspeccionar
+a pasta nova antes de repetir. Ficheiros incompletos bloqueiam descoberta, mas
+uma falha após escrita completa pode deixar um draft válido sem confirmação de
+sucesso. Não existe journal, rollback de filesystem ou aprovação implícita.
+Leitores/editores externos devem excluir escritas concorrentes. Filesystems
+remotos e adversários que trocam paths durante I/O ficam fora deste contrato.
+Ver [protocolo e trade-offs](../../plans/F6-002A_MIGRATION_CREATE.md).
+
 ## Contratos do terminal
 
-| Aspecto | Contrato F6-001 |
+| Aspecto | Contrato CLI |
 |---|---|
 | stdout | ajuda, versão, sucesso e resumo do dry-run |
 | stderr | códigos de erro/diagnostics e instrução de correcção |
@@ -99,6 +129,9 @@ try {
     & $tuprelCli --version
     & $tuprelCli init --dry-run
     & $tuprelCli init
+    & $tuprelCli migrate create --help
+    & $tuprelCli migrate create --name initial --dry-run
+    & $tuprelCli migrate create --name initial
     & $tuprelCli validate
     & $tuprelCli format --check
     & $tuprelCli generate --dry-run
@@ -122,7 +155,10 @@ tuprel_demo="$(mktemp -d)"
   "$tuprel_cli" init --dry-run && "$tuprel_cli" init &&
   "$tuprel_cli" validate && "$tuprel_cli" format --check &&
   "$tuprel_cli" generate --dry-run && "$tuprel_cli" generate &&
-  "$tuprel_cli" generate --check
+  "$tuprel_cli" generate --check &&
+  "$tuprel_cli" migrate create --help &&
+  "$tuprel_cli" migrate create --name initial --dry-run &&
+  "$tuprel_cli" migrate create --name initial
 )
 ```
 
@@ -130,7 +166,6 @@ tuprel_demo="$(mktemp -d)"
 
 | Comando | Entrega/contrato proposto |
 |---|---|
-| `migrate create --name initial` | F6-002A offline, após aprovação do formato; ID UTC único, draft versionado, sem SQL aplicado |
 | `migrate status` | F6-002B; histórico read-only, pending/removed/modified; drift ainda explicitamente não verificado |
 | `migrate deploy` | F6-003, só após ADRs e testes de falha/concurrency; aplica ficheiros aprovados, nunca gera DDL |
 | `migrate diff` | F6-004 preview conhecido; F6-005 comparação ao catálogo, desconhecidos não são sucesso |

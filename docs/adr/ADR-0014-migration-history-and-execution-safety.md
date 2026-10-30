@@ -1,6 +1,6 @@
 # ADR-0014 — Histórico confirmado e execução transaccional conservadora
 
-Estado: **proposto; bloqueia F6-002/F6-003 até aprovação**. Sem implementação
+Estado: **proposto; bloqueia F6-002B/F6-003 até aprovação**. Sem implementação
 nesta entrega. Data: 2026-10-30. Complementa ADR-0008, ainda proposto.
 
 ## Histórico proposto (v1)
@@ -31,7 +31,7 @@ uma segunda máquina de recovery com janelas de crash. `APPLIED` identifica só
 sucesso confirmado; tentativas são resultados do processo. Uma futura tabela
 de tentativas necessita de ADR próprio, não de estados inventados a posteriori.
 
-## Status read-only (F6-002)
+## Status read-only (F6-002B)
 
 Uma transacção read-only, SELECTs bound e snapshot consistente. Sem tabela:
 `UNINITIALISED`, 0 aplicadas e ficheiros pendentes; nenhuma escrita para bootstrap.
