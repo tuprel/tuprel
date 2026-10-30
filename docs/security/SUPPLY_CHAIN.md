@@ -22,7 +22,7 @@ Dependency locking nativo do Gradle **activo**. Lockfiles versionados:
 `build-logic/buildscript-gradle.lockfile` e `build-logic/gradle.lockfile` no
 included build, e `gradle.lockfile` em cada módulo de produto actual
 (`tuprel-schema`, `tuprel-codegen-java`, `tuprel-cli`, `tuprel-sql`,
-`tuprel-runtime` e `tuprel-postgresql`). O procedimento de
+`tuprel-runtime`, `tuprel-postgresql` e `tuprel-migrate`). O procedimento de
 refrescamento está em `docs/development/BUILD_AND_TEST.md`.
 
 Cobertura relevante para esta política:

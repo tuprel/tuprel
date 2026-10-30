@@ -266,3 +266,23 @@ configuração local não versionada ficam de fora.
 - `tuprel-postgresql/src/test/java/dev/tuprel/testsupport/LocalTestEnvironmentTest.java`
 - `docs/development/FINAL_REVIEW_2026-10-30.md`
 - `docs/rfcs/RFC-006-migration-engine-proposal.md`
+
+## Fundação F6-001
+
+- `docs/development/F6-001_REVIEW.md`
+- `plans/F6-001_CLI_MIGRATION_FOUNDATION.md`
+- `docs/product/CLI_EXPERIENCE.md`
+- `docs/adr/ADR-0012-offline-cli-and-migration-files.md`
+- `docs/adr/ADR-0013-postgresql-migration-adapter.md`
+- `docs/adr/ADR-0014-migration-history-and-execution-safety.md`
+- `tuprel-cli/src/main/java/dev/tuprel/cli/ProjectInitializer.java`
+- `tuprel-cli/src/test/java/dev/tuprel/cli/CliExperienceTest.java`
+- `tuprel-migrate/build.gradle.kts`
+- `tuprel-migrate/gradle.lockfile`
+- `tuprel-migrate/src/main/java/dev/tuprel/migrate/MigrationId.java`
+- `tuprel-migrate/src/main/java/dev/tuprel/migrate/MigrationChecksum.java`
+- `tuprel-migrate/src/main/java/dev/tuprel/migrate/MigrationFile.java`
+- `tuprel-migrate/src/main/java/dev/tuprel/migrate/MigrationDirectory.java`
+- `tuprel-migrate/src/main/java/dev/tuprel/migrate/MigrationValidationException.java`
+- `tuprel-migrate/src/test/java/dev/tuprel/migrate/MigrationFileTest.java`
+- `tuprel-migrate/src/test/java/dev/tuprel/migrate/MigrationDirectoryTest.java`

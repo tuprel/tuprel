@@ -20,6 +20,10 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Fundação offline F6-001: help/version, init seguro, `--schema` e dry-run na CLI;
+  módulo `tuprel-migrate` com IDs, formato versionado, snapshots e SHA-256.
+  Histórico, JDBC e execução de migrations continuam indisponíveis, sujeitos
+  à aprovação dos contratos propostos nos ADRs 0013/0014.
 - Licença open source Apache-2.0 no `LICENSE` da raiz.
 - Fundação documental do projecto: especificação de produto, princípios,
   arquitectura, module boundaries, modelo de erros, estratégia de testes,
