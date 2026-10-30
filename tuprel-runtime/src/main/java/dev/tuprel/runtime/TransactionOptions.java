@@ -23,6 +23,11 @@ public record TransactionOptions(Optional<IsolationLevel> isolation, boolean rea
         Objects.requireNonNull(isolation, "isolation");
         Objects.requireNonNull(timeout, "timeout");
         timeout.ifPresent(StatementOptions::requirePositive);
+        timeout.ifPresent(value -> {
+            if (value.compareTo(Duration.ofNanos(Long.MAX_VALUE)) > 0) {
+                throw new IllegalArgumentException("Transaction timeout is too large");
+            }
+        });
     }
 
     /** Connection defaults, read-write, no deadline. */

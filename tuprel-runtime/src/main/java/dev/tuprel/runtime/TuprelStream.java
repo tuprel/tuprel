@@ -51,6 +51,7 @@ public final class TuprelStream<T> implements Iterable<T>, AutoCloseable {
                     try {
                         available = result.next();
                     } catch (SQLException exception) {
+                        scope.markStatementFailure(exception);
                         throw new TuprelDatabaseException(TuprelDatabaseException.Phase.MAPPING, exception);
                     }
                     fetched = true;
@@ -81,17 +82,18 @@ public final class TuprelStream<T> implements Iterable<T>, AutoCloseable {
         if (closed) {
             return;
         }
+        scope.connection();
         closed = true;
         scope.unregister(this);
-        SQLException failure = null;
+        Exception failure = null;
         try {
             result.close();
-        } catch (SQLException exception) {
+        } catch (SQLException | RuntimeException exception) {
             failure = exception;
         }
         try {
             statement.close();
-        } catch (SQLException exception) {
+        } catch (SQLException | RuntimeException exception) {
             if (failure == null) {
                 failure = exception;
             } else {

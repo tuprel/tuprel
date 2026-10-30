@@ -57,11 +57,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.postgresql.ds.PGSimpleDataSource;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /** Relations, transactions, locks, streaming, batches and optimistic locking on real PostgreSQL. */
 class RelationsAndTransactionsIntegrationTest {
-    private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17.11-trixie");
+    private static TestPostgresql postgres;
     private static final Instant CREATED = Instant.parse("2026-09-30T10:00:00Z");
     private static final AtomicInteger STATEMENTS = new AtomicInteger();
     private static PGSimpleDataSource dataSource;
@@ -69,11 +68,8 @@ class RelationsAndTransactionsIntegrationTest {
 
     @BeforeAll
     static void startDatabase() throws SQLException {
-        POSTGRES.start();
-        dataSource = new PGSimpleDataSource();
-        dataSource.setURL(POSTGRES.getJdbcUrl());
-        dataSource.setUser(POSTGRES.getUsername());
-        dataSource.setPassword(POSTGRES.getPassword());
+        postgres = TestPostgresql.open();
+        dataSource = postgres.dataSource();
         db = new TuprelClient(PostgresqlDatabase.using(counting(dataSource)));
         execute("""
                 CREATE TABLE "Customer" (
@@ -102,8 +98,10 @@ class RelationsAndTransactionsIntegrationTest {
     }
 
     @AfterAll
-    static void stopDatabase() {
-        POSTGRES.stop();
+    static void stopDatabase() throws SQLException {
+        if (postgres != null) {
+            postgres.close();
+        }
     }
 
     @BeforeEach
@@ -212,6 +210,40 @@ class RelationsAndTransactionsIntegrationTest {
         }));
         assertEquals("23503", constraint.sqlState());
         assertFalse(db.customer().exists(query -> query.where(CustomerWhere.email().eq("partial@example.com"))));
+    }
+
+    @Test
+    void catchingAStatementFailureCannotReportASuccessfulCommitOfAnAbortedTransaction() {
+        customer("existing@example.com", "Existing");
+        TuprelDatabaseException failure = assertThrows(TuprelDatabaseException.class, () -> db.transaction(tx -> {
+            tx.customer().create(input("pending@example.com", "Pending"));
+            TuprelDatabaseException duplicate = assertThrows(TuprelDatabaseException.class,
+                    () -> tx.customer().create(input("existing@example.com", "Duplicate")));
+            assertEquals("23505", duplicate.sqlState());
+            return 1;
+        }));
+        assertEquals("25000", failure.sqlState());
+        assertEquals(1, db.customer().count());
+        assertFalse(db.customer().exists(query -> query.where(CustomerWhere.email().eq("pending@example.com"))));
+    }
+
+    @Test
+    void aCaughtStatementFailureInASavepointIsRolledBackWithoutPoisoningTheOuterTransaction() {
+        db.transaction(tx -> {
+            tx.customer().create(input("before@example.com", "Before"));
+            TuprelDatabaseException failedBlock = assertThrows(TuprelDatabaseException.class,
+                    () -> tx.transaction(inner -> {
+                        inner.customer().create(input("discarded@example.com", "Discarded"));
+                        assertThrows(TuprelDatabaseException.class,
+                                () -> inner.customer().create(input("before@example.com", "Duplicate")));
+                        return 1;
+                    }));
+            assertEquals("25000", failedBlock.sqlState());
+            tx.customer().create(input("after@example.com", "After"));
+            return 1;
+        });
+        assertEquals(List.of("After", "Before"), db.customer().findMany(query -> query
+                .orderBy(CustomerOrder.name().asc())).stream().map(Customer::name).toList());
     }
 
     @Test

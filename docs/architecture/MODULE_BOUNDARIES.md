@@ -30,6 +30,12 @@ RFC-004, RFC-005, ADR-0010, ADR-0011). Os
 restantes módulos continuam planeados. `build-logic` é um included build de
 infraestrutura e não faz parte deste grafo de produto.
 
+`test-support/src/main/java` contém apenas suporte local partilhado pelas
+fixtures de integração e pelo exemplo executável. Não é um subprojecto nem
+uma dependência dos artefactos de produto; os dois consumidores compilam esses
+fontes explicitamente. O carregamento opcional do `.env` fica aqui, fora do core,
+do driver de produção e da configuração Gradle.
+
 ## Responsabilidades
 
 ### `tuprel-schema`
