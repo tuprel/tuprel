@@ -2,9 +2,11 @@ package dev.tuprel.runtime.query;
 
 import dev.tuprel.runtime.RowMapper;
 import dev.tuprel.sql.SqlIdentifier;
+import dev.tuprel.sql.SqlValue;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -19,12 +21,15 @@ public final class ModelTable<M, I> {
     private final Field<M, I> id;
     private final List<Field<M, ?>> fields;
     private final RowMapper<M> mapper;
+    private final Optional<ComparableField<M, ? extends Number>> version;
 
-    private ModelTable(SqlIdentifier table, Field<M, I> id, List<Field<M, ?>> fields, RowMapper<M> mapper) {
+    private ModelTable(SqlIdentifier table, Field<M, I> id, List<Field<M, ?>> fields, RowMapper<M> mapper,
+            Optional<ComparableField<M, ? extends Number>> version) {
         this.table = table;
         this.id = id;
         this.fields = fields;
         this.mapper = mapper;
+        this.version = version;
     }
 
     /**
@@ -48,7 +53,26 @@ public final class ModelTable<M, I> {
         if (id.nullable()) {
             throw new IllegalArgumentException("The identifier field cannot be nullable");
         }
-        return new ModelTable<>(name, id, copy, Objects.requireNonNull(mapper, "mapper"));
+        return new ModelTable<>(name, id, copy, Objects.requireNonNull(mapper, "mapper"), Optional.empty());
+    }
+
+    /**
+     * Declares a model table with an optimistic-locking counter. The version field must be one
+     * of the required model fields and hold {@code Int} or {@code Long} values.
+     */
+    public static <M, I> ModelTable<M, I> versioned(String table, Field<M, I> id,
+            ComparableField<M, ? extends Number> version, List<? extends Field<M, ?>> fields, RowMapper<M> mapper) {
+        ModelTable<M, I> base = of(table, id, fields, mapper);
+        Objects.requireNonNull(version, "version");
+        if (!base.fields.contains(version) || version.nullable() || version.equals(id)
+                || !(version.type() == SqlValue.Type.INT32 || version.type() == SqlValue.Type.INT64)) {
+            throw new IllegalArgumentException("The version must be a required Int or Long model field");
+        }
+        return new ModelTable<>(base.table, id, base.fields, base.mapper, Optional.of(version));
+    }
+
+    Optional<ComparableField<M, ? extends Number>> version() {
+        return version;
     }
 
     /** Physical table name. */
