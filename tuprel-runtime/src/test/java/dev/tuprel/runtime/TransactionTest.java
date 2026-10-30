@@ -196,6 +196,8 @@ class TransactionTest {
         assertEquals(1, thrown.getSuppressed().length);
         assertFalse(recorder.events.contains("setAutoCommit(true)"), "Would commit pending changes");
         assertFalse(recorder.events.contains("commit"));
+        assertEquals(List.of("abort", "close"), recorder.events.subList(recorder.events.size() - 2,
+                recorder.events.size()));
         assertEquals("close", recorder.events.getLast());
     }
 
@@ -299,6 +301,20 @@ class TransactionTest {
         assertEquals(0, recorder.connectionsOpened);
     }
 
+    @Test
+    void failedAbortIsSuppressedAndTheConnectionIsStillClosedWithoutEnablingAutocommit() {
+        Recorder recorder = new Recorder();
+        recorder.failRollback = true;
+        recorder.failAbort = true;
+        IllegalStateException original = new IllegalStateException("business rule");
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> recorder.database().transaction(tx -> { throw original; }));
+        assertSame(original, failure);
+        assertEquals(2, failure.getSuppressed().length);
+        assertFalse(recorder.events.contains("setAutoCommit(true)"));
+        assertEquals("close", recorder.events.getLast());
+    }
+
     /** JDBC fake recording connection-level events in order. */
     private static final class Recorder implements SqlRenderer {
         private final List<String> events = new ArrayList<>();
@@ -309,6 +325,7 @@ class TransactionTest {
         private int rows;
         private boolean failCommit;
         private boolean failRollback;
+        private boolean failAbort;
         private boolean failSavepointRollback;
         private boolean failSavepointRelease;
         private boolean failSetup;
@@ -381,8 +398,11 @@ class TransactionTest {
                     events.add("setSavepoint");
                     yield savepoint;
                 }
-                case "releaseSavepoint", "close" -> {
+                case "releaseSavepoint", "abort", "close" -> {
                     events.add(method);
+                    if (method.equals("abort") && failAbort) {
+                        throw new SQLException("abort failed", "08006");
+                    }
                     if (method.equals("releaseSavepoint") && failSavepointRelease) {
                         throw new SQLException("release failed", "08006");
                     }

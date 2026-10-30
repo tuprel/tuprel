@@ -307,7 +307,7 @@ public final class TuprelDatabase {
             try {
                 connection.rollback(savepoint);
                 connection.releaseSavepoint(savepoint);
-            } catch (SQLException rollbackFailure) {
+            } catch (SQLException | RuntimeException rollbackFailure) {
                 parent.markRollbackOnly(rollbackFailure);
                 failure.addSuppressed(rollbackFailure);
             }
@@ -315,7 +315,7 @@ public final class TuprelDatabase {
         }
         try {
             connection.releaseSavepoint(savepoint);
-        } catch (SQLException exception) {
+        } catch (SQLException | RuntimeException exception) {
             parent.markRollbackOnly(exception);
             throw new TuprelDatabaseException(TuprelDatabaseException.Phase.TRANSACTION, exception);
         }
@@ -342,6 +342,13 @@ public final class TuprelDatabase {
                 restoreSettings(connection, original);
             } catch (SQLException | RuntimeException restoreFailure) {
                 failure.addSuppressed(restoreFailure);
+            }
+        } else {
+            // A pooled close may reset settings. Terminate the unsafe connection first.
+            try {
+                connection.abort(Runnable::run);
+            } catch (SQLException | RuntimeException abortFailure) {
+                failure.addSuppressed(abortFailure);
             }
         }
         closeQuietly(connection, failure);
