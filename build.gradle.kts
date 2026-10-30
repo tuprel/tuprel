@@ -112,6 +112,7 @@ spotless {
             "build-logic/settings.gradle.kts",
             "build-logic/build.gradle.kts",
             "build-logic/src/main/kotlin/*.gradle.kts",
+            "examples/tuprel-playground/*.gradle.kts",
         )
         leadingTabsToSpaces(4)
         trimTrailingWhitespace()
@@ -149,7 +150,7 @@ spotless {
      * determinística de whitespace, sem acrescentar um formatter de Java.
      */
     format("javaSources") {
-        target("tuprel-schema/src/**/*.java", "tuprel-cli/src/**/*.java", "tuprel-codegen-java/src/**/*.java", "tuprel-sql/src/**/*.java", "tuprel-runtime/src/**/*.java", "tuprel-postgresql/src/**/*.java")
+        target("tuprel-schema/src/**/*.java", "tuprel-cli/src/**/*.java", "tuprel-codegen-java/src/**/*.java", "tuprel-sql/src/**/*.java", "tuprel-runtime/src/**/*.java", "tuprel-postgresql/src/**/*.java", "examples/tuprel-playground/src/**/*.java")
         leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         endWithNewline()

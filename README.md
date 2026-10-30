@@ -137,7 +137,7 @@ The engineering foundation, Phase 1 schema language, Phase 2 Java source generat
 
 ## Build from source
 
-Use Java 21 and the checked-in Gradle Wrapper; a global Gradle installation is not required. A Docker-compatible container runtime is needed for the PostgreSQL integration tests included in `check`.
+Use Java 21 and the checked-in Gradle Wrapper; a global Gradle installation is not required. PostgreSQL integration tests use a dedicated local `tuprel_devtest` database by default, configured through `TUPREL_TEST_JDBC_URL`, `TUPREL_TEST_DB_USER` and `TUPREL_TEST_DB_PASSWORD`. Missing configuration fails without starting containers. CI selects Testcontainers explicitly with `-PtuprelTestDatabase=container`. See [local setup](docs/development/BUILD_AND_TEST.md#postgresql-local-no-windows) and the executable [Java playground](examples/tuprel-playground/README.md).
 
 ```bash
 ./gradlew check

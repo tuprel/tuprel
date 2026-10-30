@@ -237,3 +237,26 @@ configuração local não versionada ficam de fora.
 - `tuprel-sql/src/main/java/dev/tuprel/sql/SqlRenderer.java`
 - `tuprel-sql/src/main/java/dev/tuprel/sql/SqlValue.java`
 - `tuprel-sql/src/test/java/dev/tuprel/sql/SqlCommandTest.java`
+
+## Consolidação local PostgreSQL e playground
+
+- `docs/development/CONSOLIDATION_AUDIT_2026-10-30.md`
+- `examples/tuprel-playground/build.gradle.kts`
+- `examples/tuprel-playground/gradle.lockfile`
+- `examples/tuprel-playground/gradle/verification-metadata.xml`
+- `examples/tuprel-playground/gradle/wrapper/gradle-wrapper.jar`
+- `examples/tuprel-playground/gradle/wrapper/gradle-wrapper.properties`
+- `examples/tuprel-playground/gradlew.bat`
+- `examples/tuprel-playground/gradlew`
+- `examples/tuprel-playground/README.md`
+- `examples/tuprel-playground/settings-gradle.lockfile`
+- `examples/tuprel-playground/settings.gradle.kts`
+- `examples/tuprel-playground/src/main/java/dev/tuprel/playground/LocalDatabase.java`
+- `examples/tuprel-playground/src/main/java/dev/tuprel/playground/Playground.java`
+- `examples/tuprel-playground/src/main/resources/bootstrap.sql`
+- `examples/tuprel-playground/src/test/java/dev/tuprel/playground/LocalDatabaseTest.java`
+- `examples/tuprel-playground/tuprel/schema.tuprel`
+- `plans/LOCAL_POSTGRESQL_CONSOLIDATION.md`
+- `tuprel-postgresql/src/integrationTest/java/dev/tuprel/postgresql/TestPostgresql.java`
+- `tuprel-postgresql/src/test/java/dev/tuprel/postgresql/LocalPostgresqlTargetTest.java`
+- `tuprel-postgresql/src/testSupport/java/dev/tuprel/postgresql/LocalPostgresqlTarget.java`

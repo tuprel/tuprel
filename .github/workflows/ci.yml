@@ -38,4 +38,8 @@ jobs:
           cache-provider: basic
           validate-wrappers: true
       - name: Build and verify
-        run: ./gradlew build --no-daemon --dependency-verification strict
+        run: ./gradlew build --no-daemon --dependency-verification strict -PtuprelTestDatabase=container
+      - name: Compile consumer playground
+        run: |
+          cmp gradle/verification-metadata.xml examples/tuprel-playground/gradle/verification-metadata.xml
+          ./gradlew -p examples/tuprel-playground build --no-daemon --dependency-verification strict
