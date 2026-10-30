@@ -1,7 +1,7 @@
 # RFC-006 — Proposta incremental para o motor de migrations
 
-Estado: **Desenho para aprovação. F6-001 offline autorizada e implementada para
-revisão; histórico, adapter e execução continuam sem aprovação e sem código.**
+Estado: **Desenho DB para aprovação. F6-001 integrada, ADR-0012 aceite;
+F6-002A cria drafts offline. Histórico, adapter e execução continuam sem aprovação e sem código.**
 Data: 2026-10-30. Relacionados: Fase 6, ADR-0008 (ainda proposto),
 especificação canónica, secções 42–53, 143 e 174.
 
@@ -10,7 +10,8 @@ especificação canónica, secções 42–53, 143 e 174.
 Aplicar alterações revistas de forma ordenada, verificável e recuperável.
 `deploy` aplica ficheiros existentes; nunca deriva DDL do schema actual.
 Esta revisão transforma a proposta da consolidação da Fase 5 num contrato
-incremental. Só a fundação offline F6-001 é implementada no seu PR. O bootstrap
+incremental. F6-001 fornece a fundação offline; F6-002A acrescenta criação manual
+de drafts em PR separado. O bootstrap
 SQL do playground mantém-se temporário, sem alegar ser migration.
 
 Planner/diff puro recebe o schema validado e um modelo físico conhecido.
@@ -22,9 +23,9 @@ Não reutilizar o carregador de `.env` dos testes como contrato de produção.
 Decisões formais para aprovação:
 
 - [ADR-0012](../adr/ADR-0012-offline-cli-and-migration-files.md): módulo puro,
-  formato v1 e CLI offline. Código experimental autorizado nesta fatia.
+  formato v1 e CLI offline aceites no PR #26; criação F6-002A em revisão.
 - [ADR-0013](../adr/ADR-0013-postgresql-migration-adapter.md): recomendação revista
-  para adapter `tuprel-migrate-postgresql` separado, a criar em F6-002; evita
+  para adapter `tuprel-migrate-postgresql` separado, a criar em F6-002B; evita
   dependência de migrations no driver CRUD. Aprovar antes de JDBC.
 - [ADR-0014](../adr/ADR-0014-migration-history-and-execution-safety.md): contrato
   concreto de histórico, estados, lock, SQL e recovery. Aprovar antes de DB.
@@ -140,6 +141,6 @@ plano/SQL para revisão. `deploy` só executa artefactos existentes e aprovados.
    preservação de dados e testes antes de substituir bootstrap. Nunca reset.
 
 Cada fatia DB precisa de aprovação do contrato e testes PostgreSQL real local
-e na CI. O pedido actual autoriza apenas F6-001 segura, sem ligações ou DDL
-novos. F6-002/F6-003 ficam bloqueadas pelos ADRs pendentes; não interpretar a
+e na CI. F6-001 e F6-002A estão autorizadas sem ligações ou DDL
+novos. F6-002B/F6-003 ficam bloqueadas pelos ADRs pendentes; não interpretar a
 implementação offline como aprovação tácita do executor.

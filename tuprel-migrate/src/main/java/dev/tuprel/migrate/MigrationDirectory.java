@@ -47,28 +47,8 @@ public final class MigrationDirectory {
         Objects.requireNonNull(root, "root");
         if (!FileSystems.getDefault().equals(root.getFileSystem())) { throw failure(Reason.INVALID_ROOT); }
         try {
-            Path absolute = root.toAbsolutePath();
-            for (Path part : absolute) {
-                if (part.toString().equals("..")) { throw failure(Reason.INVALID_ROOT); }
-            }
-            Path canonical = absolute.normalize();
-            List<Path> ancestors = new ArrayList<>();
-            for (Path ancestor = canonical; ancestor != null; ancestor = ancestor.getParent()) {
-                ancestors.add(ancestor);
-            }
-            for (Path ancestor : ancestors.reversed()) {
-                BasicFileAttributes attributes = attributes(ancestor);
-                if (!attributes.isDirectory() || attributes.isSymbolicLink() || attributes.isOther()) {
-                    throw failure(Reason.INVALID_ROOT);
-                }
-            }
-            if (!canonical.toRealPath().equals(canonical)) { throw failure(Reason.INVALID_ROOT); }
-            Path marker = canonical.resolve(FORMAT_FILE);
-            if (!Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) { throw failure(Reason.UNSUPPORTED_FORMAT); }
-            byte[] header = readRegular(marker, 64);
-            if (!Arrays.equals(header, FORMAT_HEADER.getBytes(StandardCharsets.UTF_8))) {
-                throw failure(Reason.UNSUPPORTED_FORMAT);
-            }
+            Path canonical = validatedRoot(root);
+            verifyFormat(canonical);
             List<MigrationFile> migrations = new ArrayList<>();
             Set<MigrationId> ids = new HashSet<>();
             long total = 0;
@@ -116,6 +96,37 @@ public final class MigrationDirectory {
             throw new MigrationValidationException(exception.getCause());
         } catch (IOException exception) {
             throw new MigrationValidationException(exception);
+        }
+    }
+
+    // Shared with creation: format/path checks must not evolve independently.
+    static Path validatedRoot(Path root) throws IOException {
+        Objects.requireNonNull(root, "root");
+        if (!FileSystems.getDefault().equals(root.getFileSystem())) { throw failure(Reason.INVALID_ROOT); }
+        Path absolute = root.toAbsolutePath();
+        for (Path part : absolute) {
+            if (part.toString().equals("..")) { throw failure(Reason.INVALID_ROOT); }
+        }
+        Path canonical = absolute.normalize();
+        List<Path> ancestors = new ArrayList<>();
+        for (Path ancestor = canonical; ancestor != null; ancestor = ancestor.getParent()) {
+            ancestors.add(ancestor);
+        }
+        for (Path ancestor : ancestors.reversed()) {
+            BasicFileAttributes attributes = attributes(ancestor);
+            if (!attributes.isDirectory() || attributes.isSymbolicLink() || attributes.isOther()) {
+                throw failure(Reason.INVALID_ROOT);
+            }
+        }
+        if (!canonical.toRealPath().equals(canonical)) { throw failure(Reason.INVALID_ROOT); }
+        return canonical;
+    }
+
+    static void verifyFormat(Path canonical) throws IOException {
+        Path marker = canonical.resolve(FORMAT_FILE);
+        if (!Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) { throw failure(Reason.UNSUPPORTED_FORMAT); }
+        if (!Arrays.equals(readRegular(marker, 64), FORMAT_HEADER.getBytes(StandardCharsets.UTF_8))) {
+            throw failure(Reason.UNSUPPORTED_FORMAT);
         }
     }
 

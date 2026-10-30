@@ -1,7 +1,7 @@
 # ADR-0012 — Fundação offline da CLI e formato de migrations
 
-Estado: **proposto para aprovação no PR F6-001**. O utilizador autorizou a
-implementação experimental desta fatia; isso não aprova contratos de DB.
+Estado: **aceite** em 2026-10-30, por aprovação explícita do contrato CLI e
+do formato offline v1 do PR #26. Os ADRs 0013/0014 continuam propostos.
 Data: 2026-10-30. Relacionados: ADR-0001/0002/0007, RFC-006.
 
 ## Problema
@@ -11,7 +11,7 @@ Gradle application. Falta onboarding, ajuda, versão e um contrato de ficheiros
 independente de JDBC. Acrescentar execução antes destes contratos cristalizaria
 decisões operacionais ainda não aprovadas.
 
-## Decisão proposta e código para revisão
+## Decisão
 
 1. CLI JDK-only, sem framework adicional. Preservar argumentos posicionais,
    default `tuprel/schema.tuprel`, `format --check`, `generate --check` e códigos
@@ -60,16 +60,19 @@ decisões operacionais ainda não aprovadas.
 
 Validação de ficheiros **não é parsing SQL nem autorização**. SQL com `COMMIT`,
 `DROP` ou operações desconhecidas pode ser armazenado e lido como dados, sem
-ser aprovado para execução. Nenhum comando migrate está disponível nesta fatia.
+ser aprovado para execução. A F6-001 não disponibilizou comandos migrate;
+a F6-002A acrescenta exclusivamente criação offline de drafts.
 
-O filesystem tem de ser local e controlado pelo developer, sem writers
-concorrentes. Os checks não constituem sandbox contra outro processo com as
+O filesystem tem de ser local e controlado pelo developer. Leitores e editores
+exigem exclusão de escritas concorrentes; criadores da F6-002A cooperam através
+do protocolo descrito no [plano da tarefa](../../plans/F6-002A_MIGRATION_CREATE.md).
+Os checks não constituem sandbox contra outro processo com as
 mesmas permissões a trocar directorias durante I/O. Snapshots não guardam um
 path que um runner posterior volte a abrir silenciosamente. Roots devem usar
 paths canónicos; a CLI resolve a working directory antes de criar a estrutura.
 
-Aprovar neste PR o formato v1, o módulo puro e o contrato CLI. Aprovar os
-ADRs 0013/0014 separadamente antes de qualquer implementação de DB.
+Formato v1, módulo puro e contrato CLI aprovados. Os ADRs 0013/0014 exigem
+aprovação separada antes de qualquer implementação de DB.
 
 ## Validação
 

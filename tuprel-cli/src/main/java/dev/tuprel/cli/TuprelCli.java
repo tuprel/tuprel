@@ -59,6 +59,9 @@ public final class TuprelCli {
             return 0;
         }
         String command = arguments[0];
+        if (command.equals("migrate")) {
+            return new MigrationCommands().run(arguments, out, err, projectRoot);
+        }
         if (!List.of("init", "validate", "format", "generate").contains(command)) { return usage(err); }
         if (arguments.length == 2 && isHelp(arguments[1])) {
             printCommandHelp(command, out);
@@ -249,7 +252,7 @@ public final class TuprelCli {
     private static void printUsage(PrintWriter out) {
         out.println("Usage: tuprel <command> [options]");
         out.println("       tuprel --help | --version");
-        out.println("Commands: init, validate, format, generate");
+        out.println("Commands: init, validate, format, generate, migrate");
         out.println("Run tuprel <command> --help for options. Java 21 or newer is required.");
         out.println("Exit codes: 0 success; 1 invalid/outdated content; 2 usage, I/O or safety refusal.");
     }

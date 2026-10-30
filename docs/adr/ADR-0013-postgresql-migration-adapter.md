@@ -1,7 +1,7 @@
 # ADR-0013 — Adapter PostgreSQL de migrations separado do driver de runtime
 
-Estado: **proposto; aprovação obrigatória antes de F6-002**. Sem código JDBC
-ou novo módulo adapter em F6-001. Data: 2026-10-30.
+Estado: **proposto; aprovação obrigatória antes de F6-002B**. Sem código JDBC
+ou novo módulo adapter em F6-001/F6-002A. Data: 2026-10-30.
 
 ## Contexto
 
@@ -13,7 +13,7 @@ arbitrário e não deve receber uma escape hatch apenas para migrations.
 
 ## Decisão recomendada
 
-Criar **`tuprel-migrate-postgresql` em F6-002**, quando houver reader real de
+Criar **`tuprel-migrate-postgresql` em F6-002B**, quando houver reader real de
 histórico, não preventivamente nesta fatia. Depender de `tuprel-migrate` para
 ports e modelos puros e de `tuprel-sql` para identificadores validados existentes.
 JDBC/DataSource fica no adapter; driver PG é dependência de runtime do
@@ -23,12 +23,12 @@ consumidor que o compõe. Não há dependência nova no driver CRUD.
 Agora:       cli -> schema, codegen, migrate
              codegen -> schema
              migrate -> java.base
-F6-002+:     cli -> migrate-postgresql -> migrate, sql
+F6-002B+:    cli -> migrate-postgresql -> migrate, sql
 F6-004+:     migrate -> schema (modelo validado, sem I/O)
 Sem aresta:  postgresql -> migrate; migrate -> qualquer adapter/CLI
 ```
 
-Criar ports só quando usados: reader de histórico em F6-002; executor/lock em
+Criar ports só quando usados: reader de histórico em F6-002B; executor/lock em
 F6-003; leitor de catálogo parcial em F6-005. Não criar interfaces vazias agora.
 No adapter reutilizar `SqlIdentifier` e PreparedStatement/binding para valores;
 quoting de identificadores é responsabilidade explícita do dialecto. Não
@@ -62,6 +62,6 @@ schemas aleatórios, nunca Docker; CI conserva a opção container explícita.
 ## Gate de aprovação
 
 Confirmar módulo separado, configuração de produção e ports públicos concretos
-no plano de F6-002. Só então criar adapter, SELECTs de histórico e testes de DB.
+no plano de F6-002B. Só então criar adapter, SELECTs de histórico e testes de DB.
 Não acrescentar a aresta futura ou uma dependência de driver antes de existir
 código real que a use.

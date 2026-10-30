@@ -92,9 +92,10 @@ Depende dos contratos de `tuprel-sql` e runtime necessários.
 Implementado na F6-001: IDs, snapshots imutáveis, SHA-256, formato versionado,
 leitura limitada e validação de ficheiros/paths. Depende exclusivamente de
 `java.base`; não tem JDBC, schema parser, runtime ou dialecto. A CLI consome
-o contrato de formato no init.
+o contrato de formato no init. A F6-002A acrescenta criação offline de drafts,
+com exclusão entre criadores via lock de filesystem, sem dependências novas.
 
-History, locking, planner/applier e safety analysis continuam planeados, não
+History, locking de DB, planner/applier e safety analysis continuam planeados, não
 disponíveis. Planner poderá depender do modelo validado de schema quando existir.
 Ports só serão criados com consumidores reais. Ver ADR-0012/0014.
 
@@ -102,7 +103,7 @@ Ports só serão criados com consumidores reais. Ver ADR-0012/0014.
 
 ADR-0013 recomenda adapter separado: CLI → migrate-postgresql → migrate/sql,
 sem aresta do driver CRUD para migrate. Histórico/JDBC/lock/catálogo ficam nesse
-adapter; migrate nunca depende dele. Aprovação obrigatória antes de F6-002.
+adapter; migrate nunca depende dele. Aprovação obrigatória antes de F6-002B.
 
 ### `tuprel-introspection-postgresql`
 
@@ -112,7 +113,8 @@ Leitura de catálogos PostgreSQL e transformação no modelo de schema.
 
 Orquestra comandos. Na F6-001 expõe help/version, init, `validate`, `format` e `generate`,
 delegando análise no `tuprel-schema`, geração no `tuprel-codegen-java` e formato
-de migrations no `tuprel-migrate`; não
+de migrations no `tuprel-migrate`. A F6-002A orquestra `migrate create`, mantendo
+as regras de criação no módulo migrate; não
 deve duplicar lógica do parser, codegen ou migrate.
 
 ### `tuprel-spring-boot-starter`

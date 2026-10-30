@@ -35,7 +35,8 @@ roadmap e não são todos funcionalidades disponíveis nesta fase.
 - CLI `validate`, `format`, `generate` (positional paths and `--schema`),
   help/version, safe init and dry-run; see `CLI_EXPERIENCE.md`;
 - migration file format v1, IDs, bounded read-only discovery and exact SHA-256;
-  no JDBC/history/execution/diff commands yet (F6-001);
+  offline `migrate create --name <name> [--dry-run]` for comment-only drafts (F6-002A);
+  no JDBC/history/execution/diff commands yet;
 - testes em PostgreSQL real;
 - nenhum compromisso de compatibilidade binária.
 
