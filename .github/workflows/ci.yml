@@ -50,6 +50,23 @@ jobs:
           "$tuprel_cli" init --dry-run
           test ! -e tuprel
           "$tuprel_cli" init
+          "$tuprel_cli" migrate --help
+          "$tuprel_cli" migrate create --help
+          "$tuprel_cli" migrate create --name initial --dry-run
+          test ! -e tuprel/.migrations.create.lock
+          test "$(find tuprel/migrations -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 0
+          "$tuprel_cli" migrate create --name initial
+          test "$(find tuprel/migrations -name migration.sql -type f | wc -l)" -eq 1
+          test -f tuprel/.migrations.create.lock
+          test ! -s tuprel/.migrations.create.lock
+          set +e
+          "$tuprel_cli" migrate create --name '../invalid_name'
+          invalid_name_exit=$?
+          "$tuprel_cli" migrate deploy
+          unavailable_exit=$?
+          set -e
+          test "$invalid_name_exit" -eq 2
+          test "$unavailable_exit" -eq 2
           "$tuprel_cli" validate
           "$tuprel_cli" format --check
           "$tuprel_cli" generate --dry-run
@@ -67,6 +84,7 @@ jobs:
           checks = [
               ('tuprel-codegen-java', 'dev.tuprel.codegen.GeneratedSourceWriterTest', 'rejectsSymlinkInsideOutputTree()'),
               ('tuprel-migrate', 'dev.tuprel.migrate.MigrationDirectoryTest', 'rejectsSymlinksThroughoutCatalog()'),
+              ('tuprel-migrate', 'dev.tuprel.migrate.MigrationCreatorTest', 'rejectsSymlinksForCreationAndCoordination()'),
               ('tuprel-cli', 'dev.tuprel.cli.CliExperienceTest', 'rejectsSymlinksForInitAndSchemaWrites()'),
           ]
           for module, suite, name in checks:
