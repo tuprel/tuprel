@@ -1,6 +1,7 @@
 package dev.tuprel.runtime;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +18,7 @@ final class TransactionScope {
     private final Optional<TransactionScope> parent;
     private final List<TuprelStream<?>> streams = new ArrayList<>();
     private boolean active = true;
+    private Optional<Throwable> rollbackOnly = Optional.empty();
 
     private TransactionScope(Connection connection, Thread owner, Optional<Long> deadlineNanos,
             Optional<TransactionScope> parent) {
@@ -61,6 +63,21 @@ final class TransactionScope {
 
     void unregister(TuprelStream<?> stream) {
         streams.remove(stream);
+    }
+
+    void markRollbackOnly(Throwable failure) {
+        if (rollbackOnly.isEmpty()) {
+            rollbackOnly = Optional.of(failure);
+        }
+        parent.ifPresent(scope -> scope.markRollbackOnly(failure));
+    }
+
+    void requireCommittable() {
+        if (rollbackOnly.isPresent()) {
+            throw new TuprelDatabaseException(TuprelDatabaseException.Phase.TRANSACTION,
+                    new SQLException("Transaction cannot commit after savepoint recovery failed", "25000",
+                            rollbackOnly.get()));
+        }
     }
 
     /** Ends the block and closes streams left open; returns the first close failure. */

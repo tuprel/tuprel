@@ -81,6 +81,7 @@ public final class TuprelStream<T> implements Iterable<T>, AutoCloseable {
         if (closed) {
             return;
         }
+        scope.connection();
         closed = true;
         scope.unregister(this);
         SQLException failure = null;

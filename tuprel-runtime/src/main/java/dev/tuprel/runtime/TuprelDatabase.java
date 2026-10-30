@@ -114,6 +114,9 @@ public final class TuprelDatabase {
         Objects.requireNonNull(mapper, "mapper");
         Objects.requireNonNull(options, "options");
         require(query, SqlQuery.Selection.Columns.class);
+        if (query.lock().isPresent() && scope.isEmpty()) {
+            throw new IllegalStateException("Row locks require an explicit transaction");
+        }
         return queryRows(renderer.render(query), mapper, options);
     }
 
@@ -216,31 +219,39 @@ public final class TuprelDatabase {
         ConnectionState original;
         try {
             original = new ConnectionState(connection.getTransactionIsolation(), connection.isReadOnly());
-            if (options.readOnly()) {
-                connection.setReadOnly(true);
-            }
+        } catch (SQLException | RuntimeException exception) {
+            closeQuietly(connection, exception);
+            throw new TuprelDatabaseException(TuprelDatabaseException.Phase.TRANSACTION, exception);
+        }
+        try {
+            connection.setReadOnly(options.readOnly());
             if (options.isolation().isPresent()) {
                 connection.setTransactionIsolation(options.isolation().get().jdbcLevel());
             }
             connection.setAutoCommit(false);
         } catch (SQLException | RuntimeException exception) {
-            closeQuietly(connection, exception);
+            boolean safeToRestore = false;
+            try {
+                safeToRestore = connection.getAutoCommit() || rollback(connection, exception);
+            } catch (SQLException | RuntimeException stateFailure) {
+                exception.addSuppressed(stateFailure);
+            }
+            restore(connection, original, exception, safeToRestore);
             throw new TuprelDatabaseException(TuprelDatabaseException.Phase.TRANSACTION, exception);
         }
         TransactionScope transaction = TransactionScope.root(connection, options.timeout());
         T result;
         try {
             result = work.execute(new TuprelDatabase(dataSource, renderer, binder, Optional.of(transaction)));
+            transaction.requireCommittable();
         } catch (RuntimeException | Error failure) {
             transaction.end().ifPresent(failure::addSuppressed);
-            rollback(connection, failure);
-            restore(connection, original, failure);
+            restore(connection, original, failure, rollback(connection, failure));
             throw failure;
         }
         Optional<RuntimeException> streamFailure = transaction.end();
         if (streamFailure.isPresent()) {
-            rollback(connection, streamFailure.get());
-            restore(connection, original, streamFailure.get());
+            restore(connection, original, streamFailure.get(), rollback(connection, streamFailure.get()));
             throw streamFailure.get();
         }
         try {
@@ -248,8 +259,7 @@ public final class TuprelDatabase {
         } catch (SQLException exception) {
             TuprelDatabaseException failure =
                     new TuprelDatabaseException(TuprelDatabaseException.Phase.TRANSACTION, exception);
-            rollback(connection, failure);
-            restore(connection, original, failure);
+            restore(connection, original, failure, rollback(connection, failure));
             throw failure;
         }
         TuprelDatabaseException closing = null;
@@ -296,7 +306,9 @@ public final class TuprelDatabase {
             child.end().ifPresent(failure::addSuppressed);
             try {
                 connection.rollback(savepoint);
+                connection.releaseSavepoint(savepoint);
             } catch (SQLException rollbackFailure) {
+                parent.markRollbackOnly(rollbackFailure);
                 failure.addSuppressed(rollbackFailure);
             }
             throw failure;
@@ -304,6 +316,7 @@ public final class TuprelDatabase {
         try {
             connection.releaseSavepoint(savepoint);
         } catch (SQLException exception) {
+            parent.markRollbackOnly(exception);
             throw new TuprelDatabaseException(TuprelDatabaseException.Phase.TRANSACTION, exception);
         }
         return result;
@@ -311,19 +324,25 @@ public final class TuprelDatabase {
 
     private record ConnectionState(int isolation, boolean readOnly) { }
 
-    private static void rollback(Connection connection, Throwable failure) {
+    private static boolean rollback(Connection connection, Throwable failure) {
         try {
             connection.rollback();
+            return true;
         } catch (SQLException | RuntimeException rollbackFailure) {
             failure.addSuppressed(rollbackFailure);
+            return false;
         }
     }
 
-    private static void restore(Connection connection, ConnectionState original, Throwable failure) {
-        try {
-            restoreSettings(connection, original);
-        } catch (SQLException | RuntimeException restoreFailure) {
-            failure.addSuppressed(restoreFailure);
+    private static void restore(Connection connection, ConnectionState original, Throwable failure,
+            boolean rolledBack) {
+        // setAutoCommit(true) commits pending work. Never do this after a failed rollback.
+        if (rolledBack) {
+            try {
+                restoreSettings(connection, original);
+            } catch (SQLException | RuntimeException restoreFailure) {
+                failure.addSuppressed(restoreFailure);
+            }
         }
         closeQuietly(connection, failure);
     }
@@ -453,8 +472,10 @@ public final class TuprelDatabase {
             effective = remaining;
         }
         if (effective.isPresent()) {
-            long millis = effective.get().toMillis();
-            int seconds = (int) Math.min(Integer.MAX_VALUE, Math.max(1, (millis + 999) / 1000));
+            Duration duration = effective.get();
+            long wholeSeconds = Math.min(Integer.MAX_VALUE, duration.getSeconds());
+            int seconds = (int) Math.min(Integer.MAX_VALUE,
+                    wholeSeconds + (duration.getNano() == 0 ? 0 : 1));
             try {
                 statement.setQueryTimeout(seconds);
             } catch (SQLException exception) {

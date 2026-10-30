@@ -23,6 +23,14 @@ rollback ficam em `suppressed`. Uma falha de commit é uma
 fechar, a connection volta a autocommit e ao isolamento e modo de acesso
 originais, o que é importante com pools.
 
+Se o rollback falhar, a connection é fechada **sem** activar autocommit, pois
+essa activação poderia confirmar trabalho pendente. A falha original é
+preservada, com falhas de recuperação suprimidas. Se o rollback ou a libertação
+de um savepoint falhar, a transacção exterior fica marcada apenas para rollback,
+mesmo que a aplicação trate a excepção do bloco interior. Savepoints revertidos
+com sucesso são libertados. Uma falha de configuração inicial tenta repor as
+definições antes de fechar a connection.
+
 - **Isolamento:** `READ_COMMITTED`, `REPEATABLE_READ` ou `SERIALIZABLE`. Sem
   opção, usa-se o nível da connection.
 - **Read-only:** escritas falham na base de dados (`25006`).
