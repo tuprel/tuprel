@@ -77,6 +77,13 @@ symlinks justificados; Linux continua a exigi-los. Playground build/checkConnect
 passou depois da raiz, com dois testes inalterados reutilizados. Sem Docker,
 sem alteração de dados do playground, sem execução de ficheiros de migrations.
 
+A primeira CI da B1 detectou uma suposição errada na fixture do teste de
+search_path: duas instâncias TestPostgresql usam bases distintas no modo
+container. Corrigido para criar os dois schemas na mesma base da fixture,
+com cleanup explícito do schema adicional. Build local completa repetida e
+aprovada após a correcção; CI do novo HEAD ainda obrigatória. Nenhum teste,
+assert ou quality gate foi retirado.
+
 B2 acrescentará aquisição/validação de sessão e lock com prazo; B3 ligará a
 definição ao caminho de escrita controlado após reobservar/recompilar/verificar
 aprovação, e aplicará uma migration. B4 validará sequência, falhas de commit/

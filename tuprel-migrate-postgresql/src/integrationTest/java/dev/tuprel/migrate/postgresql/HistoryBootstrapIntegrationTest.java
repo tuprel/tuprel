@@ -58,16 +58,32 @@ class HistoryBootstrapIntegrationTest {
     }
 
     @Test void explicitSchemaCannotBeRedirectedBySearchPath() throws Exception {
-        try (TestPostgresql first = TestPostgresql.open(); TestPostgresql second = TestPostgresql.open()) {
-            String target = first.dataSource().getCurrentSchema();
-            try (Connection connection = second.dataSource().getConnection()) {
-                connection.setAutoCommit(false);
-                create(connection, target);
-                connection.commit();
+        try (TestPostgresql database = TestPostgresql.open()) {
+            String target = database.dataSource().getCurrentSchema();
+            String other = new SqlIdentifier(target + "_other").name();
+            boolean created = false;
+            try {
+                // Both schemas must belong to this fixture's database: separate
+                // TestPostgresql instances have separate databases in CI mode.
+                try (Connection connection = database.dataSource().getConnection(); Statement statement = connection.createStatement()) {
+                    statement.setQueryTimeout(10);
+                    statement.execute("CREATE SCHEMA \"" + other + "\"");
+                    created = true;
+                    connection.setSchema(other);
+                    connection.setAutoCommit(false);
+                    create(connection, target);
+                    connection.commit();
+                }
+                assertTrue(new PostgresqlMigrationHistory(database.dataSource()).read(target).initialised());
+                assertFalse(new PostgresqlMigrationHistory(database.dataSource()).read(other).initialised());
+            } finally {
+                if (created) {
+                    try (Connection connection = database.dataSource().getConnection(); Statement statement = connection.createStatement()) {
+                        statement.setQueryTimeout(10);
+                        statement.execute("DROP SCHEMA \"" + other + "\" CASCADE");
+                    }
+                }
             }
-            assertTrue(new PostgresqlMigrationHistory(first.dataSource()).read(target).initialised());
-            assertFalse(new PostgresqlMigrationHistory(second.dataSource())
-                    .read(second.dataSource().getCurrentSchema()).initialised());
         }
     }
 
