@@ -23,6 +23,9 @@ public final class MigrationPlanTarget {
      * @return target fingerprint
      */
     public MigrationChecksum fingerprint() { return fingerprint; }
+    boolean supportedSchema() {
+        return !schema.name().startsWith("pg_") && !schema.name().equals("information_schema");
+    }
     /** Omits endpoint, username and schema. */
     @Override public String toString() { return "MigrationPlanTarget[redacted]"; }
 }

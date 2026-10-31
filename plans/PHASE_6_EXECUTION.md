@@ -41,8 +41,8 @@ não substituem nova consulta antes de cada integração.
 | F6-002B histórico/status | MERGED | ADRs 0013/0014 aceites; role/testes confirmados | feat/f6-002b-migration-status / [#28](https://github.com/tuprel/tuprel/pull/28) | 894b408ddee6bfd98ad158c656f3909cf045d5b3 | — |
 | F6-003A1 gramática/AST/preview offline | MERGED | #28 integrado; ADR-0015 aprovado | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | fa9ebbfac408b18a5da046cd447cc9d1bfe6a6a8 | — |
 | F6-003A2 plano, riscos e digest offline | MERGED | A1 integrado; ADRs 0016/0017 aprovados | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | 1f36f2c55883711389b030dd87dd06fb95f36fab | — |
-| F6-003B1 definição/bootstrap | TESTING | ADRs 0014–0017; #28/#30/#31 integrados | feat/f6-003b-history-bootstrap / [#38](https://github.com/tuprel/tuprel/pull/38) | — | Definição interna e testes aprovados; revisão/CI no HEAD final |
-| F6-003B2 sessão/locks/lifecycle | TODO | B1 integrada e main validada | — | — | Connection dedicada, alvo real, lock de sessão e cleanup |
+| F6-003B1 definição/bootstrap | MERGED | ADRs 0014–0017; #28/#30/#31 integrados | feat/f6-003b-history-bootstrap / [#38](https://github.com/tuprel/tuprel/pull/38) | 3457c1ad519a6f4c7de2ec712145bad72c6c9fd7 | — |
+| F6-003B2 sessão/locks/lifecycle | TESTING | B1 integrada e main validada | feat/f6-003b-session-locks | — | Revisão, build completa e checks do HEAD |
 | F6-003B3 uma migration atómica | TODO | B2 integrada; aprovação revalidada sob lock | — | — | Gates de catálogo/DDL e histórico na mesma transacção |
 | F6-003B4 sequência/falhas/reconciliação | TODO | B3 integrada | — | — | Prefixo confirmado, OUTCOME_UNKNOWN e recuperação sem retries |
 | F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
@@ -81,13 +81,43 @@ A primeira CI da B1 detectou uma suposição errada na fixture do teste de
 search_path: duas instâncias TestPostgresql usam bases distintas no modo
 container. Corrigido para criar os dois schemas na mesma base da fixture,
 com cleanup explícito do schema adicional. Build local completa repetida e
-aprovada após a correcção; CI do novo HEAD ainda obrigatória. Nenhum teste,
+aprovada após a correcção; os quatro checks do HEAD df094c4 passaram e o #38
+foi integrado sem contornar protecções. CI e CodeQL da main 3457c1a passaram
+(runs 41213387160 e 41213387131; análise CodeQL sem resultados). Nenhum teste,
 assert ou quality gate foi retirado.
 
 B2 acrescentará aquisição/validação de sessão e lock com prazo; B3 ligará a
 definição ao caminho de escrita controlado após reobservar/recompilar/verificar
 aprovação, e aplicará uma migration. B4 validará sequência, falhas de commit/
 rollback/cleanup e reconciliação real. Deploy só depois de todos esses gates.
+
+### F6-003B2 — Sessão dedicada, lock e lifecycle
+
+Componentes package-private no adapter; sem API pública de execução, DDL,
+histórico novo ou comando CLI. A sessão valida URL configurado, database,
+CURRENT_USER/SESSION_USER, acesso USAGE ao schema e TLS efectivo; recusa
+schemas de sistema, transacção activa e qualquer advisory lock preexistente.
+Chave SHA-256/encoding idêntica ao ADR-0017; prazo monotónico de 30s, polling
+interruptível de 100ms. Sem retries de ligações ou SQL após falha JDBC.
+
+O chamador tem de fornecer connections idle com timeouts finitos e descarte
+físico/abort, sem transaction-pooling. Falha de rollback produz OUTCOME_UNKNOWN;
+falha de unlock/close exige descarte. Excepções não retêm causas cruas do driver.
+Não há setAutoCommit(true) após falhas nem unlock-all. O status continua read-only.
+
+Cobertura: vector SHA-256 independente; alvos/prazos inválidos sem ligar;
+falha de ligação sem retry; lock sobrevive a commit/rollback; contenção com prazo;
+locks independentes entre schemas da mesma base; recusa de sessão ocupada/alvo
+divergente; interrupção antes de ligar e durante espera; falhas de rollback,
+unlock e close com descarte e redacção. Todos os schemas pertencem às fixtures.
+A primeira execução detectou que uma thread já interrompida podia chegar ao
+driver e receber CONNECTION: corrigido para recusar antes de abrir a ligação.
+Build raiz aprovada: 330 testes (incluindo seis do build-logic), quatro skips
+Windows de symlinks já justificados e mantidos obrigatórios em Linux. Nove testes
+novos de integração PostgreSQL e três unitários passaram. Build/checkConnection
+do playground aprovada depois da raiz; dois testes inalterados reutilizados.
+JavaDoc Werror, verificação estrita de dependências e links/anchors passaram.
+CI e revisão do HEAD continuam obrigatórias antes do merge.
 
 ### F6-002B
 

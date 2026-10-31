@@ -17,7 +17,12 @@ The runner foundation now shares an internal canonical history definition with
 the read-only validator. Its bootstrap statement is tested transactionally in
 isolated PostgreSQL schemas. It is not a public bootstrap API: the controlled
 write path must first enforce the accepted session, lock and approval gates.
-Status never invokes bootstrap. No migration-execution command is available yet.
+Status never invokes bootstrap. The internal runner session now validates the
+configured live database, principal, schema access and TLS mode, rejects active
+transactions and preheld advisory locks, and acquires a session lock with a
+30-second interruptible deadline. It releases only its own lock; failed cleanup
+discards the connection. This foundation does not execute migration SQL or
+expose a public deployment API. No migration-execution command is available yet.
 
 ## Create a draft
 
