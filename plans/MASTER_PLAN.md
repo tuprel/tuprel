@@ -63,16 +63,16 @@ Execução contínua, dependências e gates em [PHASE_6_EXECUTION](PHASE_6_EXECU
 ficheiros puros e criação offline de drafts, conforme RFC-006 e ADR-0012.
 Ver [contrato F6-002A](F6-002A_MIGRATION_CREATE.md) e
 [status F6-002B](F6-002B_MIGRATION_STATUS.md). ADRs 0012/0013/0014 aceites;
-histórico/status read-only implementados. Executor depende da revisão F6-003. Entregas seguintes:
-checksum, locking, diff/drift, safety e dev/deploy/status. Reset fora do MVP.
+histórico/status read-only disponíveis. F6-003A1 integrada no #30: gramática,
+AST e preview DDL offline. F6-003A2 acrescenta planos/riscos/digests em revisão
+no #31. Executor, locking, diff/drift e dev/deploy continuam planeados. Reset fora do MVP.
 
 A aprovação arquitectural dos ADRs 0013/0014 está registada no trabalho do
 [PR #28](https://github.com/tuprel/tuprel/pull/28), mas não autoriza o executor.
-Disponibilidade de histórico/status exige integração validada; o estado,
-os resultados locais de permissões e a build completa seguem os gates de
-PHASE_6_EXECUTION. ADRs 0015/0016/0017 aprovados em 2026-10-31; gramática,
-plano e segurança offline continuam sujeitos à integração e validação dos
-PRs #30/#31. O executor não é implementado nesta tarefa.
+Histórico/status integrado no #28 após os testes locais de permissões e build
+completa. Resultados/CI e estado corrente seguem PHASE_6_EXECUTION.
+ADRs 0015/0016/0017 aprovados em 2026-10-31; #31 continua sujeito à validação
+do HEAD sincronizado e CI da dependência. O executor não é implementado nesta tarefa.
 
 **Objectivo planeado — TUPREL Safe Migration Engine MVP (P0):** artefactos
 existentes e revistos, plano/preview determinístico, integridade, riscos,

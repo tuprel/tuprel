@@ -1,11 +1,12 @@
 # Fase 6 - Migration Engine
 
-F6-001 e F6-002A integradas pelos PRs #26/#27. ADRs 0012/0013/0014 aceites,
-com executor ainda não autorizado. F6-002B implementa histórico/status read-only
-para revisão. Ver [contrato](F6-002B_MIGRATION_STATUS.md).
-Desenho pronto para aprovação em [RFC-006](../docs/rfcs/RFC-006-migration-engine-proposal.md),
-[contrato CLI](../docs/product/CLI_EXPERIENCE.md). A aprovação arquitectural não
-dispensa a revisão de SQL/execução da F6-003.
+F6-001/F6-002A/F6-002B integradas pelos PRs #26/#27/#28; histórico/status é
+read-only. F6-003A1 integrada no #30, com gramática/AST/preview offline.
+F6-003A2 (plano/digest) em revisão no #31. ADRs 0012–0017 aceites;
+executor continua não implementado e fora da tarefa actual de integração.
+Ver [contrato do status](F6-002B_MIGRATION_STATUS.md),
+[RFC-006](../docs/rfcs/RFC-006-migration-engine-proposal.md) e
+[contrato CLI](../docs/product/CLI_EXPERIENCE.md).
 
 ## Entregas pequenas
 
@@ -21,7 +22,8 @@ dispensa a revisão de SQL/execução da F6-003.
 
 Create e status são subtarefas separadas: escrita offline não deve depender de
 aprovar/implementar uma connection de DB. As entregas mantêm o âmbito do pedido.
-Próxima tarefa: rever F6-002B e contratos específicos F6-003 antes de executor.
+Próxima tarefa desta integração: concluir #31 após validar CI da dependência e
+do HEAD final. Runner F6-003B fica para uma entrega própria, com os testes do contrato aceite.
 
 ## Comandos alvo
 

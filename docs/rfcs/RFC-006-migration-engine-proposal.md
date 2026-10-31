@@ -1,7 +1,7 @@
 # RFC-006 — Proposta incremental para o motor de migrations
 
-Estado: **F6-001/F6-002A integradas. ADRs 0012/0013/0014 aceites;
-F6-002B implementa histórico/status read-only para revisão. Executor não autorizado.**
+Estado: **F6-001/F6-002A/F6-002B/F6-003A1 integradas. ADRs 0012–0017 aceites;
+F6-003A2 em revisão. Executor não implementado nem iniciado nesta integração.**
 Data: 2026-10-30. Relacionados: Fase 6, ADR-0008 (ainda proposto),
 especificação canónica, secções 42–53, 143 e 174.
 
@@ -30,15 +30,22 @@ Decisões formais e limites de aprovação:
 - [ADR-0014](../adr/ADR-0014-migration-history-and-execution-safety.md): contrato
   arquitectural aceite; histórico/status autorizados, mas revisão específica
   de SQL/preview/locks/falhas/confirmação exigida antes de executor F6-003.
+- [ADR-0015](../adr/ADR-0015-postgresql-ddl-subset.md): gramática/AST e preview
+  offline aceites em 2026-10-31, integrados no #30.
+- [ADR-0016](../adr/ADR-0016-offline-migration-plan-digest.md) e
+  [ADR-0017](../adr/ADR-0017-transactional-runner-gates.md): plano/digest e gates
+  transaccionais aceites em 2026-10-31; implementação offline no #31, sem executor.
 - [CLI_EXPERIENCE](../product/CLI_EXPERIENCE.md): produto, flags, códigos,
   distribuição e comandos implementados versus roadmap.
 
 ## Revisão da base existente
 
-Seis módulos revistos: schema (compiler/formatter/AST), codegen-java (geração e
+Na avaliação anterior à F6-001, foram revistos seis módulos: schema (compiler/formatter/AST), codegen-java (geração e
 ownership), sql (identificadores/modelo estrutural), runtime (JDBC de queries e
 transacções), postgresql (renderer/binder/fixtures) e cli (três comandos).
-Não existe parser SQL, leitor de catálogo ou executor de migrations reutilizável.
+Nessa baseline não existia parser SQL, leitor de catálogo ou executor de migrations reutilizável.
+Agora há oito módulos: migrate puro e adapter PostgreSQL de histórico/gramática/
+planos completam essa base; execução e catálogo físico/drift continuam futuros.
 Não recriar schema parser/validator/codegen. Não transformar transacções CRUD
 num executor de scripts nem ligar o loader de testes à configuração de produção.
 `GeneratedSourceWriter.wouldChange` estende o guardrail existente para dry-run.

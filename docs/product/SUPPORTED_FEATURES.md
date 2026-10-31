@@ -67,6 +67,9 @@ são âmbitos distintos; os dois últimos não serão implementados neste reposi
   offline `migrate create --name <name> [--dry-run]` for comment-only drafts (F6-002A);
   `migrate status --target-schema <name>` with read-only PostgreSQL history and
   integrity/order diagnostics (F6-002B); no execution/diff/physical drift yet;
+- offline Java APIs for a limited PostgreSQL DDL grammar, immutable AST and
+  canonical preview (F6-003A1), plus conservative risk plans and context-bound
+  SHA-256 digests (F6-003A2); no execution capability or additional CLI commands;
 - testes em PostgreSQL real;
 - nenhum compromisso de compatibilidade binária.
 
