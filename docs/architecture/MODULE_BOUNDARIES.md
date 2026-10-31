@@ -28,7 +28,7 @@ acrescenta `tuprel-codegen-java`. A Fase 3 acrescenta `tuprel-sql`,
 criam módulos: estendem estes três, `tuprel-schema` e o código gerado (RFC-003,
 RFC-004, RFC-005, ADR-0010, ADR-0011).
 A F6-001 acrescenta `tuprel-migrate`, com identificação, ficheiros e checksums
-puros (ADR-0012 proposto). Os restantes módulos continuam planeados. `build-logic` é um included build de
+puros (ADR-0012 aceite). Os restantes módulos continuam planeados. `build-logic` é um included build de
 infraestrutura e não faz parte deste grafo de produto.
 
 `test-support/src/main/java` contém apenas suporte local partilhado pelas
