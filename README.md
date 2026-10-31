@@ -31,7 +31,8 @@
   </picture>
 </p>
 
-Define models in [schema.tuprel](docs/guides/schema.md). Run `tuprel generate`.
+Define models in [schema.tuprel](docs/guides/schema.md).
+Run [`tuprel generate`](docs/reference/cli.md).
 Use the generated [Java client](docs/guides/java-client.md) with your `DataSource`.
 Generation writes Java files; it does not create database tables.
 

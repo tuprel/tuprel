@@ -27,26 +27,37 @@ identidade, métricas ou promessas de outros produtos:
 - [Kysely](https://github.com/kysely-org/kysely): explicar o benefício dos tipos
   junto da utilização e encaminhar para referência. Não copiar animações.
 
-| Antes | Proposta |
+| PR #35 em 39fccd9 | Revisão visual final |
 |---|---|
-| Nome e frase introdutória alinhados à esquerda | Wordmark textual centrado, tagline própria e três entradas principais |
-| Duas badges com estilos do GitHub | Seis badges Shields.io flat, 20 px, com rótulos acessíveis e quebra de linha |
-| Um exemplo de query e preview juntos | Query em destaque; schema coerente, preview, relação e transacção com contexto |
-| Capacidades numa lista geral | Benefícios concretos e três utilizações ligadas ao playground real |
-| Tabela de navegação | Grupos Learn/Build/Look up e links junto do assunto |
-| Instalação domina a leitura sequencial | Bash expandido, PowerShell e imports recolhíveis; schema disponível por expansão |
+| Hero só com texto | Tagline curta, descrição e workflow numerado original |
+| Benefícios antes da primeira query | Workflow, explicação curta e Java antes dos benefícios |
+| Badges distribuídas irregularmente a 320/390 px | Três pares em linhas estáveis, sem reduzir a altura de 20 px |
+| Sem gráfico explicativo | Quatro SVGs: horizontal/vertical e Light/Dark, 8 402 bytes no total |
+| Exemplos e navegação já completos | Conteúdo técnico e anchors preservados; links contextuais mantidos |
+| Só proposta de animação | Gravação ConPTY real preparada localmente, por aprovar antes de incorporar |
 
 A hierarquia usa um H1, H2 por assunto e H3 para os três exemplos de comportamento.
-Só se usa HTML suportado pelo GitHub: títulos/parágrafos, links/imagens,
-anchors e details/summary. Sem CSS, layout em colunas, tabelas no README,
-novos logótipos. A entrega inicial não tinha gráficos; a revisão visual propõe
-um workflow SVG. Cores do texto, links e código ficam a cargo do tema.
+Só se usa HTML suportado pelo GitHub: títulos/parágrafos, picture/source,
+links/imagens, br, anchors e details/summary. Sem CSS de layout, tabelas no
+README ou novos logótipos. Cores do texto, links e código ficam a cargo do tema.
+
+O workflow mostra schema.tuprel → geração Java → cliente tipado → PostgreSQL,
+sem sugerir criação de tabelas. Os SVGs usam formas/texto originais, fontes do
+sistema e duas paletas; não contêm scripts, fontes remotas ou recursos externos.
+O picture selecciona a versão vertical até 480 px e a variante de cor através
+de prefers-color-scheme, conforme o [exemplo oficial do GitHub](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/quickstart-for-writing-on-github).
+Sem suporte a picture, a imagem horizontal Light é o fallback.
 
 ## Badges e destinos
 
 Todas usam Shields.io, `style=flat` e altura 20. As duas badges dinâmicas
 consultam a branch main, não o HEAD deste PR. Os restantes rótulos descrevem
 contratos existentes; não são resultados de testes.
+
+Pares: CI/CodeQL, Java/PostgreSQL, licença/maturidade. A licença e a maturidade
+perdem apenas os prefixos redundantes no desenho; nomes, alt e destinos mantêm-se.
+Três linhas explícitas são um compromisso deliberado com a limitação de layout
+do GitHub: mantêm os pares juntos também a 320 px, sem CSS ou agrupamentos frágeis.
 
 | Badge | Destino |
 |---|---|
@@ -63,7 +74,7 @@ badges de versões, downloads, cobertura ou benchmarks.
 
 ## Validação técnica
 
-- `check` da raiz e distribuição CLI aprovados com JDK 21 e verificação estrita
+- Na entrega inicial 39fccd9, `check` da raiz e distribuição CLI aprovados com JDK 21 e verificação estrita
   de dependências. Os 25 casos de integração PostgreSQL foram executados de
   novo na base local dedicada, em schemas isolados, sem Docker. Relatórios
   unitários: 215 aprovados, quatro skips de symlink por privilégio Windows;
@@ -77,6 +88,8 @@ badges de versões, downloads, cobertura ou benchmarks.
   separadamente com os imports exactos documentados; os quatro fragmentos de
   comportamento também compilaram juntos num método. Repetição com o cliente
   compacto e com o cliente completo do playground: 12 verificações de compilação.
+  Esta compilação foi repetida nesta revisão. Os seis blocos Java/schema e os
+  30 headings/anchors do HEAD 39fccd9 foram comparados e preservados.
 - Preview executado com um DataSource que lança AssertionError em qualquer
   chamada JDBC: produziu SELECT com placeholder e um bind separado, sem ligação.
   Queries, includes e transacções do README foram compilados; não foram executados
@@ -87,10 +100,17 @@ badges de versões, downloads, cobertura ou benchmarks.
   generate/check/dry-run, format --check, help/version e migrate create/dry-run.
   Clone e build iniciais foram substituídos pelo checkout existente e pelo build
   real já executado. Git Bash no Windows não equivale a Safari, Linux ou macOS.
-- Os 50 links internos do README, incluindo href HTML e fragments, resolvem
-  com case exacto. Os 16 anchors anteriores, explícitos e de headings, foram
-  preservados. Os nove destinos externos únicos do README responderam HTTP 200;
+- Os 59 links internos desta entrega (54 no README e cinco neste relatório),
+  incluindo href/src/srcset HTML e fragments, resolvem com case exacto.
+  Os 16 anchors anteriores à primeira reformulação,
+  explícitos e de headings, também foram preservados. Os nove destinos externos
+  únicos do README responderam HTTP 200;
   os seis SVGs continham os rótulos esperados, incluindo CI/CodeQL passing.
+
+A revisão final não voltou a executar os testes locais PostgreSQL: só houve
+alterações de Markdown/SVG. As validações específicas repetidas foram compilação,
+links/anchors, launchers para a captura real, estrutura dos SVGs e revisão visual.
+A CI completa continua obrigatória no novo HEAD, sem alterações aos workflows.
 
 Comandos de build reproduzíveis em PowerShell com JDK 21 activo:
 
@@ -115,36 +135,44 @@ Os quatro testes de symlinks continuam activos e obrigatórios em Linux na CI.
 Os checks do PR são conferidos no HEAD publicado e reportados na descrição;
 não usar as badges da main como prova da CI do PR.
 
-## Revisão visual
+## Revisão visual final
 
-- GitHub Light: hero, badges, títulos e exemplos inspeccionados no renderer real,
-  tanto na vista de ficheiro como no README da página da branch.
-- Viewport 390 × 844: hero legível, seis badges carregadas e quebra de linha
-  correcta. Largura útil de 375 px com scrollbar; página e viewport útil tinham
-  a mesma largura. Expandir PowerShell e schema funcionou; blocos longos usam
-  scroll horizontal próprio, sem alargar a página.
-- Dark: pendente. A sessão GitHub sem autenticação só expõe Increase contrast,
-  não um selector de tema. Não foram alteradas preferências do sistema nem
-  simulada uma aprovação visual de Dark.
-- iPhone físico/Safari e macOS: não exercitados. A viewport comprova layout
-  nessa dimensão, não compatibilidade com o motor WebKit ou gestos de um aparelho.
+| Superfície | Resultado observado |
+|---|---|
+| GitHub Light, desktop | Workflow horizontal carregado a 720 × 104; Java antes dos benefícios |
+| GitHub Light, 390 × 844 | Variante vertical; três pares de badges; página/largura útil 375 px |
+| GitHub Light, 320 × 844 | Variante vertical; três pares de badges; página/largura útil 305 px |
+| GitHub Dark, todos os tamanhos | Não verificado: a sessão só permite Increase contrast; não há selector Dark nem emulação de cor disponível |
+| Safari/iPhone físico e macOS | Não verificados; viewport não valida WebKit ou gestos reais |
 
-Preview: abrir a branch no GitHub, seleccionar README e testar os detalhes
-recolhíveis. A vista de ficheiro oferece uma leitura sem o inventário da raiz.
-Para aprovação final, confirmar também Dark e Safari num iPhone; não depender
-apenas das capturas locais em Light.
+Nos dois tamanhos mobile, as seis badges carregaram e mantiveram 20 px de altura.
+O diagrama não força uma linha horizontal ilegível: passa a quatro etapas
+verticais. Página e viewport útil mantêm a mesma largura. O Java conserva o
+scroll horizontal do bloco, sem alargar a página. Os comprimentos do código
+não foram reduzidos com abreviaturas de tipos ou exemplos fictícios.
 
-## Proposta de demonstração animada — por aprovar
+A distância observada entre o título TUPREL e a secção do primeiro exemplo é
+cerca de 479 px no desktop e 731 px a 320 px; o produto e o fluxo ficam claros
+antes de percorrer duas alturas de ecrã. São medidas de layout desta observação,
+não uma promessa para todos os browsers, fontes ou níveis de zoom.
 
-Propor uma gravação de 25–40 segundos de uma execução offline real, terminal
-80 × 24 ou 100 × 28, fonte legível, sem música, efeitos ou texto de resultados
-reconstruído. Esta entrega não adiciona animação, imagem, gravador ou asset ao repo.
+Foram guardadas capturas reais anteriores (39fccd9) e da proposta, em desktop,
+390 px e 320 px, assim como uma vista do Java a 320 px. A entrega no chat liga
+essas capturas locais; não foram adicionadas ao repositório.
+O PR continua sem aprovação de merge. Dark exige revisão real antes de se
+declarar validado; não foram alteradas preferências do sistema para simular o teste.
+O SVG horizontal da paleta escura foi inspeccionado no viewer de ficheiros
+do GitHub em Light. Isso permite rever o asset, mas não valida o README em Dark.
 
-Preparar antecipadamente o launcher da mesma revisão, uma pasta temporária
-vazia e um prompt neutro que não mostre o nome/caminho do utilizador. Não
-carregar .env, imprimir ambiente nem abrir ligação de rede/base durante a cena.
-Gravar a seguinte sequência num único ambiente Bash ou PowerShell, usando
-apenas o launcher já construído:
+## Gravação real da CLI — por aprovar antes de incorporar
+
+Sessão Windows ConPTY, launcher tuprel.bat, prompt neutro, 88 × 26 células,
+num projecto temporário novo. O processo recebeu apenas o ambiente necessário
+ao Java/Windows e ao launcher, sem variáveis de configuração da base ou .env.
+Foram capturados os bytes de saída do pseudo-terminal com timestamps monotónicos,
+incluindo comandos introduzidos de uma vez, sem animação de digitação simulada.
+
+Sequência efectivamente executada:
 
 ```text
 tuprel --version
@@ -156,23 +184,33 @@ tuprel generate --check
 tuprel migrate create --name initial --dry-run
 ```
 
-Os comandos foram efectivamente exercitados nesta entrega. Entre as linhas
-capturadas, sem reconstruir timings ou output:
+O comando echo %ERRORLEVEL% confirma 0 no final e também aparece na gravação.
+Os outputs esperados de cada passo e os ficheiros gerados foram conferidos;
+o dry-run não criou draft nem ficheiro de lock. Nenhum SQL ou JDBC foi executado.
+O comando de versão devolve development, não uma versão publicada.
 
-```text
-tuprel development
-Schema is valid.
-```
+| Artefacto local, ignorado pelo Git | Resultado |
+|---|---|
+| tuprel-cli-review.cast | Registo original, 4 345 bytes, com os timestamps capturados |
+| tuprel-cli-review.gif | 98 590 bytes (96,3 KiB), 693 × 491, 17 frames, 18,69 s |
 
-Mostrar também, na captura futura, os ficheiros realmente gerados e a indicação
-de que o último comando não escreveu nem reservou um ID. A versão development
-não é uma release. Não mostrar deploy, status ou outros comandos de branches draft.
+O GIF foi renderizado do cast com [agg 1.9.0](https://github.com/asciinema/agg),
+Consolas 14, tema github-dark, velocidade 1, limite de 10 fps e sem loop.
+Não houve reconstrução manual de output. A configuração de cor do terminal
+não equivale a uma validação do README no tema GitHub Dark.
+O [pywinpty 3.1.2](https://pypi.org/project/pywinpty/) foi usado apenas no
+recorder local; as ferramentas ficam em build/local-validation, sem dependência
+nova no projecto nem instalação global. O binário oficial de agg foi conferido
+contra o SHA-256 publicado no release.
 
-Antes de adicionar o asset: aprovar ferramenta/licença/formato, fazer uma nova
-gravação real, rever todos os frames quanto a credenciais, paths e notificações,
-e comparar Light/Dark/mobile. Preferir GIF optimizado com link para transcript
-textual e imagem estática, sujeito a orçamento de tamanho aprovado. Não publicar
-uma animação fabricada a partir dos logs ou uma reprodução artificial da digitação.
+As 17 imagens do GIF derivam apenas do fluxo de texto capturado. Os frames
+inicial, intermédios e final foram inspeccionados; o cast/transcript passou pela
+auditoria de segredos. O registo e o GIF são apresentados no chat com o tamanho
+final, sem upload a serviços de gravação e sem serem acrescentados ao README/Git.
+No mobile, a futura incorporação deverá permitir abrir em tamanho original e
+ter transcript textual; não se afirma leitura confortável de 88 colunas a 320 px.
+
+SHA-256 do GIF: `a157d3934c5b6b8999180a4831543644e1545130b7d239e1c2b6e53242347e5b`.
 
 ## Honestidade e isolamento
 
