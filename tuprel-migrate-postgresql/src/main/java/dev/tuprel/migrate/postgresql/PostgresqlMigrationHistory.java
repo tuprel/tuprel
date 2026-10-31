@@ -31,15 +31,6 @@ import javax.sql.DataSource;
  * it must not expose a caller's active transaction. Driver is supplied by caller.
  */
 public final class PostgresqlMigrationHistory implements MigrationHistoryReader {
-    private static final Map<String, String> COLUMNS = Map.of(
-            "format_version", "smallint", "migration_id", "character varying(15)",
-            "migration_name", "character varying(64)", "checksum", "character(64)",
-            "state", "text", "started_at", "timestamp with time zone", "finished_at", "timestamp with time zone",
-            "execution_millis", "bigint", "engine_version", "character varying(64)");
-    private static final Set<String> CONSTRAINTS = Set.of(
-            "PRIMARY KEY (migration_id)", "CHECK ((format_version = 1))",
-            "CHECK ((state = 'APPLIED'::text))", "CHECK ((finished_at >= started_at))",
-            "CHECK ((execution_millis >= 0))");
     private final DataSource dataSource;
 
     /**
@@ -128,7 +119,7 @@ public final class PostgresqlMigrationHistory implements MigrationHistoryReader 
                 FROM pg_catalog.pg_class c WHERE c.relnamespace = ?::oid AND c.relname = ?
                 """)) {
             statement.setLong(1, namespace);
-            statement.setString(2, "_tuprel_migrations");
+            statement.setString(2, MigrationHistoryTable.NAME);
             try (ResultSet result = statement.executeQuery()) {
                 if (!result.next()) { return new MigrationHistory(false, List.of()); }
                 relation = result.getLong(1);
@@ -177,7 +168,7 @@ public final class PostgresqlMigrationHistory implements MigrationHistoryReader 
                 }
             }
         }
-        if (!actual.equals(COLUMNS)) { throw failure(Reason.INCOMPATIBLE); }
+        if (!actual.equals(MigrationHistoryTable.columns())) { throw failure(Reason.INCOMPATIBLE); }
         Set<String> constraints = new HashSet<>();
         int count = 0;
         try (PreparedStatement statement = query(connection, """
@@ -195,7 +186,7 @@ public final class PostgresqlMigrationHistory implements MigrationHistoryReader 
                 }
             }
         }
-        if (count != CONSTRAINTS.size() || !constraints.equals(CONSTRAINTS)) { throw failure(Reason.INCOMPATIBLE); }
+        if (count != MigrationHistoryTable.constraints().size() || !constraints.equals(MigrationHistoryTable.constraints())) { throw failure(Reason.INCOMPATIBLE); }
         try (PreparedStatement statement = query(connection, """
                 SELECT 1 FROM pg_catalog.pg_index WHERE indrelid = ?::oid
                 AND indisprimary AND indisvalid AND indisready AND indisunique AND indpred IS NULL

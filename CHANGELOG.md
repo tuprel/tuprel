@@ -20,6 +20,10 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Fundação F6-003B1: definição canónica interna do histórico PostgreSQL v1,
+  partilhada com a validação read-only e bootstrap transaccional validado em
+  fixtures isoladas; sem API pública de execução ou novo comando CLI.
+
 - Plano offline de migrations com riscos conservadores, target redigido e
   digest contextual SHA-256; vincula artefactos/histórico/preview sem autorizar
   execução ou atestar drift físico. Nenhum comando CLI adicional.

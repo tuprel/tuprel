@@ -7,6 +7,12 @@ ainda pendentes. Java 21, PostgreSQL primeiro, CONTRIBUTING.md obrigatório.
 
 ## Estado observado
 
+Execução actual: F6-003B1–B4 e F6-003C autorizadas pelo utilizador após a
+integração abaixo. Base observada `addc7275ec85fbb7c2634e3494b45688a0848401`,
+CI/CodeQL aprovados. A restrição a integração nos registos históricos seguintes
+não impede a nova tarefa. PRs pequenos, testes e revisão antes de cada merge;
+CI/CodeQL da main têm de passar antes da integração seguinte.
+
 Em 2026-10-31 o utilizador confirmou a execução de STATUS_TEST_ROLE.sql na
 tuprel_devtest e aprovou explicitamente os ADRs 0015, 0016 e 0017. Os dois
 testes locais de permissões passaram depois dessa confirmação (2 testes,
@@ -35,7 +41,10 @@ não substituem nova consulta antes de cada integração.
 | F6-002B histórico/status | MERGED | ADRs 0013/0014 aceites; role/testes confirmados | feat/f6-002b-migration-status / [#28](https://github.com/tuprel/tuprel/pull/28) | 894b408ddee6bfd98ad158c656f3909cf045d5b3 | — |
 | F6-003A1 gramática/AST/preview offline | MERGED | #28 integrado; ADR-0015 aprovado | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | fa9ebbfac408b18a5da046cd447cc9d1bfe6a6a8 | — |
 | F6-003A2 plano, riscos e digest offline | MERGED | A1 integrado; ADRs 0016/0017 aprovados | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | 1f36f2c55883711389b030dd87dd06fb95f36fab | — |
-| F6-003B runner transaccional | TODO | #28 e A1/A2 integrados; ADRs 0015/0016/0017 aprovados | — | — | Entrega futura; não iniciada na tarefa de integração |
+| F6-003B1 definição/bootstrap | TESTING | ADRs 0014–0017; #28/#30/#31 integrados | feat/f6-003b-history-bootstrap / [#38](https://github.com/tuprel/tuprel/pull/38) | — | Definição interna e testes aprovados; revisão/CI no HEAD final |
+| F6-003B2 sessão/locks/lifecycle | TODO | B1 integrada e main validada | — | — | Connection dedicada, alvo real, lock de sessão e cleanup |
+| F6-003B3 uma migration atómica | TODO | B2 integrada; aprovação revalidada sob lock | — | — | Gates de catálogo/DDL e histórico na mesma transacção |
+| F6-003B4 sequência/falhas/reconciliação | TODO | B3 integrada | — | — | Prefixo confirmado, OUTCOME_UNKNOWN e recuperação sem retries |
 | F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
 | F6-004 diff/preview | TODO | Deploy seguro; contrato de comparação | — | — | Modelo de diferenças/desconhecidos |
 | F6-005 drift/dev | TODO | Diff e catálogo físico conhecido | — | — | Catálogo parcial, drift e confirmação revalidada |
@@ -44,6 +53,41 @@ não substituem nova consulta antes de cada integração.
 | F6-006 ignore de create.lock | TODO | Contrato de init/ownership | — | — | Evitar inclusão acidental sem sobrescrever .gitignore |
 
 ## Critérios e testes por entrega
+
+### F6-003B1 — Definição canónica e bootstrap interno
+
+Definição v1 única em MigrationHistoryTable, package-private no adapter:
+colunas/tipos e constraints usados pelo validador existente e pelo DDL confiável
+de bootstrap. Identificadores validados/quoted; tipos e operadores explicitamente
+pg_catalog, sem IF NOT EXISTS, criação de schema ou adopção silenciosa.
+O DDL interno não passa pela gramática de SQL de migrations do utilizador.
+
+B1 produz a definição/statement interno e prova bootstrap real nas fixtures,
+sem disponibilizar uma API de escrita antes de B2/B3 estabelecerem os gates de
+sessão, lock, plano e aprovação. O status permanece exclusivamente read-only.
+Esta divisão evita expor um bootstrap sem lock entre PRs; não altera o contrato
+de deployment aprovado. Nenhuma interface vazia ou comando futuro é criado.
+
+Testes novos: dois unitários (determinismo, metadata imutável e nomes hostis)
+e quatro PostgreSQL (commit reconhecido pelo reader, rollback sem histórico,
+colisão preserva dados existentes, search_path não redirecciona o alvo).
+As fixtures antigas de histórico mantêm SQL independente como regressão do
+formato já suportado. Build raiz: 318 aprovados, quatro skips Windows de
+symlinks justificados; Linux continua a exigi-los. Playground build/checkConnection
+passou depois da raiz, com dois testes inalterados reutilizados. Sem Docker,
+sem alteração de dados do playground, sem execução de ficheiros de migrations.
+
+A primeira CI da B1 detectou uma suposição errada na fixture do teste de
+search_path: duas instâncias TestPostgresql usam bases distintas no modo
+container. Corrigido para criar os dois schemas na mesma base da fixture,
+com cleanup explícito do schema adicional. Build local completa repetida e
+aprovada após a correcção; CI do novo HEAD ainda obrigatória. Nenhum teste,
+assert ou quality gate foi retirado.
+
+B2 acrescentará aquisição/validação de sessão e lock com prazo; B3 ligará a
+definição ao caminho de escrita controlado após reobservar/recompilar/verificar
+aprovação, e aplicará uma migration. B4 validará sequência, falhas de commit/
+rollback/cleanup e reconciliação real. Deploy só depois de todos esses gates.
 
 ### F6-002B
 
