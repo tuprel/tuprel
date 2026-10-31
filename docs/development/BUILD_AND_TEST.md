@@ -115,7 +115,7 @@ restrito de ficheiros de build e configuração:
 - workflows activos em `.github/`;
 - Java em `tuprel-schema/src/`, `tuprel-codegen-java/src/`,
   `tuprel-cli/src/`, `tuprel-sql/src/`, `tuprel-runtime/src/` e
-  `tuprel-postgresql/src/`.
+  `tuprel-postgresql/src/` e `tuprel-migrate/src/`.
 
 As verificações são apenas: converter tabulações iniciais em espaços, remover
 espaços no fim das linhas e garantir newline final.
@@ -244,7 +244,7 @@ Isto é um atalho de iteração, não um substituto da verificação na raiz.
 
 ## 5. Baseline de `tuprel.java-conventions`
 
-O convention plugin estabelece a baseline aplicada pelos seis módulos de
+O convention plugin estabelece a baseline aplicada pelos sete módulos de
 produto. O comportamento descrito abaixo
 continua também verificado por
 testes TestKit que aplicam o plugin a projectos temporários.
