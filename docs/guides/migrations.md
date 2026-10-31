@@ -268,7 +268,7 @@ state and recompiles under the approved session-lock and transaction contract;
 caller-supplied snapshots are not execution authority. See
 [ADR-0016](../adr/ADR-0016-offline-migration-plan-digest.md) for the exact encoding
 and limits, and [ADR-0017](../adr/ADR-0017-transactional-runner-gates.md) for the
-accepted execution gates. Dev, diff and physical drift remain
+accepted execution gates. CLI dev/diff and physical drift remain
 unavailable.
 
 ## Deploy reviewed files from the CLI

@@ -75,10 +75,12 @@ Histórico/status integrado no #28 após os testes locais de permissões e build
 completa. Resultados/CI e estado corrente seguem PHASE_6_EXECUTION.
 ADRs 0015/0016/0017 aprovados em 2026-10-31; #28/#30/#31 integrados após
 testes/revisão e CI dos HEADs actuais, com CI/CodeQL main aprovados após cada merge.
-O executor do subconjunto aceite está implementado. F6-004A propõe comparação
-lógica offline do AST existente, sem escrita, conforme
-[ADR-0018](../docs/adr/ADR-0018-logical-schema-diff.md). Projecção de schema.tuprel,
-CLI diff e catálogo/drift/dev seguem em fatias posteriores com contratos próprios.
+O executor do subconjunto aceite está implementado. F6-004A integrada no #44:
+comparação lógica offline do AST existente, sem escrita, conforme
+[ADR-0018 aceite](../docs/adr/ADR-0018-logical-schema-diff.md).
+[ADR-0019 proposto](../docs/adr/ADR-0019-schema-projection-and-offline-diff.md)
+define a projecção de schema.tuprel e a futura CLI diff. Catálogo/drift/dev seguem
+em fatias posteriores com contratos próprios; não são funcionalidades disponíveis.
 
 **Objectivo planeado — TUPREL Safe Migration Engine MVP (P0):** artefactos
 existentes e revistos, plano/preview determinístico, integridade, riscos,

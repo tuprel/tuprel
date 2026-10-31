@@ -402,7 +402,7 @@ Maven Central artifact or public installer. APIs and formats may change.
 - **Platforms:** Windows/PowerShell locally and Linux/Bash in CI. macOS validation is pending.
 - **Migrations:** offline file creation/validation and read-only PostgreSQL
   history/status; Java APIs for limited DDL preview, risk plans and an approved
-  transactional runner and CLI deploy. Dev, diff and physical drift remain unavailable.
+  transactional runner and CLI deploy. CLI dev/diff and physical drift remain unavailable.
 
 Spring Boot Starter, `db pull`, Query Inspector and Studio are planned, not
 available features. Open PRs do not expand the supported surface. Read the
