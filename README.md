@@ -342,9 +342,13 @@ Checks detect differences without writing; dry-runs preview supported changes.
 Commands have individual help, plain-text output and documented exit codes for
 scripts. The [CLI reference](docs/reference/cli.md) lists the complete available surface.
 
-**[Migrations](docs/guides/migrations.md) are offline drafts today.** `create`
+**[Migrations](docs/guides/migrations.md) support offline drafts and read-only status.** `create`
 writes a UTC-named folder and a comment-only `migration.sql` for manual editing.
 It neither derives SQL from your schema nor applies it to a database.
+`tuprel migrate status --target-schema app` compares local files with existing
+PostgreSQL history using explicit environment configuration; it never initialises
+history or applies SQL. See the [status contract](docs/reference/cli.md#migration-status)
+for configuration and integrity states. Physical drift is not checked.
 
 <a id="learn-and-explore"></a>
 
@@ -387,8 +391,8 @@ Maven Central artifact or public installer. APIs and formats may change.
 - **Java:** JDK 21 baseline, synchronous JDBC and an application-provided `DataSource`.
 - **Database:** PostgreSQL; the local playground is exercised with PostgreSQL 17.
 - **Platforms:** Windows/PowerShell locally and Linux/Bash in CI. macOS validation is pending.
-- **Migrations:** offline file creation and validation. History/status, deploy,
-  dev, diff and drift detection are not available in `main`.
+- **Migrations:** offline file creation/validation and read-only PostgreSQL
+  history/status. Deploy, dev, diff and physical drift detection remain unavailable.
 
 Spring Boot Starter, `db pull`, Query Inspector and Studio are planned, not
 available features. Open PRs do not expand the supported surface. Read the

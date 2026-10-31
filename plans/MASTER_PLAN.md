@@ -69,9 +69,10 @@ checksum, locking, diff/drift, safety e dev/deploy/status. Reset fora do MVP.
 A aprovação arquitectural dos ADRs 0013/0014 está registada no trabalho do
 [PR #28](https://github.com/tuprel/tuprel/pull/28), mas não autoriza o executor.
 Disponibilidade de histórico/status exige integração validada; o estado,
-as duas validações locais de permissões e a build completa seguem os gates de
-PHASE_6_EXECUTION. Gramática, plano, confirmação, locks e falhas continuam sujeitos
-à aprovação específica da F6-003.
+os resultados locais de permissões e a build completa seguem os gates de
+PHASE_6_EXECUTION. ADRs 0015/0016/0017 aprovados em 2026-10-31; gramática,
+plano e segurança offline continuam sujeitos à integração e validação dos
+PRs #30/#31. O executor não é implementado nesta tarefa.
 
 **Objectivo planeado — TUPREL Safe Migration Engine MVP (P0):** artefactos
 existentes e revistos, plano/preview determinístico, integridade, riscos,

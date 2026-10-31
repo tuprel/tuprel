@@ -50,7 +50,8 @@ não se muda silenciosamente o destino ao detectar um pom.xml.
 
 Requer catálogo v1 existente em `tuprel/migrations`; num projecto novo, executar
 `tuprel init` primeiro. Não lê schema, `.env` ou base de dados. Não aceita
-`--schema`, ID manual nem flags de aplicação. A CLI só anuncia `migrate create`.
+`--schema`, ID manual nem flags de aplicação. A CLI anuncia apenas os comandos
+implementados: `migrate create` e `migrate status`.
 
 O nome segue o ADR-0012: 1–64 caracteres ASCII minúsculos, começa por letra,
 palavras separadas por `_` ou `-`. Exemplo: `add_products-v2`. Não converte

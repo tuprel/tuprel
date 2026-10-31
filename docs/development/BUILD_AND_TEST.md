@@ -82,6 +82,7 @@ Root project 'tuprel'
  +--- Project ':tuprel-cli'
  +--- Project ':tuprel-codegen-java'
  +--- Project ':tuprel-migrate'
+ +--- Project ':tuprel-migrate-postgresql'
  +--- Project ':tuprel-postgresql'
  +--- Project ':tuprel-runtime'
  +--- Project ':tuprel-schema'
@@ -92,12 +93,13 @@ Included builds:
 \--- Included build ':build-logic'
 ```
 
-Os sete subprojectos de produto actuais são `tuprel-schema`,
+Os oito subprojectos de produto actuais são `tuprel-schema`,
 `tuprel-codegen-java`, `tuprel-cli`, `tuprel-sql`, `tuprel-runtime` e
-`tuprel-postgresql` e `tuprel-migrate`. Os três primeiros preservam o pipeline de schema e
+`tuprel-postgresql`, `tuprel-migrate` e `tuprel-migrate-postgresql`.
+Os três primeiros preservam o pipeline de schema e
 geração; os módulos de runtime e SQL fornecem CRUD, execução JDBC e o
-renderer PostgreSQL; `tuprel-migrate` fornece o catálogo offline. O adapter de
-histórico PostgreSQL continua num PR draft e não faz parte desta main.
+renderer PostgreSQL; `tuprel-migrate` fornece o catálogo e comparação puros.
+`tuprel-migrate-postgresql` consulta histórico read-only, sem executor.
 
 `build-logic` aparece como *included build*, não como subprojecto. Ver a
 secção 4.
@@ -115,7 +117,7 @@ restrito de ficheiros de build e configuração:
 - workflows activos em `.github/`;
 - Java em `tuprel-schema/src/`, `tuprel-codegen-java/src/`,
   `tuprel-cli/src/`, `tuprel-sql/src/`, `tuprel-runtime/src/` e
-  `tuprel-postgresql/src/` e `tuprel-migrate/src/`.
+  `tuprel-postgresql/src/`, `tuprel-migrate/src/` e `tuprel-migrate-postgresql/src/`.
 
 As verificações são apenas: converter tabulações iniciais em espaços, remover
 espaços no fim das linhas e garantir newline final.

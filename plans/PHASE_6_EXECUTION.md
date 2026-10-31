@@ -7,10 +7,18 @@ ainda pendentes. Java 21, PostgreSQL primeiro, CONTRIBUTING.md obrigatório.
 
 ## Estado observado
 
-Verificado em 2026-10-31: main em `618756da423099ad77878a5891c863dc52a6311e`,
-CI/CodeQL aprovados. PR #28 aberto em draft, HEAD
-`9448e0dd36cc77021d541747f1b747618abc0735`, quatro checks remotos aprovados.
-Isso não aprova as duas validações locais de permissões ainda pendentes.
+Em 2026-10-31 o utilizador confirmou a execução de STATUS_TEST_ROLE.sql na
+tuprel_devtest e aprovou explicitamente os ADRs 0015, 0016 e 0017. Os dois
+testes locais de permissões passaram depois dessa confirmação (2 testes,
+0 falhas/skips). A build completa sem filtros passou: 266 testes aprovados,
+4 symlinks ignorados por privilégio Windows; os quatro casos continuam
+obrigatórios na CI Linux. Integrações seguem #28 → #30 → #31, com nova CI no
+HEAD de cada PR e da main. Não implementar executor nesta tarefa de integração.
+
+Main observada em `141f1914e1366bf3d7d16c2941b5b122e14aa2e0` após #36
+(política de documentação e transcrição do GIF aprovado); CI pós-merge em
+verificação. #35 e o roadmap #34 foram integrados pelo proprietário durante
+a preparação. A apresentação, exemplos, navegação e política são preservados.
 
 Estados: TODO, IN_PROGRESS, BLOCKED, TESTING, MERGED. TESTING inclui revisão e
 checks em curso; BLOCKED identifica o gate externo que impede a integração.
@@ -22,10 +30,10 @@ não substituem nova consulta antes de cada integração.
 |---|---|---|---|---|---|
 | F6-001 CLI e formato v1 | MERGED | ADR-0012 aceite | feat/f6-001-cli-migration-foundation / #26 | bf057d50c086811ae0602d46aa8db6d8d1026868 | — |
 | F6-002A create offline | MERGED | F6-001 | feat/f6-002a-migration-create / #27 | 9a6b4f872bc020634d9b8dee4ad6f56c2b5db938 | — |
-| F6-002B histórico/status | BLOCKED | ADRs 0013/0014 aceites; role local | feat/f6-002b-migration-status / [#28](https://github.com/tuprel/tuprel/pull/28) | — | Dois testes locais e build completa; manter draft |
-| F6-003A1 gramática/AST/preview offline | BLOCKED | #28 integrado; aprovação ADR-0015 | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | — | 32 testes novos e quatro checks aprovados; aprovação específica pendente |
-| F6-003A2 plano, riscos e digest offline | BLOCKED | A1; snapshot de histórico de #28; aprovação ADR-0016 | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | — | 14 testes novos aprovados; aprovação específica pendente; CI acompanhada no PR |
-| F6-003B runner transaccional | BLOCKED | #28 e A1/A2 integrados; ADRs 0015/0016/0017 aprovados | — | — | SQL, preview, locks, falhas e confirmação por aprovar |
+| F6-002B histórico/status | TESTING | ADRs 0013/0014 aceites; role confirmada | feat/f6-002b-migration-status / [#28](https://github.com/tuprel/tuprel/pull/28) | — | Documentação pública, revisão final e CI actualizadas antes de ready/merge |
+| F6-003A1 gramática/AST/preview offline | BLOCKED | #28 integrado; ADR-0015 aprovado | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | — | Sincronizar após #28, registar aprovação e repetir testes/revisão/CI |
+| F6-003A2 plano, riscos e digest offline | BLOCKED | A1 integrado; ADRs 0016/0017 aprovados | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | — | Sincronizar após #30, registar aprovação e repetir testes/vetores/revisão/CI |
+| F6-003B runner transaccional | BLOCKED | #28 e A1/A2 integrados; ADRs 0015/0016/0017 aprovados | — | — | Dependências por integrar; executor fora desta tarefa |
 | F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
 | F6-004 diff/preview | TODO | Deploy seguro; contrato de comparação | — | — | Modelo de diferenças/desconhecidos |
 | F6-005 drift/dev | TODO | Diff e catálogo físico conhecido | — | — | Catálogo parcial, drift e confirmação revalidada |
@@ -37,22 +45,23 @@ não substituem nova consulta antes de cada integração.
 
 ### F6-002B
 
-Retomar somente após **«Role criada, podes continuar»**. Não criar roles com
-outras credenciais, não alterar o utilizador existente, não ignorar testes nem
-aprovar build local completa enquanto faltarem:
+Bloqueio administrativo resolvido por confirmação explícita do utilizador;
+sem outras credenciais nem alterações administrativas. Executados/aprovados:
 
 - HistoryIntegrationTest.selectOnlyRoleWorksAndCannotWrite;
 - HistoryIntegrationTest.missingUsageAndSelectPrivilegesAreExplicitErrors.
 
-Já verificado: 264 testes locais aprovados + 2 do playground; quatro skips de
+Validação anterior: 264 testes locais aprovados + 2 do playground; quatro skips de
 symlink Windows executados/aprovados na CI Linux; 12 testes locais independentes
 do histórico; 25 testes PG existentes; launcher real; JavaDoc/Spotless/build-logic.
 CI completa aprovada em container isolado, incluindo privilégios. Não substitui
 os dois casos locais. Primeiras tentativas falharam no setup por role inexistente.
 Ver [evidência e comandos na branch do #28](https://github.com/tuprel/tuprel/blob/feat/f6-002b-migration-status/plans/F6-002B_MIGRATION_STATUS.md).
 
-Depois da confirmação: executar os dois testes, build raiz sem filtros e,
-sequencialmente, build/checkConnection do playground. Rever diff/segredos,
+Após a confirmação, os dois testes e a build raiz sem filtros passaram
+(266 aprovados, 4 skips Windows justificados). Build/checkConnection do
+playground passou depois da raiz (dois testes, PostgreSQL 17.11, porta 5432),
+sem run/bootstrap. Rever diff/segredos,
 actualizar checks no HEAD actual, marcar ready, integrar se todos os gates
 passarem e validar main antes de qualquer integração seguinte.
 
@@ -81,8 +90,8 @@ playground aprovada depois da raiz. Tarefas sem mudanças reutilizadas pelo
 Gradle. Não se executou SQL novo nem testes locais dependentes da role.
 Contrato proposto em [ADR-0015](https://github.com/tuprel/tuprel/blob/feat/f6-003a-sql-grammar/docs/adr/ADR-0015-postgresql-ddl-subset.md):
 nomes quoted, built-ins qualificados, três operações e parser whole-input.
-Preview não significa aprovação; integrações continuam bloqueadas pela
-dependência #28 e aprovação específica da gramática.
+Preview não significa aprovação de execução. ADR-0015 aprovado explicitamente
+em 2026-10-31; integração depende de #28, sincronização e nova validação.
 
 A2 implementada offline: 14 testes novos aprovados (0 skips), incluindo dois
 vetores normativos calculados também por referência PowerShell/.NET independente,
@@ -94,9 +103,10 @@ Propostas [ADR-0016](https://github.com/tuprel/tuprel/blob/feat/f6-003a-plan-dig
 target, limitações de attestation/drift/replay e gates reais do futuro runner.
 Nenhum executor ou comando CLI fictício foi implementado.
 
-As propostas de gramática/digest/segurança exigem aprovação específica. Até lá,
-os PRs correspondentes ficam draft/BLOCKED e não são integrados automaticamente.
-Podem ser desenvolvidos/testados offline enquanto a role local bloqueia #28.
+ADRs 0015/0016/0017 aprovados explicitamente em 2026-10-31. A aprovação não
+substitui dependências, revisão de segurança nem testes/CI no HEAD sincronizado.
+Os PRs permanecem draft até cumprir esses gates. Não executar SQL de migrations
+nem iniciar runner na presente tarefa, limitada à integração do trabalho existente.
 
 ### F6-003B e C
 
@@ -133,7 +143,8 @@ e checkConnection aprovados, PostgreSQL 17.11. Consulta read-only confirmou
 
 Esta baseline não contém o adapter/status do #28 nem os protótipos #30/#31.
 A sua build verde não aprova a build local completa dessas branches. Os dois
-casos de permissões do #28 continuam por executar depois da criação manual da role.
+casos de permissões do #28 estavam por executar nessa baseline. O resultado
+posterior, após confirmação da role, consta no estado observado acima.
 
 ## Gates de integração e disciplina Git
 

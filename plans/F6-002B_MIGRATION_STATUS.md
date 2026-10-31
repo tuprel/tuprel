@@ -45,10 +45,12 @@ ao snapshot DB: excluir editores/criadores concorrentes. Superuser/DBA malicioso
 fica fora do modelo. Estatísticas/logs operacionais do servidor podem mudar com
 SELECTs; a garantia é ausência de escrita em schemas/tabelas/histórico da aplicação.
 
-## F6-003 ainda bloqueada
+## Limite da integração F6-003
 
-Revisão específica de gramática SQL, digest/preview/target, aprovação, locking,
-falhas/commit desconhecido e confirmação antes de implementar qualquer executor.
+ADRs 0015/0016/0017 aprovados explicitamente em 2026-10-31 para gramática SQL,
+digest/preview/target, aprovação, locking e falhas/commit desconhecido. Integrar
+as propostas offline só após as dependências e gates completos. Não implementar
+executor nesta tarefa de integração.
 Definição canónica de constraints de histórico deverá ser partilhada com o futuro
 writer e revista nessa tarefa; esta entrega só reconhece/consulta a estrutura.
 
@@ -85,25 +87,30 @@ Playground `build checkConnection`, executado depois da raiz: passou, com dois
 testes aprovados. Verificação read-only confirmou 4 clientes, 8 produtos,
 4 encomendas, 8 itens e zero schemas de integração restantes. Bootstrap intacto.
 
-### Duas validações locais pendentes por autorização do utilizador
+### Validações locais retomadas após confirmação da role
 
-Não executar novamente enquanto o utilizador não disser **«Role criada, podes continuar»**:
+O utilizador confirmou a execução de STATUS_TEST_ROLE.sql no pgAdmin em
+2026-10-31. Os dois casos anteriormente pendentes foram executados e passaram,
+com 0 falhas/skips:
 
 1. `HistoryIntegrationTest.selectOnlyRoleWorksAndCannotWrite`
 2. `HistoryIntegrationTest.missingUsageAndSelectPrivilegesAreExplicitErrors`
 
-As primeiras tentativas falharam no setup porque a role não existe. Não foram
-aprovadas nem convertidas em skips. O utilizador não está no computador e vai
-rever/executar STATUS_TEST_ROLE.sql no pgAdmin posteriormente. Não alterar o
-utilizador local nem tentar obter privilégios administrativos.
+Playground `build checkConnection` passou depois da raiz: dois testes aprovados,
+PostgreSQL 17.11 na porta 5432. Não executar `run`/bootstrap; dados preservados.
+
+As primeiras tentativas tinham falhado no setup por role inexistente; não foram
+tratadas como aprovação nem convertidas em skips. A retoma usou a configuração
+local existente, sem privilégios administrativos ou alterações ao utilizador.
 
 Os testes independentes foram seleccionados por `--tests` só no comando local;
-nenhum filtro/exclusão foi introduzido na build/CI. A build local completa **não
-está aprovada** até repetir os dois testes e `build` sem filtros. CI executa toda
-a suite e cria a role apenas no PostgreSQL descartável que já utiliza; resultado
-CI não substitui a confirmação local pendente. PR permanece draft, sem merge.
+nenhum filtro/exclusão foi introduzido na build/CI. A build completa `build` sem
+filtros passou após a retoma: **266 aprovados, 4 skips Windows justificados**.
+Os 14 casos do histórico PostgreSQL, 25 casos PG anteriores e launcher real
+passaram. CI executa toda a suite, incluindo os quatro symlinks obrigatórios
+em Linux. PR só fica ready/merge após revisão e checks no HEAD actualizado.
 
-Depois da confirmação, da raiz:
+Comandos executados da raiz, por esta ordem:
 
 ```powershell
 .\gradlew.bat :tuprel-migrate-postgresql:integrationTest --tests '*selectOnlyRoleWorksAndCannotWrite' --tests '*missingUsageAndSelectPrivilegesAreExplicitErrors' --dependency-verification strict -PtuprelTestDatabase=local
@@ -111,6 +118,10 @@ Depois da confirmação, da raiz:
 # Sempre depois da raiz:
 .\gradlew.bat -p examples/tuprel-playground build checkConnection --dependency-verification strict
 ```
+
+Documentação pública sincronizada: migrations guide, CLI/Java reference,
+FAQ/troubleshooting, índice, changelog e README aprovado, sem retirar hero,
+GIF, diagrama ou exemplos Java. O status não aparece como executor de SQL.
 
 Limites restantes: macOS e TLS remoto não exercitados; TLS é validado por
 propriedades/allowlist e requer configuração de certificados pelo consumidor.
