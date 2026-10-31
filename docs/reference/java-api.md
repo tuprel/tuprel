@@ -42,6 +42,11 @@ these ignored generated paths are intentionally not GitHub links.
 
 ## Read-only migration history
 
+The adapter's internal v1 history definition is shared with its future controlled
+bootstrap path. It is package-private, with no new public execution API. Existing
+reader signatures and read-only semantics are unchanged; consumers must not use
+reflection into internal classes as a deployment mechanism.
+
 `PostgresqlMigrationHistory(DataSource).read(String targetSchema)` implements
 the pure [MigrationHistoryReader](../../tuprel-migrate/src/main/java/dev/tuprel/migrate/MigrationHistoryReader.java)
 port. The adapter owns and closes each borrowed connection; supply an idle
