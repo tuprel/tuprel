@@ -30,7 +30,8 @@ criam módulos: estendem estes três, `tuprel-schema` e o código gerado (RFC-00
 RFC-004, RFC-005, ADR-0010, ADR-0011).
 A F6-001 acrescenta `tuprel-migrate`, com identificação, ficheiros e checksums
 puros (ADR-0012 aceite). F6-002B acrescenta o adapter PostgreSQL read-only
-(ADR-0013/0014 aceites, executor não autorizado). Os restantes módulos continuam planeados. `build-logic` é um included build de
+(ADR-0013/0014 aceites, executor não implementado). Os restantes módulos
+continuam planeados. `build-logic` é um included build de
 infraestrutura e não faz parte deste grafo de produto.
 
 `test-support/src/main/java` contém apenas suporte local partilhado pelas

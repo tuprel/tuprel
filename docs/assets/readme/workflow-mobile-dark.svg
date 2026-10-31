@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="220" viewBox="0 0 280 220" role="img" aria-labelledby="title desc">
+<title id="title">The Tuprel workflow</title>
+<desc id="desc">schema.tuprel to Java code generation to a type-safe client to PostgreSQL through an application-provided DataSource. Generation does not create database tables.</desc>
+<g font-family="Arial, Helvetica, sans-serif">
+<rect x="6" y="2" width="268" height="48" rx="8" fill="#161b22" stroke="#3d4b59"/>
+<text x="20" y="31" fill="#62cbb8" font-size="13" font-weight="700">01</text>
+<text x="52" y="21" fill="#e6edf3" font-size="16" font-weight="600">Schema</text>
+<text x="52" y="39" fill="#aabac8" font-size="13" font-family="Consolas, monospace">schema.tuprel</text>
+<path d="M140 50v8m-3-3 3 3 3-3" fill="none" stroke="#62cbb8" stroke-width="1.5"/>
+<rect x="6" y="58" width="268" height="48" rx="8" fill="#161b22" stroke="#3d4b59"/>
+<text x="20" y="87" fill="#62cbb8" font-size="13" font-weight="700">02</text>
+<text x="52" y="77" fill="#e6edf3" font-size="16" font-weight="600">Java generation</text>
+<text x="52" y="95" fill="#aabac8" font-size="13" font-family="Consolas, monospace">tuprel generate</text>
+<path d="M140 106v8m-3-3 3 3 3-3" fill="none" stroke="#62cbb8" stroke-width="1.5"/>
+<rect x="6" y="114" width="268" height="48" rx="8" fill="#161b22" stroke="#3d4b59"/>
+<text x="20" y="143" fill="#62cbb8" font-size="13" font-weight="700">03</text>
+<text x="52" y="133" fill="#e6edf3" font-size="16" font-weight="600">Type-safe client</text>
+<text x="52" y="151" fill="#aabac8" font-size="13" font-family="Consolas, monospace">TuprelClient</text>
+<path d="M140 162v8m-3-3 3 3 3-3" fill="none" stroke="#62cbb8" stroke-width="1.5"/>
+<rect x="6" y="170" width="268" height="48" rx="8" fill="#161b22" stroke="#3d4b59"/>
+<text x="20" y="199" fill="#62cbb8" font-size="13" font-weight="700">04</text>
+<text x="52" y="189" fill="#e6edf3" font-size="16" font-weight="600">PostgreSQL</text>
+<text x="52" y="207" fill="#aabac8" font-size="13" font-family="Consolas, monospace">your DataSource</text>
+</g>
+</svg>
