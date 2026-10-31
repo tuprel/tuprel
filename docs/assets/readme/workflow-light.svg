@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="104" viewBox="0 0 720 104" role="img" aria-labelledby="title desc">
+<title id="title">The Tuprel workflow</title>
+<desc id="desc">schema.tuprel to Java code generation to a type-safe client to PostgreSQL through an application-provided DataSource. Generation does not create database tables.</desc>
+<g font-family="Arial, Helvetica, sans-serif">
+<rect x="6" y="8" width="156" height="88" rx="9" fill="#f6f8fa" stroke="#cbd5df"/>
+<text x="20" y="31" fill="#176e62" font-size="12" font-weight="700">01</text>
+<text x="20" y="55" fill="#1f2328" font-size="15" font-weight="600">Schema</text>
+<text x="20" y="77" fill="#526576" font-size="12" font-family="Consolas, monospace">schema.tuprel</text>
+<path d="M166 52h16m-4-4 4 4-4 4" fill="none" stroke="#176e62" stroke-width="1.5"/>
+<rect x="186" y="8" width="156" height="88" rx="9" fill="#f6f8fa" stroke="#cbd5df"/>
+<text x="200" y="31" fill="#176e62" font-size="12" font-weight="700">02</text>
+<text x="200" y="55" fill="#1f2328" font-size="15" font-weight="600">Java generation</text>
+<text x="200" y="77" fill="#526576" font-size="12" font-family="Consolas, monospace">tuprel generate</text>
+<path d="M346 52h16m-4-4 4 4-4 4" fill="none" stroke="#176e62" stroke-width="1.5"/>
+<rect x="366" y="8" width="156" height="88" rx="9" fill="#f6f8fa" stroke="#cbd5df"/>
+<text x="380" y="31" fill="#176e62" font-size="12" font-weight="700">03</text>
+<text x="380" y="55" fill="#1f2328" font-size="15" font-weight="600">Type-safe client</text>
+<text x="380" y="77" fill="#526576" font-size="12" font-family="Consolas, monospace">TuprelClient</text>
+<path d="M526 52h16m-4-4 4 4-4 4" fill="none" stroke="#176e62" stroke-width="1.5"/>
+<rect x="546" y="8" width="156" height="88" rx="9" fill="#f6f8fa" stroke="#cbd5df"/>
+<text x="560" y="31" fill="#176e62" font-size="12" font-weight="700">04</text>
+<text x="560" y="55" fill="#1f2328" font-size="15" font-weight="600">PostgreSQL</text>
+<text x="560" y="77" fill="#526576" font-size="12" font-family="Consolas, monospace">your DataSource</text>
+</g>
+</svg>
