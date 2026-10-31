@@ -15,8 +15,10 @@ testes locais de permissões passaram depois dessa confirmação (2 testes,
 obrigatórios na CI Linux. Integrações seguem #28 → #30 → #31, com nova CI no
 HEAD de cada PR e da main. Não implementar executor nesta tarefa de integração.
 
-Main observada em `fa9ebbfac408b18a5da046cd447cc9d1bfe6a6a8` após #30;
-CI pós-merge em verificação. CI/CodeQL pós-#28 e pós-#36 passaram sem resultados CodeQL.
+Estado funcional integrado em `1f36f2c55883711389b030dd87dd06fb95f36fab` após #31,
+verificado em 2026-10-31. CI e CodeQL aprovados após cada merge de #28, #30 e
+#31, sem resultados CodeQL. Os quatro checks de cada PR passaram no HEAD
+revisto antes de ready/merge; nenhuma protecção foi contornada.
 #35 e o roadmap #34 foram integrados pelo proprietário durante
 a preparação. A apresentação, exemplos, navegação e política são preservados.
 
@@ -31,9 +33,9 @@ não substituem nova consulta antes de cada integração.
 | F6-001 CLI e formato v1 | MERGED | ADR-0012 aceite | feat/f6-001-cli-migration-foundation / #26 | bf057d50c086811ae0602d46aa8db6d8d1026868 | — |
 | F6-002A create offline | MERGED | F6-001 | feat/f6-002a-migration-create / #27 | 9a6b4f872bc020634d9b8dee4ad6f56c2b5db938 | — |
 | F6-002B histórico/status | MERGED | ADRs 0013/0014 aceites; role/testes confirmados | feat/f6-002b-migration-status / [#28](https://github.com/tuprel/tuprel/pull/28) | 894b408ddee6bfd98ad158c656f3909cf045d5b3 | — |
-| F6-003A1 gramática/AST/preview offline | MERGED | #28 integrado; ADR-0015 aprovado | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | fa9ebbfac408b18a5da046cd447cc9d1bfe6a6a8 | CI pós-merge por confirmar antes da integração seguinte |
-| F6-003A2 plano, riscos e digest offline | TESTING | A1 integrado; ADRs 0016/0017 aprovados | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | — | Testes/vetores/documentação aprovados; CI no HEAD final antes de ready/merge |
-| F6-003B runner transaccional | BLOCKED | #28 e A1/A2 integrados; ADRs 0015/0016/0017 aprovados | — | — | Dependências por integrar; executor fora desta tarefa |
+| F6-003A1 gramática/AST/preview offline | MERGED | #28 integrado; ADR-0015 aprovado | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | fa9ebbfac408b18a5da046cd447cc9d1bfe6a6a8 | — |
+| F6-003A2 plano, riscos e digest offline | MERGED | A1 integrado; ADRs 0016/0017 aprovados | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | 1f36f2c55883711389b030dd87dd06fb95f36fab | — |
+| F6-003B runner transaccional | TODO | #28 e A1/A2 integrados; ADRs 0015/0016/0017 aprovados | — | — | Entrega futura; não iniciada na tarefa de integração |
 | F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
 | F6-004 diff/preview | TODO | Deploy seguro; contrato de comparação | — | — | Modelo de diferenças/desconhecidos |
 | F6-005 drift/dev | TODO | Diff e catálogo físico conhecido | — | — | Catálogo parcial, drift e confirmação revalidada |
@@ -56,7 +58,7 @@ symlink Windows executados/aprovados na CI Linux; 12 testes locais independentes
 do histórico; 25 testes PG existentes; launcher real; JavaDoc/Spotless/build-logic.
 CI completa aprovada em container isolado, incluindo privilégios. Não substitui
 os dois casos locais. Primeiras tentativas falharam no setup por role inexistente.
-Ver [evidência e comandos na branch do #28](https://github.com/tuprel/tuprel/blob/feat/f6-002b-migration-status/plans/F6-002B_MIGRATION_STATUS.md).
+Ver [evidência e comandos do #28](F6-002B_MIGRATION_STATUS.md).
 
 Após a confirmação, os dois testes e a build raiz sem filtros passaram
 (266 aprovados, 4 skips Windows justificados). Build/checkConnection do
@@ -108,8 +110,8 @@ vetores normativos calculados também por referência PowerShell/.NET independen
 mutação dos campos, limites de statements/preview e imutabilidade/concorrência.
 Suite unitária, JavaDoc Werror e Spotless aprovados; build do playground aprovada
 depois da raiz. Não se executou SQL novo nem os testes locais de role pendentes.
-Propostas [ADR-0016](https://github.com/tuprel/tuprel/blob/feat/f6-003a-plan-digest/docs/adr/ADR-0016-offline-migration-plan-digest.md) e
-[ADR-0017](https://github.com/tuprel/tuprel/blob/feat/f6-003a-plan-digest/docs/adr/ADR-0017-transactional-runner-gates.md) explicitam protocolo,
+Contratos aceites [ADR-0016](../docs/adr/ADR-0016-offline-migration-plan-digest.md) e
+[ADR-0017](../docs/adr/ADR-0017-transactional-runner-gates.md) explicitam protocolo,
 target, limitações de attestation/drift/replay e gates reais do futuro runner.
 Nenhum executor ou comando CLI fictício foi implementado.
 
@@ -126,12 +128,12 @@ executor, lock de deployment ou SQL de migrations foi executado ou implementado.
 
 ADRs 0015/0016/0017 aprovados explicitamente em 2026-10-31. A aprovação não
 substitui dependências, revisão de segurança nem testes/CI no HEAD sincronizado.
-Os PRs permanecem draft até cumprir esses gates. Não executar SQL de migrations
+Os PRs só saíram de draft depois desses gates. Não executar SQL de migrations
 nem iniciar runner na presente tarefa, limitada à integração do trabalho existente.
 
 ### F6-003B e C
 
-Só após aprovação específica: connection dedicada, lock de sessão, histórico e
+Contratos específicos aceites; numa entrega futura: connection dedicada, lock de sessão, histórico e
 checksums, DDL + registo atómicos por migration, falhas de commit/rollback,
 OUTCOME_UNKNOWN e ausência de retries perigosos. Testar concorrência, perda de
 ligação, recuperação e recursos em schemas aleatórios da tuprel_devtest; CI
@@ -168,6 +170,46 @@ casos de permissões do #28 estavam por executar nessa baseline. O resultado
 posterior, após confirmação da role, consta no estado observado acima.
 
 ## Gates de integração e disciplina Git
+
+### Validação final da integração #28 → #30 → #31
+
+Depois do merge do #31, o tree da main foi comparado com o HEAD revisto do PR:
+conteúdo idêntico. A build raiz foi repetida com `--rerun-tasks`, strict dependency
+verification e PostgreSQL local: **72 tasks executadas, 312 testes aprovados,
+4 skips de symlinks por privilégio Windows, zero falhas/erros**. Nenhuma task
+de teste foi reutilizada nessa execução final. Os quatro casos de symlinks
+continuam obrigatórios e passaram na CI Linux.
+
+Sequencialmente, playground `build test --rerun checkConnection` aprovado:
+dois testes executados e PostgreSQL 17.11/porta 5432 confirmado. Não executar
+run/bootstrap nem modificar os dados persistidos. Checks read-only confirmaram
+4 clientes, 8 produtos, 4 encomendas, 8 itens e zero schemas de testes remanescentes.
+
+Dois vetores PowerShell/.NET independentes coincidiram com o protocolo aprovado;
+32 testes de gramática e 14 de planos/digests passaram sem skips. Os dois exemplos
+do guia compilaram/executaram offline; cinco blocos Java do README e 34 fontes
+geradas passaram 12 checks de compilação. A validação documental do #31 cobriu
+174 links internos e preservou os 31 anchors do README. Auditorias dos commits,
+blobs e relatórios locais não encontraram credenciais ou tokens.
+
+| PR | HEAD revisto | Commit integrado | Gates |
+|---|---|---|---|
+| #28 | 908bb5b71978f4b1c43de9f0110442fa9ca48c26 | 894b408ddee6bfd98ad158c656f3909cf045d5b3 | 4 checks do PR + CI/CodeQL main aprovados |
+| #30 | 2c5ee03af00a9f2a228ff836498b12f597874cf1 | fa9ebbfac408b18a5da046cd447cc9d1bfe6a6a8 | 4 checks do PR + CI/CodeQL main aprovados |
+| #31 | 1c656e16fde3dd37bb87f4c90f0ab64f89ebcb69 | 1f36f2c55883711389b030dd87dd06fb95f36fab | 4 checks do PR + CI/CodeQL main aprovados |
+
+CI main pós-#31: [CI](https://github.com/tuprel/tuprel/actions/runs/41205331330)
+e [CodeQL](https://github.com/tuprel/tuprel/actions/runs/41205331305), análise
+2068380802 com zero resultados. Documentação pública entregue nos próprios PRs:
+guides, CLI/Java reference, help, índice, changelog e README aprovado. GIF original
+preservado byte a byte; política de documentação integrada separadamente no #36.
+
+Sem validações obrigatórias pendentes nestes três PRs; ADRs 0013–0017 aceites.
+Limites mantidos: macOS e TLS remoto não exercitados; drift físico, executor,
+locks de deployment e deploy/dev/diff não implementados. Não iniciar F6-003B
+como continuação desta tarefa. O bootstrap do playground permanece temporário.
+
+### Checklist para integrações seguintes
 
 1. Consultar PR, HEAD, base, checks/reviews e ruleset reais. PR ready e sem conflitos.
 2. CI obrigatória, CodeQL e Dependency Review aprovados **nesse HEAD**; nenhum
