@@ -8,8 +8,11 @@ schema, workflows, metadados do GitHub ou a proposta estratégica do PR #34.
 
 A entrega inicial corresponde ao HEAD `39fccd9`. A revisão visual seguinte
 mantém o mesmo PR #35 e todos os exemplos/anchors, acrescentando apenas o
-workflow SVG e a reorganização do topo. A gravação CLI é preparada localmente
-para aprovação separada; não é incorporada no README ou no Git.
+workflow SVG e a reorganização do topo. Em 2026-10-31, o utilizador aprovou
+a apresentação, a gravação real e a integração do PR #35 após conferir o novo
+HEAD. O GIF original é incorporado sem alteração em
+[tuprel-cli-review.gif](../assets/readme/tuprel-cli-review.gif), com acesso ao
+tamanho original e transcrição textual na secção CLI Experience do README.
 
 ## Referências e decisões editoriais
 
@@ -34,7 +37,7 @@ identidade, métricas ou promessas de outros produtos:
 | Badges distribuídas irregularmente a 320/390 px | Três pares em linhas estáveis, sem reduzir a altura de 20 px |
 | Sem gráfico explicativo | Quatro SVGs: horizontal/vertical e Light/Dark, 8 402 bytes no total |
 | Exemplos e navegação já completos | Conteúdo técnico e anchors preservados; links contextuais mantidos |
-| Só proposta de animação | Gravação ConPTY real preparada localmente, por aprovar antes de incorporar |
+| Só proposta de animação | Gravação ConPTY real aprovada e incorporada com transcrição textual |
 
 A hierarquia usa um H1, H2 por assunto e H3 para os três exemplos de comportamento.
 Só se usa HTML suportado pelo GitHub: títulos/parágrafos, picture/source,
@@ -100,16 +103,18 @@ badges de versões, downloads, cobertura ou benchmarks.
   generate/check/dry-run, format --check, help/version e migrate create/dry-run.
   Clone e build iniciais foram substituídos pelo checkout existente e pelo build
   real já executado. Git Bash no Windows não equivale a Safari, Linux ou macOS.
-- Os 59 links internos desta entrega (54 no README e cinco neste relatório),
+- Os 62 links internos do README e deste relatório (56 e seis, respectivamente),
   incluindo href/src/srcset HTML e fragments, resolvem com case exacto.
   Os 16 anchors anteriores à primeira reformulação,
   explícitos e de headings, também foram preservados. Os nove destinos externos
   únicos do README responderam HTTP 200;
   os seis SVGs continham os rótulos esperados, incluindo CI/CodeQL passing.
 
-A revisão final não voltou a executar os testes locais PostgreSQL: só houve
-alterações de Markdown/SVG. As validações específicas repetidas foram compilação,
-links/anchors, launchers para a captura real, estrutura dos SVGs e revisão visual.
+A revisão visual 557e455 não repetiu os testes locais PostgreSQL. Para a
+incorporação aprovada do GIF, o check da raiz voltou a passar, incluindo os
+25 testes PostgreSQL locais em schemas isolados; tarefas unitárias sem mudanças
+foram reutilizadas. O build do playground passou depois da raiz, reutilizando
+os seus dois testes. Os 12 checks de compilação dos exemplos também passaram.
 A CI completa continua obrigatória no novo HEAD, sem alterações aos workflows.
 
 Comandos de build reproduzíveis em PowerShell com JDK 21 activo:
@@ -159,12 +164,13 @@ não uma promessa para todos os browsers, fontes ou níveis de zoom.
 Foram guardadas capturas reais anteriores (39fccd9) e da proposta, em desktop,
 390 px e 320 px, assim como uma vista do Java a 320 px. A entrega no chat liga
 essas capturas locais; não foram adicionadas ao repositório.
-O PR continua sem aprovação de merge. Dark exige revisão real antes de se
-declarar validado; não foram alteradas preferências do sistema para simular o teste.
+A apresentação foi aprovada pelo utilizador com as limitações aqui registadas.
+Dark exige revisão real antes de se declarar validado; não foram alteradas
+preferências do sistema para simular o teste.
 O SVG horizontal da paleta escura foi inspeccionado no viewer de ficheiros
 do GitHub em Light. Isso permite rever o asset, mas não valida o README em Dark.
 
-## Gravação real da CLI — por aprovar antes de incorporar
+## Gravação real da CLI — incorporação aprovada
 
 Sessão Windows ConPTY, launcher tuprel.bat, prompt neutro, 88 × 26 células,
 num projecto temporário novo. O processo recebeu apenas o ambiente necessário
@@ -189,10 +195,10 @@ Os outputs esperados de cada passo e os ficheiros gerados foram conferidos;
 o dry-run não criou draft nem ficheiro de lock. Nenhum SQL ou JDBC foi executado.
 O comando de versão devolve development, não uma versão publicada.
 
-| Artefacto local, ignorado pelo Git | Resultado |
+| Artefacto | Resultado |
 |---|---|
-| tuprel-cli-review.cast | Registo original, 4 345 bytes, com os timestamps capturados |
-| tuprel-cli-review.gif | 98 590 bytes (96,3 KiB), 693 × 491, 17 frames, 18,69 s |
+| tuprel-cli-review.cast, local e ignorado pelo Git | Registo original, 4 345 bytes, com os timestamps capturados |
+| docs/assets/readme/tuprel-cli-review.gif | Cópia exacta aprovada: 98 590 bytes (96,3 KiB), 693 × 491, 17 frames, 18,69 s |
 
 O GIF foi renderizado do cast com [agg 1.9.0](https://github.com/asciinema/agg),
 Consolas 14, tema github-dark, velocidade 1, limite de 10 fps e sem loop.
@@ -203,12 +209,13 @@ recorder local; as ferramentas ficam em build/local-validation, sem dependência
 nova no projecto nem instalação global. O binário oficial de agg foi conferido
 contra o SHA-256 publicado no release.
 
-As 17 imagens do GIF derivam apenas do fluxo de texto capturado. Os frames
-inicial, intermédios e final foram inspeccionados; o cast/transcript passou pela
-auditoria de segredos. O registo e o GIF são apresentados no chat com o tamanho
-final, sem upload a serviços de gravação e sem serem acrescentados ao README/Git.
-No mobile, a futura incorporação deverá permitir abrir em tamanho original e
-ter transcript textual; não se afirma leitura confortável de 88 colunas a 320 px.
+As 17 imagens do GIF derivam apenas do fluxo de texto capturado. Todos os
+17 frames e os metadados foram inspeccionados antes da incorporação; o
+cast/transcript passou pela auditoria de segredos. A cópia versionada conserva
+o SHA-256 do original. O README inclui alt descritivo, acesso ao tamanho
+original e transcrição comparada com a captura. No mobile, a transcrição
+legível complementa a animação; não se afirma leitura confortável de 88
+colunas reduzidas a 320 px. O cast e as ferramentas continuam apenas locais.
 
 SHA-256 do GIF: `a157d3934c5b6b8999180a4831543644e1545130b7d239e1c2b6e53242347e5b`.
 
@@ -222,5 +229,6 @@ identificados como indisponíveis; só os comandos integrados aparecem nos exemp
 Os PRs #28, #30 e #31 não recebem alterações, merges, retarget ou novas execuções
 dos seus testes. Em particular, os dois testes locais de permissões do #28
 continuam pendentes; a aprovação do check da main não os aprova. Nenhum dado
-persistido do playground é escrito por esta entrega. O PR editorial fica para
-revisão explícita, sem auto-merge.
+persistido do playground é escrito por esta entrega. O PR editorial tem
+autorização explícita de integração após os checks do novo HEAD; os PRs
+funcionais só avançam nas suas branches e com os seus próprios gates.

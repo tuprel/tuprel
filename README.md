@@ -42,12 +42,6 @@ Generation writes Java files; it does not create database tables.
 
 ## See TUPREL in Action
 
-### See the CLI in action
-
-![TUPREL CLI demonstration](docs/assets/readme/tuprel-cli-review.gif)
-
-[View full-size animation](docs/assets/readme/tuprel-cli-review.gif) · [CLI reference](docs/reference/cli.md)
-
 Find in-stock products, ordered by price with an ID tie-breaker, using the
 [playground's generated client](examples/tuprel-playground/README.md):
 
@@ -280,6 +274,59 @@ streams and uncertain connection/commit outcomes; callbacks are not automaticall
 
 Use `tuprel` on Bash or `tuprel.bat` on Windows after
 [building the distribution](docs/getting-started/installation.md).
+
+### See the CLI in action
+
+Watch seven commands from a real Windows session: initialise a project, validate
+its schema, generate and check Java, then preview an offline migration draft.
+These commands do not contact a database.
+
+![Real Tuprel CLI session: initialise a project, validate its schema, generate and check Java, and preview an offline migration draft.](docs/assets/readme/tuprel-cli-review.gif)
+
+[Open the animation at original size](docs/assets/readme/tuprel-cli-review.gif)
+— 18.69 seconds, 96.3 KiB. On a narrow screen, use the original-size view or
+the text transcript below.
+
+<details>
+<summary>Read the commands and captured Windows output</summary>
+
+```text
+demo> tuprel --version
+tuprel development
+
+demo> tuprel init --dry-run
+Would create tuprel/schema.tuprel and tuprel/migrations/.tuprel-migrations.
+
+demo> tuprel init
+Created tuprel/schema.tuprel and an empty format-v1 migration directory.
+Next: tuprel validate; tuprel generate. Set the generator package to your Java package.
+Add the generated source directory and required Tuprel libraries to your build manually.
+
+demo> tuprel validate
+Schema is valid.
+
+demo> tuprel generate
+Generated Java sources: build\generated\sources\tuprel\main
+
+demo> tuprel generate --check
+Generated Java sources are current: build\generated\sources\tuprel\main
+
+demo> tuprel migrate create --name initial --dry-run
+Would create draft: tuprel/migrations/20261031_073911_initial/migration.sql
+No files written; this UTC ID is not reserved.
+
+demo> echo %ERRORLEVEL%
+0
+```
+
+This is captured output, including Windows path separators and the UTC ID
+observed during that run. A new dry-run reports its current UTC ID. The final
+`echo` is a Windows shell command; `development` identifies a source build,
+not a published version.
+
+</details>
+
+For help, formatting checks and additional dry-runs:
 
 ```bash
 tuprel --help
