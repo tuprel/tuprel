@@ -159,8 +159,14 @@ Na CI a role sem login existe apenas na base/container descartável da fixture.
 
 Primeiros treze testes passaram e a build raiz inicial passou no checkout isolado, com
 o caminho da fixture local explicitamente fornecido por init script ignorado,
-sem ler/copiar credenciais. A build final após os testes adicionais continua
-em validação. B4 cobrirá sequências, matriz de perdas de ack, concorrência,
+sem ler/copiar credenciais. Depois da main B2 validada, os commits foram
+preservados e a branch sincronizada por merge normal, sem reescrita. Build final
+na raiz passou: 344 testes aprovados, quatro skips Windows justificados;
+13 casos novos PostgreSQL passaram. Build/checkConnection do playground passou
+em seguida (dois testes inalterados reutilizados), sem bootstrap. JavaDoc Werror,
+dependências estritas, 121 links internos e 31 anchors passaram; os dois exemplos
+Java do guia compilaram/executaram offline. Revisão técnica/segurança e checks
+do HEAD continuam obrigatórios. B4 cobrirá sequências, matriz de perdas de ack, concorrência,
 timeouts e reconciliação numa sessão nova antes de qualquer API/CLI de deploy.
 
 ### F6-002B
