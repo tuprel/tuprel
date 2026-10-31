@@ -45,6 +45,48 @@ Do not use H2 as proof of PostgreSQL compatibility, weaken security checks,
 or remove tests to make a build pass. Use synthetic data in isolated test schemas.
 Never commit local secrets, .env files, private keys, database dumps or personal data.
 
+## Documentation Requirements
+
+Public documentation is part of development. A user-facing change is complete
+when its implementation, tests and applicable documentation are delivered in
+the same pull request. Passing tests alone is not sufficient.
+
+Update the pages affected by the change:
+
+| Change | Documentation |
+|---|---|
+| Behaviour, usage or examples | [Guides](docs/guides/) |
+| Commands, options, configuration or exit codes | [CLI reference](docs/reference/cli.md) |
+| Public Java APIs | [Java API reference](docs/reference/java-api.md) and JavaDoc |
+| Installation or onboarding | [Getting started](docs/getting-started/) |
+| Errors, limitations or known problems | [Help](docs/help/) |
+| Runnable examples | [Examples](examples/), kept compilable and reproducible |
+| Major capabilities, primary workflow or compatibility | [README](README.md) |
+| Changes relevant to users | [Changelog](CHANGELOG.md), following the [versioning policy](docs/development/VERSIONING.md) |
+| New public pages | [Documentation index](docs/README.md) and relevant contextual links |
+
+Choose the relevant pages; do not edit every document for every change. Use
+clear technical English, explicit Java types and examples that match the actual
+API. Verify commands, links, anchors and assets. Keep the approved README
+identity, responsive diagrams, consistent badges and contextual navigation.
+Do not invent output, compatibility, benchmarks or publication status.
+
+Write documentation for the behaviour delivered by the pull request. A branch
+preview does not make a feature available in the published product. Merge the
+implementation and documentation together; keep planned and draft-PR features
+clearly separate from what is available in main.
+
+After integration, check the documentation against the resulting main commit.
+Confirm examples and available commands, remove obsolete unavailability notices,
+and retain limitations that still apply. Documentation must not contradict the
+code in that revision.
+
+For internal changes with no public impact, write **Documentation not required**
+in the PR and give a short, verifiable reason. Identify the affected files or
+behaviour and explain why users, public APIs, commands and examples are unaffected.
+This exception does not waive tests, compatibility review, security requirements
+or required CI checks.
+
 <a id="alterações-de-arquitectura"></a>
 <a id="dependências"></a>
 
