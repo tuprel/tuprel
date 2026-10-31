@@ -20,6 +20,9 @@ final class MigrationCommands {
         if (arguments.length >= 2 && arguments[1].equals("status")) {
             return new MigrationStatusCommand().run(arguments, out, err, projectRoot);
         }
+        if (arguments.length >= 2 && arguments[1].equals("deploy")) {
+            return new MigrationDeployCommand().run(arguments, out, err, projectRoot);
+        }
         if (arguments.length == 2 && isHelp(arguments[1])) {
             help(out);
             return 0;
@@ -65,7 +68,7 @@ final class MigrationCommands {
 
     static void help(PrintWriter out) {
         out.println("Usage: tuprel migrate <command> [options]");
-        out.println("Commands: create (offline draft creation), status (read-only PostgreSQL history)");
+        out.println("Commands: create (offline drafts), status (read-only history), deploy (reviewed transactional migrations)");
         out.println("Run tuprel migrate <command> --help. Help never connects to a database.");
     }
 
@@ -83,7 +86,7 @@ final class MigrationCommands {
     private static boolean isHelp(String value) { return value.equals("--help") || value.equals("-h"); }
 
     private static int usage(PrintWriter err) {
-        err.println("TUPREL-CLI-USAGE: Unsupported migration command or options. Run tuprel migrate create --help.");
+        err.println("TUPREL-CLI-USAGE: Unsupported migration command or options. Run tuprel migrate --help.");
         return 2;
     }
 }

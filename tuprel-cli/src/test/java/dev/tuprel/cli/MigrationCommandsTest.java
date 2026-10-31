@@ -31,7 +31,8 @@ class MigrationCommandsTest {
             Result result = cli(root.resolve("missing"), arguments);
             assertEquals(0, result.code());
             assertTrue(result.out().contains("create"));
-            assertFalse(result.out().contains("deploy"));
+            assertEquals(arguments[1].equals("--help"), result.out().contains("deploy"));
+            assertFalse(result.out().contains("migrate dev")); assertFalse(result.out().contains("migrate diff"));
             assertEquals("", result.err());
         }
         assertTrue(cli(root, "--help").out().contains("migrate"));
@@ -70,6 +71,8 @@ class MigrationCommandsTest {
     @Test
     void invalidOptionsAndFutureCommandsReturnUsageTwo() {
         for (String[] arguments : List.of(new String[]{"migrate"}, new String[]{"migrate", "deploy"},
+                new String[]{"migrate", "dev"}, new String[]{"migrate", "diff"},
+                new String[]{"migrate", "reset"}, new String[]{"migrate", "history"},
                 new String[]{"migrate", "status"}, new String[]{"migrate", "create"},
                 new String[]{"migrate", "create", "--name"}, new String[]{"migrate", "create", "--name", "--dry-run"},
                 new String[]{"migrate", "create", "--name", "a", "--name", "b"},

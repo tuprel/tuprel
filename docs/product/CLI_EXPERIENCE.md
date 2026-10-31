@@ -1,7 +1,7 @@
 # TUPREL CLI — Produto, arquitectura e contrato v1
 
-Estado: F6-001/F6-002A integradas; status read-only F6-002B implementado
-conforme os ADRs 0013/0014, sem executor de migrations.
+Estado: fundação/create/status integrados; runner Java F6-003B e CLI deploy
+F6-003C seguem os ADRs 0012–0017 aceites. Dev/diff/drift completo ficam futuros.
 Entrada pública: [CLI reference](../reference/cli.md). Este documento mantém o
 desenho de produto e o roadmap interno, separados dos comandos disponíveis.
 A tabela distingue código entregue de roadmap. Java 21. Sem publicação, instalador ou integração automática
@@ -18,6 +18,8 @@ tuprel format [--check | --dry-run] [--schema <ficheiro> | schema.tuprel]
 tuprel generate [--check | --dry-run] [--schema <ficheiro> | schema.tuprel]
 tuprel migrate create --name <nome> [--dry-run]
 tuprel migrate status --target-schema <identificador>
+tuprel migrate deploy --target-schema <identificador> --dry-run
+tuprel migrate deploy --target-schema <identificador> --approve-digest <sha256>
 ```
 
 Cada comando implementado aceita `--help` ou `-h`, sem ler ficheiros. Help
@@ -131,22 +133,51 @@ Os testes internos continuam a usar apenas TUPREL_TEST_* e o .env ignorado,
 mapeados explicitamente pelo harness para processos CLI isolados. Não é uma API
 de produção. Ver [testes e role read-only](../development/BUILD_AND_TEST.md).
 
+## Deploy — inspecção e aprovação explícitas
+
+CLI orquestra PostgresqlMigrationRunner; não contém parser SQL, lógica de
+aprovação, DDL, histórico ou retries próprios. Catálogo fixo tuprel/migrations,
+schema alvo existente e configuração TUPREL_DATABASE_* explícitos. Nunca
+carrega .env/test config nem gera SQL a partir do schema.tuprel.
+
+Dry-run usa inspect read-only numa nova sessão sob o advisory lock aceite.
+Apresenta estado, histórico, preview canónico completo, riscos e digest;
+unknown/destructive bloqueia o plano, sem expor SQL parcial ou aprová-lo.
+Não cria ficheiros, schema, histórico ou registos. Não reserva o plano.
+Após revisão, --approve-digest exige o SHA-256 exacto; flags são exclusivas,
+sem --yes ou prompts. Deploy reobserva/recompila sob lock antes de escrever.
+
+Refinamento da proposta offline: dry-run reutiliza a inspecção coordenada já
+testada no runner, em vez de criar uma segunda observação sem lock. Adquire
+somente o lock cooperativo de sessão, sem os modos de lock DDL do writer;
+pode aguardar/recusar LOCK_BUSY. Isto fornece a mesma observação numa sessão
+nova usada na reconciliação de OUTCOME_UNKNOWN. Não muda gramática, digest,
+histórico ou gates de execução. Status continua sem advisory lock de deployment.
+
+Cada migration tem commit DDL/APPLIED atómico; o resultado separa outcome do
+prefixo recém-confirmado. Erro posterior não faz rollback global. UNKNOWN
+implica parar, descartar e reconciliar histórico/artefactos numa nova inspecção;
+sem retry, repair, token de uso único ou log persistente de tentativas. Driver/SQL
+não aparecem em diagnósticos normais; SQL canónico só no dry-run explícito.
+0 para sucesso/preview válido, 2 para recusa/falha/incerteza. Status mantém 1
+para problemas de integridade. Help funciona sem env/files/DB.
+
 ## Contratos do terminal
 
 | Aspecto | Contrato CLI |
 |---|---|
 | stdout | ajuda, versão, sucesso e resumo do dry-run |
 | stderr | códigos de erro/diagnostics e instrução de correcção |
-| Avisos | prefixo `WARNING:` em stderr quando existirem; F6-001 não emite avisos operacionais de DB |
+| Avisos | prefixo `WARNING:` em stderr quando existirem; riscos do plano integram o preview explícito em stdout |
 | 0 | operação/preview concluído com sucesso |
 | 1 | schema inválido, geração não suportada ou diferenças em `--check` |
-| 2 | uso inválido, I/O, path inseguro ou recusa de overwrite/ownership |
+| 2 | uso inválido, I/O, path inseguro, recusa de ownership/aprovação ou falha/incerteza DB |
 | Cores | texto simples, sem ANSI, funciona com NO_COLOR e redirecção |
 | Interacção | nenhum prompt nem leitura de stdin; comportamento igual em CI |
 | Versão | `tuprel development` enquanto não existir versão de release; versão real do manifest quando atribuída |
 | Encoding | entrada schema UTF-8; stdout/stderr UTF-8; paths com espaços são um único argumento quoted |
 
-`--dry-run` calcula/valida sem escrever; 0 quando o preview é válido, mesmo que
+Nos comandos de ficheiros, `--dry-run` calcula/valida sem escrever; 0 quando o preview é válido, mesmo que
 existam mudanças. Não mostra conteúdo do schema ou código que possa conter
 valores sensíveis. Generate verifica ownership, paths e edições com a mesma
 regra da escrita; edited/unowned continua bloqueado. `--check` compara estado
@@ -225,7 +256,6 @@ tuprel_demo="$(mktemp -d)"
 
 | Comando | Entrega/contrato proposto |
 |---|---|
-| `migrate deploy` | F6-003, só após ADRs e testes de falha/concurrency; aplica ficheiros aprovados, nunca gera DDL |
 | `migrate diff` | F6-004 preview conhecido; F6-005 comparação ao catálogo, desconhecidos não são sucesso |
 | `migrate dev --name add_products` | F6-005; preview e confirmação vinculada ao plano antes de aplicação permitida; sem reset implícito |
 | `migrate history` | depois do histórico aprovado; apresentação read-only, sem lógica paralela a status |
@@ -243,9 +273,9 @@ o help: exigem casos reais, contratos e gates próprios.
 
 Para DB: produção usa configuração própria (ADR-0013), sem reutilizar o loader
 de `.env` dos testes. Help por subcomando e flags só aparecem quando funcionais.
-Status/diff são observações read-only, sem bootstrap de histórico. Dry-run de
-deploy não adquire locks nem escreve; informa que o estado pode mudar antes da
-aplicação e a aprovação terá de ser revalidada sob lock. Operações destrutivas ou
+Status e o diff futuro são observações read-only, sem bootstrap de histórico.
+Dry-run de deploy usa o advisory lock da inspecção e não escreve; informa que
+o estado pode mudar antes da aplicação e a aprovação será revalidada sob lock. Operações destrutivas ou
 desconhecidas não são desbloqueadas por um `--yes` genérico. Reset fica ausente.
 
 ## Arquitectura e compatibilidade

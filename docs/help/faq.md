@@ -19,16 +19,19 @@ Tables/defaults/constraints currently require explicit reviewed SQL.
 
 ## Can I deploy migrations?
 
-No. Main offers offline drafts, catalog validation and read-only PostgreSQL
-history/status. Execution, diff and dev remain unavailable. Design documents and open
-PRs do not represent commands in the installed main launcher.
+Yes, for the [approved PostgreSQL DDL subset](../guides/migrations.md#deploy-reviewed-files-from-the-cli).
+Create/edit existing migration files, inspect `migrate deploy --dry-run`, then
+pass the explicitly reviewed digest. Each migration commits DDL/history
+atomically; later failures preserve earlier confirmed migrations. Diff, dev
+and full physical drift detection remain future work.
 
 ## Does a migration plan or digest approve execution?
 
 No. The [offline plan API](../guides/migrations.md#compile-an-offline-plan) reports
 risks and binds artifacts to observed context. It does not prove human review,
-physical drift, snapshot provenance or live-server identity. No executor or
-deploy command is available.
+physical drift, snapshot provenance or live-server identity. The runner and CLI
+require an explicitly reviewed digest and independently revalidate the complete
+plan under lock before writing; merely computing a digest does not approve it.
 
 ## Can I try it without Docker or PostgreSQL?
 
@@ -40,7 +43,7 @@ without Docker. CI uses isolated real PostgreSQL tests.
 
 No. Validation checks the declaration without resolving it. The application
 supplies a `DataSource`; the example/test .env loader is not a production API.
-Migration status separately requires explicit `TUPREL_DATABASE_*` environment
+Migration status/deploy separately require explicit `TUPREL_DATABASE_*` environment
 variables and a target schema; it never loads that .env automatically.
 
 ## Does reading a relation issue a query?

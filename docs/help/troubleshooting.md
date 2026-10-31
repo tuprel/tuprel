@@ -39,6 +39,22 @@ format-v1 files and project permissions. A file/history check cannot coordinate
 concurrent local edits or administrative DDL. Redact credentials and JDBC causes
 before sharing diagnostics.
 
+## Migration deployment
+
+| Diagnostic | Action |
+|---|---|
+| APPROVAL | Run deploy --dry-run and review the new SQL/risks/digest; never substitute a new digest automatically |
+| BLOCKED or CATALOG | Inspect the supported SQL/physical subset and history integrity; approval cannot bypass unknown/destructive work |
+| LOCK_BUSY | Inspect ongoing work and dedicated-session configuration; do not force-unlock another executor |
+| PERMISSION | Check existing schema USAGE/CREATE and canonical history SELECT/INSERT with its owner; do not bypass permissions |
+| TIMEOUT or STATEMENT | Inspect active work, reviewed SQL and confirmed prefix; the runner performs no automatic retry |
+| OUTCOME_UNKNOWN, COMMIT, CONNECTION or ROLLBACK | Stop; inspect history/artifacts through status and a fresh deploy dry-run under lock. Do not infer rollback from a lost acknowledgement |
+| CLEANUP | Inspect connection/discard behavior and current history; previously confirmed commits remain applied |
+
+Deployment failures exit 2 and print the newly confirmed prefix. A later failure
+does not roll back earlier migrations. Dry-run never bootstraps or repairs
+history. See the [deployment contract](../reference/cli.md#migration-deployment).
+
 ## Playground setup
 
 The example accepts only loopback and dedicated tuprel_devtest. Follow its
