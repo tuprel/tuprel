@@ -82,6 +82,7 @@ Root project 'tuprel'
  +--- Project ':tuprel-cli'
  +--- Project ':tuprel-codegen-java'
  +--- Project ':tuprel-migrate'
+ +--- Project ':tuprel-migrate-postgresql'
  +--- Project ':tuprel-postgresql'
  +--- Project ':tuprel-runtime'
  +--- Project ':tuprel-schema'
@@ -92,12 +93,13 @@ Included builds:
 \--- Included build ':build-logic'
 ```
 
-Os sete subprojectos de produto actuais são `tuprel-schema`,
+Os oito subprojectos de produto actuais são `tuprel-schema`,
 `tuprel-codegen-java`, `tuprel-cli`, `tuprel-sql`, `tuprel-runtime` e
-`tuprel-postgresql` e `tuprel-migrate`. Os três primeiros preservam o pipeline de schema e
+`tuprel-postgresql`, `tuprel-migrate` e `tuprel-migrate-postgresql`.
+Os três primeiros preservam o pipeline de schema e
 geração; os módulos de runtime e SQL fornecem CRUD, execução JDBC e o
-renderer PostgreSQL; `tuprel-migrate` fornece o catálogo offline. O adapter de
-histórico PostgreSQL continua num PR draft e não faz parte desta main.
+renderer PostgreSQL; `tuprel-migrate` fornece o catálogo e comparação puros.
+`tuprel-migrate-postgresql` consulta histórico read-only, sem executor.
 
 `build-logic` aparece como *included build*, não como subprojecto. Ver a
 secção 4.
@@ -115,7 +117,7 @@ restrito de ficheiros de build e configuração:
 - workflows activos em `.github/`;
 - Java em `tuprel-schema/src/`, `tuprel-codegen-java/src/`,
   `tuprel-cli/src/`, `tuprel-sql/src/`, `tuprel-runtime/src/` e
-  `tuprel-postgresql/src/` e `tuprel-migrate/src/`.
+  `tuprel-postgresql/src/`, `tuprel-migrate/src/` e `tuprel-migrate-postgresql/src/`.
 
 As verificações são apenas: converter tabulações iniciais em espaços, remover
 espaços no fim das linhas e garantir newline final.
@@ -713,3 +715,31 @@ cobertura com `./gradlew build -PtuprelTestDatabase=container`.
 
 A aplicação [tuprel-playground](../../examples/tuprel-playground/README.md) usa
 as mesmas variáveis e tem comandos próprios para IntelliJ e PowerShell.
+
+## Status de migrations (F6-002B)
+
+As suites `tuprel-migrate-postgresql` e `tuprel-cli` reutilizam a fixture real
+partilhada em test-support: schemas novos, alvo local validado e cleanup restrito
+ao schema da suite. O launcher real é exercitado em PowerShell/Windows ou
+Bash/Linux, incluindo variáveis de produção explicitamente injectadas pelo teste.
+Os valores das credenciais nunca entram em argumentos Gradle ou ficheiros novos.
+
+Para os dois testes locais de privilégios, um administrador deve executar uma
+vez [STATUS_TEST_ROLE.sql](STATUS_TEST_ROLE.sql) no pgAdmin ligado a tuprel_devtest.
+Cria uma role NOLOGIN sem password nem grants globais de aplicação e permite SET
+ROLE ao utilizador local de testes. O script não altera outras bases. Os testes
+concedem USAGE/SELECT somente nos schemas temporários que possuem. Falta deste
+pré-requisito causa falha explícita, sem skip ou fallback. CI cria essa role apenas
+no container isolado. Não executar a CLI de produção como superuser para contornar
+permissões em falta.
+
+```powershell
+.\gradlew.bat :tuprel-migrate:test :tuprel-migrate-postgresql:check :tuprel-cli:check --dependency-verification strict -PtuprelTestDatabase=local
+.\gradlew.bat build --dependency-verification strict -PtuprelTestDatabase=local
+# Só depois da raiz:
+.\gradlew.bat -p examples/tuprel-playground build checkConnection --dependency-verification strict
+```
+
+O adapter não contém DDL/DML de bootstrap; criação da tabela v1 e adulterações
+são exclusivamente fixtures. Valida CHECKs pelo deparser PG17 sem prometer
+compreender SQL arbitrário. Locks de deployment e executor exigem revisão F6-003.

@@ -10,6 +10,7 @@ tuprel/
 ├── tuprel-sql
 ├── tuprel-postgresql
 ├── tuprel-migrate
+├── tuprel-migrate-postgresql
 ├── tuprel-introspection-postgresql
 ├── tuprel-cli
 ├── tuprel-spring-boot-starter
@@ -28,7 +29,9 @@ acrescenta `tuprel-codegen-java`. A Fase 3 acrescenta `tuprel-sql`,
 criam módulos: estendem estes três, `tuprel-schema` e o código gerado (RFC-003,
 RFC-004, RFC-005, ADR-0010, ADR-0011).
 A F6-001 acrescenta `tuprel-migrate`, com identificação, ficheiros e checksums
-puros (ADR-0012 aceite). Os restantes módulos continuam planeados. `build-logic` é um included build de
+puros (ADR-0012 aceite). F6-002B acrescenta o adapter PostgreSQL read-only
+(ADR-0013/0014 aceites, executor não implementado). Os restantes módulos
+continuam planeados. `build-logic` é um included build de
 infraestrutura e não faz parte deste grafo de produto.
 
 `test-support/src/main/java` contém apenas suporte local partilhado pelas
@@ -95,15 +98,19 @@ leitura limitada e validação de ficheiros/paths. Depende exclusivamente de
 o contrato de formato no init. A F6-002A acrescenta criação offline de drafts,
 com exclusão entre criadores via lock de filesystem, sem dependências novas.
 
-History, locking de DB, planner/applier e safety analysis continuam planeados, não
-disponíveis. Planner poderá depender do modelo validado de schema quando existir.
-Ports só serão criados com consumidores reais. Ver ADR-0012/0014.
+F6-002B acrescenta snapshots tipados de histórico, comparação pura de integridade
+e o port MigrationHistoryReader, consumido pela CLI e implementado pelo adapter.
+Locking de DB, planner/applier e safety analysis continuam planeados. O domínio
+mantém apenas java.base; JDBC nunca entra neste módulo.
 
-### `tuprel-migrate-postgresql` (proposto, ainda não criado)
+### `tuprel-migrate-postgresql`
 
-ADR-0013 recomenda adapter separado: CLI → migrate-postgresql → migrate/sql,
-sem aresta do driver CRUD para migrate. Histórico/JDBC/lock/catálogo ficam nesse
-adapter; migrate nunca depende dele. Aprovação obrigatória antes de F6-002B.
+ADR-0013 aceite: CLI → migrate-postgresql → migrate/sql, sem aresta do driver
+CRUD para migrate. Implementa leitura de histórico via DataSource/JDBC numa
+transacção read-only repeatable-read. Valida metadados, constraints, permissões
+e linhas; não cria tabela nem executor. Recebe driver do consumidor, sem
+dependência de PG obrigatória no adapter; a CLI compõe runtime PG 42.7.14.
+Não depende de runtime, postgresql CRUD, schema ou codegen. Migrate não depende dele.
 
 ### `tuprel-introspection-postgresql`
 
@@ -116,6 +123,9 @@ delegando análise no `tuprel-schema`, geração no `tuprel-codegen-java` e form
 de migrations no `tuprel-migrate`. A F6-002A orquestra `migrate create`, mantendo
 as regras de criação no módulo migrate; não
 deve duplicar lógica do parser, codegen ou migrate.
+F6-002B apresenta status e compõe a configuração explícita de ambiente e adapter;
+SQL e comparações permanecem fora da CLI. Testes e dotenv não são configuração
+de produção nem dependências dos artefactos publicados.
 
 ### `tuprel-spring-boot-starter`
 

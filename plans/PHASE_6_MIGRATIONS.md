@@ -1,10 +1,11 @@
 # Fase 6 - Migration Engine
 
-F6-001 integrada pelo PR #26; ADR-0012 aceite. F6-002A implementada para revisão:
-criação offline de drafts, sem JDBC ou DDL. Ver [contrato](F6-002A_MIGRATION_CREATE.md).
+F6-001 e F6-002A integradas pelos PRs #26/#27. ADRs 0012/0013/0014 aceites,
+com executor ainda não autorizado. F6-002B implementa histórico/status read-only
+para revisão. Ver [contrato](F6-002B_MIGRATION_STATUS.md).
 Desenho pronto para aprovação em [RFC-006](../docs/rfcs/RFC-006-migration-engine-proposal.md),
-[contrato CLI](../docs/product/CLI_EXPERIENCE.md). ADRs 0013/0014 continuam propostos.
-Não interpretar o código offline como aprovação dos contratos de DB.
+[contrato CLI](../docs/product/CLI_EXPERIENCE.md). A aprovação arquitectural não
+dispensa a revisão de SQL/execução da F6-003.
 
 ## Entregas pequenas
 
@@ -20,7 +21,7 @@ Não interpretar o código offline como aprovação dos contratos de DB.
 
 Create e status são subtarefas separadas: escrita offline não deve depender de
 aprovar/implementar uma connection de DB. As entregas mantêm o âmbito do pedido.
-Próxima tarefa: rever F6-002A; F6-002B só depois de aprovar ADRs 0013/0014.
+Próxima tarefa: rever F6-002B e contratos específicos F6-003 antes de executor.
 
 ## Comandos alvo
 
@@ -30,7 +31,7 @@ Próxima tarefa: rever F6-002A; F6-002B só depois de aprovar ADRs 0013/0014.
 - `tuprel migrate status`
 - `tuprel migrate diff`
 
-`migrate create` é o único comando migrate implementado (F6-002A). Reset/resolve e migrations
+`migrate create` e `migrate status` são os comandos implementados. Reset/resolve e migrations
 não transaccionais ficam fora do MVP. O help actual só anuncia código funcional.
 
 ## Entregáveis

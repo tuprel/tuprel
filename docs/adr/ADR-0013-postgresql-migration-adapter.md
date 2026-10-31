@@ -1,7 +1,7 @@
 # ADR-0013 — Adapter PostgreSQL de migrations separado do driver de runtime
 
-Estado: **proposto; aprovação obrigatória antes de F6-002B**. Sem código JDBC
-ou novo módulo adapter em F6-001/F6-002A. Data: 2026-10-30.
+Estado: **aceite** em 2026-10-30 por aprovação explícita da separação do adapter.
+F6-002B implementa apenas leitura; não autoriza execução de migrations.
 
 ## Contexto
 
@@ -11,7 +11,7 @@ tooling de filesystem e deployment a todas essas aplicações. O runtime
 transaccional existente controla operações de queries; não é um executor de DDL
 arbitrário e não deve receber uma escape hatch apenas para migrations.
 
-## Decisão recomendada
+## Decisão
 
 Criar **`tuprel-migrate-postgresql` em F6-002B**, quando houver reader real de
 histórico, não preventivamente nesta fatia. Depender de `tuprel-migrate` para
@@ -34,7 +34,7 @@ No adapter reutilizar `SqlIdentifier` e PreparedStatement/binding para valores;
 quoting de identificadores é responsabilidade explícita do dialecto. Não
 duplicar schema compiler/validator nem o parser de configuração do schema.
 
-## Configuração proposta para os comandos DB
+## Configuração dos comandos DB
 
 Configuração de produção separada do suporte de testes: variáveis
 `TUPREL_DATABASE_URL`, `TUPREL_DATABASE_USER`, `TUPREL_DATABASE_PASSWORD` e
@@ -59,9 +59,9 @@ schemas aleatórios, nunca Docker; CI conserva a opção container explícita.
   lock de sessão precisa de sobreviver aos commits entre migrations. Não impor
   uma API de queries ao executor de infraestrutura.
 
-## Gate de aprovação
+## Limite da implementação actual
 
-Confirmar módulo separado, configuração de produção e ports públicos concretos
-no plano de F6-002B. Só então criar adapter, SELECTs de histórico e testes de DB.
-Não acrescentar a aresta futura ou uma dependência de driver antes de existir
-código real que a use.
+Módulo separado, configuração de produção e port MigrationHistoryReader
+implementados na F6-002B, com SELECTs de histórico e testes reais. A CLI compõe
+o driver PG 42.7.14 já usado no projecto; o adapter recebe DataSource e não
+obriga consumidores a essa implementação. Executor e locks continuam fora.

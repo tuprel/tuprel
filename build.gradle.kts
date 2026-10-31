@@ -75,11 +75,11 @@ subprojects {
  */
 tasks.named("check") {
     dependsOn(gradle.includedBuild("build-logic").task(":check"))
-    dependsOn(":tuprel-schema:check", ":tuprel-cli:check", ":tuprel-codegen-java:check", ":tuprel-sql:check", ":tuprel-runtime:check", ":tuprel-postgresql:check", ":tuprel-migrate:check")
+    dependsOn(":tuprel-schema:check", ":tuprel-cli:check", ":tuprel-codegen-java:check", ":tuprel-sql:check", ":tuprel-runtime:check", ":tuprel-postgresql:check", ":tuprel-migrate:check", ":tuprel-migrate-postgresql:check")
 }
 
 tasks.named("assemble") {
-    dependsOn(":tuprel-schema:assemble", ":tuprel-cli:assemble", ":tuprel-codegen-java:assemble", ":tuprel-sql:assemble", ":tuprel-runtime:assemble", ":tuprel-postgresql:assemble", ":tuprel-migrate:assemble")
+    dependsOn(":tuprel-schema:assemble", ":tuprel-cli:assemble", ":tuprel-codegen-java:assemble", ":tuprel-sql:assemble", ":tuprel-runtime:assemble", ":tuprel-postgresql:assemble", ":tuprel-migrate:assemble", ":tuprel-migrate-postgresql:assemble")
 }
 
 /*
@@ -114,6 +114,7 @@ spotless {
             "build-logic/src/main/kotlin/*.gradle.kts",
             "examples/tuprel-playground/*.gradle.kts",
             "tuprel-migrate/*.gradle.kts",
+            "tuprel-migrate-postgresql/*.gradle.kts",
         )
         leadingTabsToSpaces(4)
         trimTrailingWhitespace()
@@ -151,7 +152,7 @@ spotless {
      * determinística de whitespace, sem acrescentar um formatter de Java.
      */
     format("javaSources") {
-        target("tuprel-schema/src/**/*.java", "tuprel-cli/src/**/*.java", "tuprel-codegen-java/src/**/*.java", "tuprel-sql/src/**/*.java", "tuprel-runtime/src/**/*.java", "tuprel-postgresql/src/**/*.java", "tuprel-migrate/src/**/*.java", "examples/tuprel-playground/src/**/*.java", "test-support/src/**/*.java")
+        target("tuprel-schema/src/**/*.java", "tuprel-cli/src/**/*.java", "tuprel-codegen-java/src/**/*.java", "tuprel-sql/src/**/*.java", "tuprel-runtime/src/**/*.java", "tuprel-postgresql/src/**/*.java", "tuprel-migrate/src/**/*.java", "tuprel-migrate-postgresql/src/**/*.java", "examples/tuprel-playground/src/**/*.java", "test-support/src/**/*.java")
         leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         endWithNewline()

@@ -27,6 +27,7 @@ include("tuprel-sql")
 include("tuprel-runtime")
 include("tuprel-postgresql")
 include("tuprel-migrate")
+include("tuprel-migrate-postgresql")
 
 dependencyResolutionManagement {
     /*

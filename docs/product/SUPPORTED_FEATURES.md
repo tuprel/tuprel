@@ -65,7 +65,8 @@ são âmbitos distintos; os dois últimos não serão implementados neste reposi
   help/version, safe init and dry-run; see `CLI_EXPERIENCE.md`;
 - migration file format v1, IDs, bounded read-only discovery and exact SHA-256;
   offline `migrate create --name <name> [--dry-run]` for comment-only drafts (F6-002A);
-  no JDBC/history/execution/diff commands yet;
+  `migrate status --target-schema <name>` with read-only PostgreSQL history and
+  integrity/order diagnostics (F6-002B); no execution/diff/physical drift yet;
 - testes em PostgreSQL real;
 - nenhum compromisso de compatibilidade binária.
 

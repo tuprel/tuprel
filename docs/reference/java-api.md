@@ -32,6 +32,30 @@ these ignored generated paths are intentionally not GitHub links.
 | Schema frontend | [SchemaCompiler](../../tuprel-schema/src/main/java/dev/tuprel/schema/SchemaCompiler.java) |
 | Java generator | [JavaCodeGenerator](../../tuprel-codegen-java/src/main/java/dev/tuprel/codegen/JavaCodeGenerator.java) |
 | Offline catalog | [MigrationDirectory](../../tuprel-migrate/src/main/java/dev/tuprel/migrate/MigrationDirectory.java) |
+| History snapshot and comparison | [MigrationHistory](../../tuprel-migrate/src/main/java/dev/tuprel/migrate/MigrationHistory.java) · [MigrationStatus](../../tuprel-migrate/src/main/java/dev/tuprel/migrate/MigrationStatus.java) |
+| PostgreSQL history reader | [PostgresqlMigrationHistory](../../tuprel-migrate-postgresql/src/main/java/dev/tuprel/migrate/postgresql/PostgresqlMigrationHistory.java) |
+| Migration environment settings | [MigrationDatabaseSettings](../../tuprel-migrate-postgresql/src/main/java/dev/tuprel/migrate/postgresql/MigrationDatabaseSettings.java) |
+
+## Read-only migration history
+
+`PostgresqlMigrationHistory(DataSource).read(String targetSchema)` implements
+the pure [MigrationHistoryReader](../../tuprel-migrate/src/main/java/dev/tuprel/migrate/MigrationHistoryReader.java)
+port. The adapter owns and closes each borrowed connection; supply an idle
+auto-commit connection supporting read-only repeatable-read transactions.
+Do not pass a caller's active transaction. Supply the PostgreSQL JDBC driver
+at runtime; the CRUD adapter does not depend on migration tooling.
+
+`MigrationStatus.compare(List<MigrationFile>, MigrationHistory)` compares a
+validated catalog with a confirmed snapshot without I/O. Inspect `hasProblems()`
+and all entry flags; `DRIFT_NOT_CHECKED` remains the physical-schema limitation.
+`MigrationHistoryException.reason()` provides safe failure categories without
+credential-bearing JDBC causes.
+
+For explicit environment configuration, `MigrationDatabaseSettings.fromEnvironment(Map<String, String>)`
+validates the [status variables and URL policy](cli.md#migration-status) before
+connecting; `dataSource()` supplies fresh connections. No .env loader is included
+in this production API. Neither reader nor comparison creates history or executes
+migrations.
 
 ## Generated APIs belong to your schema
 

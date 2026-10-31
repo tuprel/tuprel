@@ -1,7 +1,7 @@
 # RFC-006 — Proposta incremental para o motor de migrations
 
-Estado: **Desenho DB para aprovação. F6-001 integrada, ADR-0012 aceite;
-F6-002A cria drafts offline. Histórico, adapter e execução continuam sem aprovação e sem código.**
+Estado: **F6-001/F6-002A integradas. ADRs 0012/0013/0014 aceites;
+F6-002B implementa histórico/status read-only para revisão. Executor não autorizado.**
 Data: 2026-10-30. Relacionados: Fase 6, ADR-0008 (ainda proposto),
 especificação canónica, secções 42–53, 143 e 174.
 
@@ -16,19 +16,20 @@ SQL do playground mantém-se temporário, sem alegar ser migration.
 
 Planner/diff puro recebe o schema validado e um modelo físico conhecido.
 Formato e checksums pertencem ao `tuprel-migrate` puro implementado nesta fatia;
-history e execução continuam planeados nesse boundary, através de ports.
+history tem snapshot/port puro; execução continua planeada nesse boundary.
 SQL e catálogo PostgreSQL ficam num adapter explícito; CLI apenas orquestra.
 Não reutilizar o carregador de `.env` dos testes como contrato de produção.
 
-Decisões formais para aprovação:
+Decisões formais e limites de aprovação:
 
 - [ADR-0012](../adr/ADR-0012-offline-cli-and-migration-files.md): módulo puro,
-  formato v1 e CLI offline aceites no PR #26; criação F6-002A em revisão.
-- [ADR-0013](../adr/ADR-0013-postgresql-migration-adapter.md): recomendação revista
-  para adapter `tuprel-migrate-postgresql` separado, a criar em F6-002B; evita
-  dependência de migrations no driver CRUD. Aprovar antes de JDBC.
+  formato v1 e CLI offline aceites no PR #26; criação F6-002A integrada no #27.
+- [ADR-0013](../adr/ADR-0013-postgresql-migration-adapter.md): aceite;
+  adapter `tuprel-migrate-postgresql` separado na F6-002B, sem
+  dependência de migrations no driver CRUD.
 - [ADR-0014](../adr/ADR-0014-migration-history-and-execution-safety.md): contrato
-  concreto de histórico, estados, lock, SQL e recovery. Aprovar antes de DB.
+  arquitectural aceite; histórico/status autorizados, mas revisão específica
+  de SQL/preview/locks/falhas/confirmação exigida antes de executor F6-003.
 - [CLI_EXPERIENCE](../product/CLI_EXPERIENCE.md): produto, flags, códigos,
   distribuição e comandos implementados versus roadmap.
 
@@ -142,5 +143,7 @@ plano/SQL para revisão. `deploy` só executa artefactos existentes e aprovados.
 
 Cada fatia DB precisa de aprovação do contrato e testes PostgreSQL real local
 e na CI. F6-001 e F6-002A estão autorizadas sem ligações ou DDL
-novos. F6-002B/F6-003 ficam bloqueadas pelos ADRs pendentes; não interpretar a
-implementação offline como aprovação tácita do executor.
+novos de migrations. F6-002B autoriza apenas leitura read-only. Os contratos
+específicos dos ADRs 0015/0016/0017 foram aprovados em 2026-10-31; os PRs offline
+#30/#31 ainda exigem integração validada. O pedido actual limita-se à integração:
+não implementar nem executar o executor nesta tarefa.
