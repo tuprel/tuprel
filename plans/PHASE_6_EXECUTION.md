@@ -68,7 +68,7 @@ não substituem nova consulta antes de cada integração.
 | F6-003B4 sequência/falhas/reconciliação | MERGED | B3 integrada e main validada | feat/f6-003b-sequence-recovery / [#41](https://github.com/tuprel/tuprel/pull/41) | 2abf673b6f269f7984f91aca854e52be2120c231 | — |
 | F6-003C CLI deploy | MERGED | B4 integrada e main validada | feat/f6-003c-migrate-deploy / [#42](https://github.com/tuprel/tuprel/pull/42) | afd606859c026d88c0e6d2ad094e6d86f48fa396 | — |
 | F6-004A estados lógicos/diff Java | MERGED | ADRs 0015–0018 aceites | feat/f6-004a-schema-diff / [#44](https://github.com/tuprel/tuprel/pull/44) | 5e2bd1909dd695755e40e83ad522bfa289e20962 | — |
-| F6-004B projecção de schema.tuprel | BLOCKED | 004A; ADR-0019 proposto | feat/f6-004b-schema-projection / PR em preparação | — | Aprovação de mapping/dependência/names antes de implementar |
+| F6-004B projecção de schema.tuprel | BLOCKED | 004A; ADR-0019 proposto | feat/f6-004b-schema-projection / [#45](https://github.com/tuprel/tuprel/pull/45) (draft) | — | Aprovação de mapping/dependência/names antes de implementar |
 | F6-004C CLI diff | TODO | 004B; fontes/opções/exit codes definidos | — | — | CLI apenas com comportamento completo e launchers testados |
 | F6-005A contrato/leitura de catálogo | TODO | 004 consolidada; ADR de catálogo | — | — | Snapshot read-only, completude, permissões e desconhecidos |
 | F6-005B comparação de drift | TODO | 005A | — | — | Distinguir drift confirmado de observação desconhecida |
