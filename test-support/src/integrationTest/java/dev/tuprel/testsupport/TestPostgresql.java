@@ -1,6 +1,5 @@
-package dev.tuprel.postgresql;
+package dev.tuprel.testsupport;
 
-import dev.tuprel.testsupport.LocalTestEnvironment;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -11,7 +10,7 @@ import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /** A real database with a private schema per suite; local mode never instantiates a container. */
-final class TestPostgresql implements AutoCloseable {
+public final class TestPostgresql implements AutoCloseable {
     private final PGSimpleDataSource dataSource;
     private final Optional<PostgreSQLContainer> container;
     private final String schema = "tuprel_it_" + UUID.randomUUID().toString().replace("-", "");
@@ -24,7 +23,7 @@ final class TestPostgresql implements AutoCloseable {
         this.local = container.isEmpty();
     }
 
-    static TestPostgresql open() throws SQLException {
+    public static TestPostgresql open() throws SQLException {
         PGSimpleDataSource dataSource = new PGSimpleDataSource();
         Optional<PostgreSQLContainer> container;
         String mode = System.getProperty("tuprel.test.database", "local");
@@ -67,7 +66,7 @@ final class TestPostgresql implements AutoCloseable {
         }
     }
 
-    PGSimpleDataSource dataSource() {
+    public PGSimpleDataSource dataSource() {
         return dataSource;
     }
 

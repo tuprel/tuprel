@@ -47,6 +47,7 @@ val generateIntegrationTestClient = tasks.register<JavaExec>("generateIntegratio
 }
 
 sourceSets.named("integrationTest") {
+    java.srcDir("../test-support/src/integrationTest/java")
     java.srcDir(generateIntegrationTestClient.map { it.outputs.files.singleFile })
     java.srcDir("src/testSupport/java")
     java.srcDir("../test-support/src/main/java")

@@ -1,14 +1,14 @@
-package dev.tuprel.postgresql;
+package dev.tuprel.testsupport;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Set;
 
 /** Fail-closed target validation shared by local integration tests and their unit tests. */
-final class LocalPostgresqlTarget {
+public final class LocalPostgresqlTarget {
     private LocalPostgresqlTarget() { }
 
-    static void validate(String jdbcUrl) {
+    public static void validate(String jdbcUrl) {
         String message = "Use a local JDBC URL with an explicit port and database tuprel_devtest, "
                 + "without credentials or query parameters";
         if (jdbcUrl == null || !jdbcUrl.startsWith("jdbc:postgresql://")) {
