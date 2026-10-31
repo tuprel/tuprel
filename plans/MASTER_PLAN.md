@@ -52,6 +52,8 @@ A relação N:N implícita espera pelas migrations.
 
 ## Fase 6 - Migration engine
 
+Execução contínua, dependências e gates em [PHASE_6_EXECUTION](PHASE_6_EXECUTION.md).
+
 **F6-001 integrada; ADR-0012 aceite. F6-002A em revisão.** Fundação CLI,
 ficheiros puros e criação offline de drafts, conforme RFC-006 e ADR-0012.
 Ver [contrato F6-002A](F6-002A_MIGRATION_CREATE.md). Histórico, adapter PostgreSQL e
