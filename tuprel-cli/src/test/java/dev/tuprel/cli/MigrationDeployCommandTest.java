@@ -76,8 +76,10 @@ class MigrationDeployCommandTest {
         assertFalse(out.toString().contains("\u001b")); assertEquals("", err.toString());
         assertFalse(out.toString().contains("index builds block writes"));
         StringWriter indexed = new StringWriter();
-        assertEquals(0, MigrationDeployCommand.preview(inspection("CREATE TABLE \"app\".\"items\" (\"id\" INTEGER);\n"
-                + "CREATE INDEX \"items_id\" ON \"app\".\"items\" (\"id\");\n"), new PrintWriter(indexed), new PrintWriter(new StringWriter())));
+        assertEquals(0, MigrationDeployCommand.preview(inspection("""
+                CREATE TABLE "app"."items" ("id" INTEGER);
+                CREATE INDEX "items_id" ON "app"."items" ("id");
+                """), new PrintWriter(indexed), new PrintWriter(new StringWriter())));
         assertTrue(indexed.toString().contains("index builds block writes"));
     }
 

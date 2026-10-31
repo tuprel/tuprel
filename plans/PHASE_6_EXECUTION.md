@@ -251,8 +251,13 @@ Uma primeira execução falhou na fixture PowerShell porque quotes de -split
 eram removidas ao passar -Command pelo processo. Corrigida para [char]10,
 sem mudar CLI nem retirar asserts. Cinco casos repetidos/aprovados. Build
 inicial completa passou: 371 aprovados, quatro skips Windows justificados;
-base B4 sincronizada por fast-forward. Build final/guia/links/playground e
-revisão/checks no HEAD continuam obrigatórios antes de publicar o comando.
+base B4 sincronizada por fast-forward. A validação final detectou um warning
+StringConcatToTextBlock num novo teste de preview; corrigido sem supressões.
+Build final na raiz passou: 371 aprovados, quatro skips Windows justificados;
+playground build/checkConnection passou em seguida, com dois testes inalterados
+reutilizados e sem bootstrap/run. Três exemplos Java compilaram (dois executados
+offline; runner exercitado nos testes PG); 197 links internos e 31 anchors
+passaram. Revisão/checks no HEAD continuam obrigatórios antes do merge.
 
 ### F6-002B
 
