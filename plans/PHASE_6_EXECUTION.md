@@ -211,7 +211,13 @@ Build inicial no checkout isolado aprovada: 359 testes, quatro skips Windows
 justificados e mantidos obrigatórios em Linux. JavaDoc Werror preservado;
 warnings iniciais de finally/serialização corrigidos. O PID passou a ser obtido
 por JDBC/pg_backend_pid, evitando dependências transitivas de annotations do
-driver. Build final/guia/README/playground/revisão/CI no HEAD continuam gates.
+driver. Build final repetida na raiz, sem init script: 359 aprovados e quatro
+skips Windows justificados. Build/checkConnection do playground passou em
+seguida; dois testes inalterados reutilizados, sem bootstrap/run. Dois exemplos
+do guia compilaram/executaram offline; a classe do novo exemplo Java compilou
+e os fluxos reais passaram nas fixtures PostgreSQL. 136 links internos e 31
+anchors passaram; GIF aprovado preservado byte a byte. Revisão/CI no HEAD
+continuam gates antes do merge.
 
 ### F6-002B
 
