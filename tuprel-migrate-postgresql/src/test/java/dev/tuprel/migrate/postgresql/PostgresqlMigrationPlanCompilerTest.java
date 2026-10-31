@@ -168,6 +168,12 @@ class PostgresqlMigrationPlanCompilerTest {
         MigrationPlan plan = compile(List.of(file(1, "first", CREATE)), EMPTY);
         assertEquals("96b368e8fe05a1ca823fd1fb38f95f8a9399667b75cc75493f538c34f2de8e08", plan.scripts().getFirst().previewChecksum().orElseThrow().value());
         assertEquals("d1af5be3dd5c6c329e75ca9e5e0e0e2c32be15456cfebf7f54b5b348849879fc", plan.digest().value());
+        MigrationFile file = file(1, "first", CREATE);
+        AppliedMigration row = new AppliedMigration(file.id(), file.name(), file.checksum(),
+                Instant.ofEpochSecond(2, 123456789), Instant.ofEpochSecond(3, 987654321), 1000, "development");
+        MigrationPlan applied = compile(List.of(file), new MigrationHistory(true, List.of(row)));
+        assertEquals(MigrationPlan.State.NO_CHANGES, applied.state());
+        assertEquals("efa69f321156a67ae67e92b61e702605d64b3232412fa5305e62a44cde9a6403", applied.digest().value());
     }
 
     @Test void malformedUtf16CannotCollapseDifferentTargetIdentities() throws Exception {
@@ -176,6 +182,24 @@ class PostgresqlMigrationPlanCompilerTest {
                 () -> settings("jdbc:postgresql://localhost:5432/demo", malformed, "p").planTarget("app"));
         assertEquals(dev.tuprel.migrate.MigrationHistoryException.Reason.CONFIGURATION, failure.reason());
         assertNull(failure.getCause());
+    }
+
+    @Test void expandedCanonicalPreviewIsBoundedIndependentlyOfSourceBytes() throws Exception {
+        String columns = IntStream.range(0, 256)
+                .mapToObj(index -> "\"" + String.format(java.util.Locale.ROOT, "c%03d", index) + "x".repeat(59) + "\" UUID")
+                .collect(java.util.stream.Collectors.joining(",\n"));
+        List<MigrationFile> files = new ArrayList<>();
+        for (int script = 1; script <= 18; script++) {
+            StringBuilder source = new StringBuilder();
+            for (int table = 0; table < 40; table++) {
+                source.append("CREATE TABLE \"app\".\"t").append(script * 40 + table).append("\" (\n").append(columns).append("\n);\n");
+            }
+            files.add(file(script, "budget", source.toString()));
+        }
+        MigrationPlan plan = compile(files, EMPTY);
+        assertEquals(MigrationPlan.State.BLOCKED, plan.state());
+        assertTrue(plan.risks().contains(Risk.RESOURCE_LIMIT));
+        assertThrows(IllegalStateException.class, plan::preview);
     }
 
     private MigrationPlan compile(List<MigrationFile> files, MigrationHistory history) throws Exception { return compiler.compile(target(), files, history); }
