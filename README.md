@@ -1,10 +1,9 @@
 <h1 align="center" id="tuprel">TUPREL</h1>
 
-<p align="center"><strong>Your schema. Your Java API.</strong></p>
+<p align="center"><strong>Define the schema. Own the query.</strong></p>
 
 <p align="center">
-  Define your models once. Generate typed Java clients for PostgreSQL.<br>
-  Keep queries, relation loading and transactions explicit.
+  A schema-first Java toolkit for typed PostgreSQL access.
 </p>
 
 <p align="center">
@@ -14,34 +13,27 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tuprel/tuprel/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/tuprel/tuprel/ci.yml?branch=main&amp;label=CI&amp;style=flat" alt="CI on main" height="20"></a>
-  <a href="https://github.com/tuprel/tuprel/actions/workflows/codeql.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/tuprel/tuprel/codeql.yml?branch=main&amp;label=CodeQL&amp;style=flat" alt="CodeQL on main" height="20"></a>
-  <a href="docs/getting-started/installation.md"><img src="https://img.shields.io/badge/Java-21-426A86?style=flat" alt="Java 21 baseline" height="20"></a>
-  <a href="examples/tuprel-playground/README.md#configure-a-dedicated-local-database"><img src="https://img.shields.io/badge/database-PostgreSQL-426A86?style=flat" alt="Database: PostgreSQL" height="20"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-586069?style=flat" alt="Apache License 2.0" height="20"></a>
-  <a href="#compatibility-and-project-status"><img src="https://img.shields.io/badge/status-Development%20Preview-91651E?style=flat" alt="Status: Development Preview" height="20"></a>
+  <a href="https://github.com/tuprel/tuprel/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/tuprel/tuprel/ci.yml?branch=main&amp;label=CI&amp;style=flat" alt="CI on main" height="20"></a>&nbsp;<a href="https://github.com/tuprel/tuprel/actions/workflows/codeql.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/tuprel/tuprel/codeql.yml?branch=main&amp;label=CodeQL&amp;style=flat" alt="CodeQL on main" height="20"></a>
+  &ensp;
+  <a href="docs/getting-started/installation.md"><img src="https://img.shields.io/badge/Java-21-426A86?style=flat" alt="Java 21 baseline" height="20"></a>&nbsp;<a href="examples/tuprel-playground/README.md#configure-a-dedicated-local-database"><img src="https://img.shields.io/badge/database-PostgreSQL-426A86?style=flat" alt="Database: PostgreSQL" height="20"></a>
+  &ensp;
+  <a href="LICENSE"><img src="https://img.shields.io/badge/Apache%202.0-586069?style=flat" alt="Apache License 2.0" height="20"></a>&nbsp;<a href="#compatibility-and-project-status"><img src="https://img.shields.io/badge/Development%20Preview-91651E?style=flat" alt="Status: Development Preview" height="20"></a>
 </p>
 
 <a id="what-tuprel-is-building"></a>
 
-Tuprel is a **schema-first data access toolkit for Java**. It turns
-[schema.tuprel](docs/guides/schema.md) into immutable model values, input builders
-and a typed [Java client](docs/guides/java-client.md), so you can spend less time
-maintaining matching entities, mappers and repositories.
+<p align="center">
+  <picture>
+    <source media="(max-width: 480px) and (prefers-color-scheme: dark)" srcset="docs/assets/readme/workflow-mobile-dark.svg">
+    <source media="(max-width: 480px)" srcset="docs/assets/readme/workflow-mobile-light.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/workflow-dark.svg">
+    <img src="docs/assets/readme/workflow-light.svg" alt="Define models in schema.tuprel, generate Java code, use the type-safe client, and query PostgreSQL through your DataSource." width="720">
+  </picture>
+</p>
 
-[See it in action](#see-tuprel-in-action) · [Get started](#getting-started) ·
-[Explore the guides](#documentation-navigation) · [Check compatibility](#compatibility-and-project-status)
-
-## Why TUPREL?
-
-- **Let the schema shape your API.** Generated fields, filters and ordering carry
-  Java types into the places where you read and change data.
-- **Choose when database work happens.** Relations load through explicit includes;
-  getters never issue queries. Transaction boundaries belong in your code.
-- **Keep SQL within reach.** Preview a query before running it. Values travel as
-  bound parameters, separate from SQL text.
-- **Use your application's infrastructure.** Supply a JDBC `DataSource`; the core
-  has no dependency on JPA, Hibernate or Spring.
+Define models in [schema.tuprel](docs/guides/schema.md). Run `tuprel generate`.
+Use the generated [Java client](docs/guides/java-client.md) with your `DataSource`.
+Generation writes Java files; it does not create database tables.
 
 <a id="what-works-today"></a>
 <a id="generated-client-example"></a>
@@ -90,6 +82,21 @@ The snippets share `db`. Relation and transaction examples also assume existing
 `UUID orderId` and `UUID productId` values, respectively.
 
 </details>
+
+## Why TUPREL?
+
+- **Let the schema shape your API.** Generate immutable model values, input
+  builders, filters and ordering instead of maintaining matching entities,
+  mappers and repositories by hand.
+- **Choose when database work happens.** Relations load through explicit includes;
+  getters never issue queries. Transaction boundaries belong in your code.
+- **Keep SQL within reach.** Preview a query before running it. Values travel as
+  bound parameters, separate from SQL text.
+- **Use your application's infrastructure.** Supply a JDBC `DataSource`; the core
+  has no dependency on JPA, Hibernate or Spring.
+
+[Get started](#getting-started) · [Explore the guides](#documentation-navigation) ·
+[Check compatibility](#compatibility-and-project-status)
 
 <a id="what-you-can-do"></a>
 

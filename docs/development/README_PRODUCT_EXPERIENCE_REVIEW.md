@@ -6,6 +6,11 @@ na branch `docs/readme-product-experience`. A [página proposta](../../README.md
 documenta apenas o código integrado nessa base. Não altera runtime, builds,
 schema, workflows, metadados do GitHub ou a proposta estratégica do PR #34.
 
+A entrega inicial corresponde ao HEAD `39fccd9`. A revisão visual seguinte
+mantém o mesmo PR #35 e todos os exemplos/anchors, acrescentando apenas o
+workflow SVG e a reorganização do topo. A gravação CLI é preparada localmente
+para aprovação separada; não é incorporada no README ou no Git.
+
 ## Referências e decisões editoriais
 
 Foram consultados os READMEs públicos actuais, sem reutilizar texto, imagens,
@@ -34,7 +39,8 @@ identidade, métricas ou promessas de outros produtos:
 A hierarquia usa um H1, H2 por assunto e H3 para os três exemplos de comportamento.
 Só se usa HTML suportado pelo GitHub: títulos/parágrafos, links/imagens,
 anchors e details/summary. Sem CSS, layout em colunas, tabelas no README,
-novos logótipos ou gráficos. Cores do texto, links e código ficam a cargo do tema.
+novos logótipos. A entrega inicial não tinha gráficos; a revisão visual propõe
+um workflow SVG. Cores do texto, links e código ficam a cargo do tema.
 
 ## Badges e destinos
 
