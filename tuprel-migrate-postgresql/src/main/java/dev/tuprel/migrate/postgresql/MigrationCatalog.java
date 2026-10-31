@@ -158,5 +158,5 @@ final class MigrationCatalog {
         }
     }
 
-    private static MigrationRunFailure refused() { return new MigrationRunFailure(MigrationRunResult.Failure.CATALOG, false); }
+    private static MigrationRunFailure refused() { return new MigrationRunFailure(MigrationExecutionResult.Failure.CATALOG, false); }
 }

@@ -20,6 +20,11 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- API Java `PostgresqlMigrationRunner` para inspecção read-only e execução
+  transaccional de migrations revistas. Sequências preservam o prefixo
+  confirmado e param em falhas/incerteza, sem retry ou reparação automática;
+  nova inspecção sob lock permite reconciliação explícita. Sem comando CLI deploy.
+
 - Fundação F6-003B3: caminho interno de uma migration atómica, com aprovação
   revalidada sob lock, bootstrap controlado do histórico, gates do catálogo e
   DDL canónico + APPLIED na mesma transacção. Commit/rollback incertos descartam

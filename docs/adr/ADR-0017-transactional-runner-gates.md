@@ -3,10 +3,11 @@
 Estado: **aceite** em 2026-10-31 por aprovação explícita do utilizador.
 Actualização de execução em 2026-10-31: o utilizador autorizou explicitamente
 F6-003B1–B4 e, depois dos seus gates, F6-003C em PRs sequenciais. A restrição
-do parágrafo seguinte descreve a entrega offline original, não esta autorização.
-Contrato de segurança complementar aos ADRs 0014/0015/0016. Não há executor,
-advisory locks ou DDL implementados neste PR. O pedido actual autoriza integração
-do trabalho existente, sem iniciar o executor ou funcionalidades adicionais.
+da entrega offline original não impede esta autorização posterior.
+Contrato de segurança complementar aos ADRs 0014/0015/0016. A entrega original
+da F6-003A só propôs estes gates, sem executor. A implementação sequencial e
+a evidência actual da F6-003B são registadas no plano operacional, sem alterar
+o encoding/gramática/política já aceites.
 
 ## Problema e restrições
 

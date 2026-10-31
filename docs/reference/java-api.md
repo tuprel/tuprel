@@ -68,17 +68,44 @@ migrations.
 
 ## Offline DDL preview
 
-The PostgreSQL adapter also contains an internal single-migration runner.
+The PostgreSQL adapter also provides `PostgresqlMigrationRunner`.
 It validates the live target and uses a schema-scoped
 session advisory lock, with bounded, interruptible acquisition and physical
 discard on cleanup failure. It requires idle connections with finite timeouts
 and physical abort/discard support; transaction-pooling is unsupported. There
-is no public runner API or migration-execution command in this delivery.
+is no CLI migration-execution command in this delivery.
 The internal write path rediscovers files, observes history on that connection
 and recompiles/revalidates the approved digest under lock. Canonical parsed DDL
 and the APPLIED row commit together. Unknown outcomes discard the session with
 no retries; catalog gates reject unsupported physical structures. See the
 [migration guide](../guides/migrations.md) and ADR-0017 for limits.
+
+## Transactional migration runner
+
+`PostgresqlMigrationRunner(DataSource, MigrationDatabaseSettings)` owns a dedicated
+idle connection for each operation and validates it against the explicit settings.
+The source must provide finite timeouts, the same validated TLS/certificate policy
+and physical abort/discard. Use settings.dataSource() for the configured driver;
+live SQL checks do not attest client-side server-certificate policy. No dotenv is loaded.
+
+- `inspect(String targetSchema, Path directory)` returns `MigrationInspection`
+  with current `MigrationPlan` and `MigrationHistory` from a fresh session under
+  the deployment lock. It is read-only and never bootstraps history or applies DDL.
+  `MigrationInspectionException.reason()` supplies a cause-free failure category;
+  no snapshot is returned after observation/cleanup failure.
+- `deploy(String targetSchema, Path directory, MigrationPlanDigest approval)`
+  independently rediscovers/recompiles under lock and applies only matching
+  reviewed artifacts. Each migration has an atomic DDL/history transaction.
+- `MigrationExecutionResult` exposes `outcome()`, safe `failure()` and the
+  immutable ordered `confirmed()` prefix newly committed in that invocation.
+  Earlier commits remain confirmed after later failure. OUTCOME_UNKNOWN stops
+  and discards the session, without retries. FAILED/CLEANUP can retain a prefix.
+
+Fresh `inspect` supports explicit reconciliation after uncertainty. It neither
+changes the original result nor repairs/retries; review current integrity and
+a new plan before another explicit call. It does not perform full physical
+drift detection or persist attempt/recovery records. See the
+[reviewed Java example](../guides/migrations.md#run-reviewed-migrations-in-java).
 
 `PostgresqlDdlParser.parse(MigrationFile)` consumes an immutable validated
 artifact and returns a complete `DdlParseResult`. `isSupported()` means syntax

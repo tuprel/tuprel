@@ -10,15 +10,15 @@ Offline Java APIs also parse/preview the limited PostgreSQL DDL subset and
 compile contextual risk/digest plans. They do not add preview/deploy commands
 to the CLI.
 
-**Not available as public commands/APIs:** deploy, dev, diff or reset.
+**Not available in the CLI:** deploy, dev, diff or reset.
 Physical drift detection remains unavailable. Open PRs are not installed CLI features.
 
-The internal runner can bootstrap the canonical history and apply one approved
-migration transactionally in isolated tests. It rediscovers files and observes
+The Java `PostgresqlMigrationRunner` can inspect and apply reviewed migration
+files transactionally. It rediscovers files and observes
 history on the owned connection under the session lock, recompiles the whole
 plan and compares the approved digest before bootstrap or migration DDL.
-This is an internal foundation, with no public execution API or deploy command;
-sequence handling and failure/reconciliation coverage are the next gate.
+Every migration has its own transaction. A failure stops the sequence and
+preserves earlier confirmed migrations; there is no global rollback promise.
 Status never invokes bootstrap. The owned session validates the
 configured live database, principal, schema access and TLS mode, rejects active
 transactions and preheld advisory locks, and acquires a session lock with a
@@ -231,8 +231,89 @@ state and recompile under the approved session-lock and transaction contract;
 caller-supplied snapshots are not execution authority. See
 [ADR-0016](../adr/ADR-0016-offline-migration-plan-digest.md) for the exact encoding
 and limits, and [ADR-0017](../adr/ADR-0017-transactional-runner-gates.md) for the
-accepted future execution gates. Deploy, dev, diff and physical drift remain
+accepted execution gates. CLI deploy, dev, diff and physical drift remain
 unavailable.
+
+## Run reviewed migrations in Java
+
+`PostgresqlMigrationRunner.inspect` opens a fresh dedicated session, acquires
+the schema-scoped session lock and reads files/history consistently. It never
+bootstraps or applies SQL. Review its complete plan, canonical preview, risks
+and digest. A BLOCKED plan has no executable preview. Physical drift remains
+unverified, including when there are no pending files.
+
+Pass an independently reviewed digest to `deploy`; do not automatically approve
+the digest returned by a fresh inspection. The runner reacquires the lock and
+revalidates the complete approval against current artifacts/history before
+writing. This compilable example exposes those as two separate application
+operations, using caller-supplied production environment configuration:
+
+```java
+import dev.tuprel.migrate.MigrationHistoryException;
+import dev.tuprel.migrate.postgresql.MigrationDatabaseSettings;
+import dev.tuprel.migrate.postgresql.MigrationExecutionResult;
+import dev.tuprel.migrate.postgresql.MigrationInspection;
+import dev.tuprel.migrate.postgresql.MigrationInspectionException;
+import dev.tuprel.migrate.postgresql.MigrationPlanDigest;
+import dev.tuprel.migrate.postgresql.PostgresqlMigrationRunner;
+import java.nio.file.Path;
+import java.util.Map;
+
+public final class ReviewedMigrations {
+    private ReviewedMigrations() { }
+
+    public static MigrationInspection inspect(Map<String, String> environment,
+            String targetSchema, Path directory)
+            throws MigrationHistoryException, MigrationInspectionException {
+        MigrationDatabaseSettings settings = MigrationDatabaseSettings.fromEnvironment(environment);
+        PostgresqlMigrationRunner runner = new PostgresqlMigrationRunner(settings.dataSource(), settings);
+        return runner.inspect(targetSchema, directory);
+    }
+
+    public static MigrationExecutionResult applyReviewed(Map<String, String> environment,
+            String targetSchema, Path directory, MigrationPlanDigest approvedDigest)
+            throws MigrationHistoryException {
+        MigrationDatabaseSettings settings = MigrationDatabaseSettings.fromEnvironment(environment);
+        PostgresqlMigrationRunner runner = new PostgresqlMigrationRunner(settings.dataSource(), settings);
+        return runner.deploy(targetSchema, directory, approvedDigest);
+    }
+}
+```
+
+Use the three explicit TUPREL_DATABASE_* settings described above, not the test
+dotenv loader. Custom DataSources must use the same TLS/certificate policy and
+finite timeouts as the expected settings, with physical abort/discard support.
+Live SQL checks observe encryption usage; they cannot attest client certificate
+verification policy. The settings factory configures the validated JDBC policy.
+
+### Partial failures and uncertain outcomes
+
+`MigrationExecutionResult.confirmed()` contains only newly confirmed migrations
+from that invocation. APPLIED and NO_CHANGES are successful outcomes. REFUSED
+means a safety/configuration gate stopped further work; FAILED includes a known
+statement failure or cleanup error. An unsuccessful invocation can still have
+a confirmed prefix. Never repeat that prefix.
+
+OUTCOME_UNKNOWN means the runner could not establish commit/connection/rollback
+outcome. It discards the connection and stops, without retries or later migrations.
+Run `inspect` in a new invocation/session to reconcile the live history under
+the same lock. A committed APPLIED row records the atomic DDL/history transaction;
+absence must be assessed against the expected prefix and known history. A
+blocked/incompatible snapshot requires investigation, not automatic repair.
+This inspection does not rewrite the earlier result or prove full physical drift.
+
+Review a new plan before another explicit deployment. A confirmed prefix or
+committed bootstrap changes the digest; confirmed rollback without changes can
+produce the same digest. The digest is not a one-use token or proof of renewed
+human review. There is no durable attempt log or automatic crash recovery in
+this subset. After process loss, inspect status/metadata and the original
+artifacts explicitly; do not infer rollback from a lost acknowledgement.
+
+Locks and failures are bounded by the accepted server/driver timeouts: 30-second
+session-lock polling, 10-second DDL lock timeout, 20-second statement timeout and
+30-second driver socket timeout. These are separate limits, not a promise of a
+single wall-clock deadline for an entire deployment. SQL and driver messages are
+excluded from normal diagnostics; preview is an explicit inspection operation.
 
 [ADR-0012](../adr/ADR-0012-offline-cli-and-migration-files.md) defines the exact
 format. The playground still uses
