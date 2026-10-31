@@ -45,7 +45,7 @@ Do not use this API to discard unknown properties when constructing a state.
 The comparison creates no files, approval digest or database connection.
 
 Run the [complete Java example](../../examples/migration-diff/README.md) without
-a database. The [proposed F6-004A contract](../adr/ADR-0018-logical-schema-diff.md)
+a database. The [F6-004A contract](../adr/ADR-0018-logical-schema-diff.md)
 records the limits and next slices. schema.tuprel projection, CLI diff, physical
 drift and migrate dev remain separate work; the existing reviewed-file deploy
 protocol is unchanged.

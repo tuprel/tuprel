@@ -1,8 +1,8 @@
 # ADR-0018 — Comparação lógica offline de schemas PostgreSQL
 
-Estado: **proposto**, para revisão na F6-004A. Não altera os ADRs 0015–0017,
-a gramática, os bytes dos digests ou a autorização de execução. A integração
-deste novo contrato público aguarda aprovação explícita.
+Estado: **aceite** em 2026-10-31 por aprovação explícita do utilizador.
+Contrato da F6-004A. Não altera os ADRs 0015–0017, a gramática, os bytes dos
+digests ou a autorização de execução. Integração condicionada aos gates normais.
 
 ## Contexto
 
@@ -12,7 +12,7 @@ suporta defaults, relações, enums e tipos fora da gramática de migrations.
 Projectá-lo parcialmente e omitir esses elementos produziria uma falsa igualdade.
 F6-004 precisa de uma fundação verificável antes de expor diff na CLI.
 
-## Decisão proposta
+## Decisão
 
 Introduzir SchemaSnapshot e SchemaDiff no adapter PostgreSQL existente. São
 APIs sem I/O, dependências novas ou alterações ao grafo modular. Reutilizam
@@ -84,8 +84,8 @@ expansão de SQL ou escrita de migrate dev decorre desta proposta.
 ## Sequência e aprovação
 
 F6-004A entrega esta API, testes adversariais/concorrentes, prova de preview em
-schemas PostgreSQL isolados e exemplo reproduzível. A revisão deste ADR é gate
-de integração, separado da CI. F6-004B definirá a projecção completa ou recusada
+schemas PostgreSQL isolados e exemplo reproduzível. Aprovação recebida; os gates
+de testes/revisão/CI continuam obrigatórios. F6-004B definirá a projecção completa ou recusada
 de schema.tuprel; F6-004C só publicará migrate diff com fontes/opções/exit codes
 definidos e testes dos launchers. Nenhum comando fictício entretanto.
 

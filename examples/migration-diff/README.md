@@ -29,4 +29,4 @@ Column declaration order is excluded from logical equality; index key order
 is significant. This does not read schema.tuprel or inspect a live database.
 
 See the [migration guide](../../docs/guides/migrations.md#compare-logical-schemas-offline)
-and [proposed contract](../../docs/adr/ADR-0018-logical-schema-diff.md).
+and [accepted contract](../../docs/adr/ADR-0018-logical-schema-diff.md).

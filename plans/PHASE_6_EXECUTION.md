@@ -11,8 +11,8 @@ Continuação F6-004 iniciada a partir da main
 `9fff107ff75afb2db95c16a44807ce98cd445191`, limpa e sincronizada.
 CI/CodeQL reconsultados em 2026-10-31: runs 41236212986/41236212987 aprovados,
 análise 2069309676 sem erro/resultados. Nenhum PR anterior é alterado.
-F6-004A propõe um contrato de comparação lógica offline; ADR-0018 continua
-proposto e a integração aguarda aprovação. Não considerar F6-004 completa.
+ADR-0018 aprovado explicitamente em 2026-10-31 para comparação lógica offline.
+F6-004A aguarda os gates normais de integração; não considerar F6-004 completa.
 
 F6-003B1–B4 e F6-003C integradas sequencialmente nos PRs #38–#42.
 Último HEAD funcional desta entrega: `afd606859c026d88c0e6d2ad094e6d86f48fa396`.
@@ -65,7 +65,7 @@ não substituem nova consulta antes de cada integração.
 | F6-003B3 uma migration atómica | MERGED | B2 integrada; main validada antes do PR | feat/f6-003b-atomic-migration / [#40](https://github.com/tuprel/tuprel/pull/40) | 6d8f979123525ab4b3aa1beb0696fd8d5600bafa | — |
 | F6-003B4 sequência/falhas/reconciliação | MERGED | B3 integrada e main validada | feat/f6-003b-sequence-recovery / [#41](https://github.com/tuprel/tuprel/pull/41) | 2abf673b6f269f7984f91aca854e52be2120c231 | — |
 | F6-003C CLI deploy | MERGED | B4 integrada e main validada | feat/f6-003c-migrate-deploy / [#42](https://github.com/tuprel/tuprel/pull/42) | afd606859c026d88c0e6d2ad094e6d86f48fa396 | — |
-| F6-004A estados lógicos/diff Java | BLOCKED | ADRs 0015–0017; ADR-0018 proposto | feat/f6-004a-schema-diff / [#44](https://github.com/tuprel/tuprel/pull/44) (draft) | — | Aprovação do contrato público antes de integrar |
+| F6-004A estados lógicos/diff Java | TESTING | ADRs 0015–0018 aceites | feat/f6-004a-schema-diff / [#44](https://github.com/tuprel/tuprel/pull/44) | — | Checks/revisão do HEAD antes de integrar |
 | F6-004B projecção de schema.tuprel | TODO | 004A; mapping físico explícito, recusas completas | — | — | Reutilizar compiler/codegen; não omitir atributos desconhecidos |
 | F6-004C CLI diff | TODO | 004B; fontes/opções/exit codes definidos | — | — | CLI apenas com comportamento completo e launchers testados |
 | F6-005A contrato/leitura de catálogo | TODO | 004 consolidada; ADR de catálogo | — | — | Snapshot read-only, completude, permissões e desconhecidos |
@@ -107,8 +107,9 @@ Exemplo LogicalDiffExample compilado com Java 21, -Xlint:all/-Werror e executado
 offline. Os três exemplos anteriores do guia compilam; os dois offline executam.
 Links/anchors e identidade do README preservados; GIF com SHA-256 original
 a157d3934c5b6b8999180a4831543644e1545130b7d239e1c2b6e53242347e5b.
-Branch publicada sem force push; PR #44 em draft. Gates remotos e HEAD actual
-podem ser consultados nos checks do PR; não substituem o gate ADR-0018.
+Branch publicada sem force push; aprovação explícita do ADR-0018 recebida.
+Gates remotos e HEAD actual podem ser consultados nos checks do PR;
+integração só após testes/revisão e quatro checks aprovados nesse HEAD.
 Revisão de arquitectura/segurança: sem novas dependências ou ciclos, sem SQL
 raw de execução, mutabilidade partilhada, ligação JDBC ou escrita no diff.
 Metadados/SQL só são expostos por acesso explícito; logging incidental e erros
@@ -121,8 +122,8 @@ Permissões, snapshots concorrentes e perda de ligação do futuro leitor de
 catálogo continuam critérios de F6-005A, que ainda não foi implementada.
 Os testes existentes de status/runner permanecem obrigatórios na build completa.
 Sem escrita do produto nova, sem CLI fictícia, sem adopção do playground.
-ADR-0018 proposto é gate de integração desta API; não alterar o seu estado
-por inferência de CI verde. As fatias seguintes só integram com os contratos
+ADR-0018 aceite por aprovação explícita, não por inferência de CI verde.
+As fatias seguintes só integram com os contratos
 necessários aprovados. Sem reset ou execução nova autorizada por este diff.
 
 ### F6-003B1 — Definição canónica e bootstrap interno

@@ -121,7 +121,7 @@ usa SqlIdentifier. Sem novo módulo, ciclo ou dependência externa.
 F6-004A acrescenta snapshots/diff lógicos offline do mesmo AST no package diff,
 com preview pelo renderer existente. Não há leitura de catálogo, dependência
 nova de schema ou alteração dos gates de deploy. Projecção de schema.tuprel
-e observação de drift ficam em entregas próprias; ADR-0018 proposto.
+e observação de drift ficam em entregas próprias; ADR-0018 aceite.
 F6-003B acrescenta PostgresqlMigrationRunner, com connection dedicada,
 aprovação revalidada sob lock, gates de catálogo, bootstrap e transacção por
 migration. A inspecção é read-only e separada da execução explícita; o reader
