@@ -20,6 +20,8 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Parser/AST de gramática DDL PostgreSQL limitada e preview canónico offline na
+  API Java; input desconhecido bloqueia todo o script, sem execução ou novo comando CLI.
 - `migrate status --target-schema`: consulta read-only de histórico PostgreSQL
   e integridade/ordem do catálogo local, com configuração explícita e snapshot
   REPEATABLE READ. Sem criar histórico, executar migrations ou verificar drift físico.
