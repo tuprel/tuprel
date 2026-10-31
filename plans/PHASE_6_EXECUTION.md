@@ -31,7 +31,7 @@ não substituem nova consulta antes de cada integração.
 | F6-001 CLI e formato v1 | MERGED | ADR-0012 aceite | feat/f6-001-cli-migration-foundation / #26 | bf057d50c086811ae0602d46aa8db6d8d1026868 | — |
 | F6-002A create offline | MERGED | F6-001 | feat/f6-002a-migration-create / #27 | 9a6b4f872bc020634d9b8dee4ad6f56c2b5db938 | — |
 | F6-002B histórico/status | MERGED | ADRs 0013/0014 aceites; role/testes confirmados | feat/f6-002b-migration-status / [#28](https://github.com/tuprel/tuprel/pull/28) | 894b408ddee6bfd98ad158c656f3909cf045d5b3 | CI pós-merge por confirmar antes da integração seguinte |
-| F6-003A1 gramática/AST/preview offline | TESTING | #28 integrado; ADR-0015 aprovado | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | — | Sincronização e aprovação registadas; repetir testes/revisão/CI |
+| F6-003A1 gramática/AST/preview offline | TESTING | #28 integrado; ADR-0015 aprovado | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | — | Testes locais/documentação aprovados; CI actualizada antes de ready/merge |
 | F6-003A2 plano, riscos e digest offline | BLOCKED | A1 integrado; ADRs 0016/0017 aprovados | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | — | Sincronizar após #30, registar aprovação e repetir testes/vetores/revisão/CI |
 | F6-003B runner transaccional | BLOCKED | #28 e A1/A2 integrados; ADRs 0015/0016/0017 aprovados | — | — | Dependências por integrar; executor fora desta tarefa |
 | F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
@@ -92,6 +92,16 @@ Contrato aceite em [ADR-0015](../docs/adr/ADR-0015-postgresql-ddl-subset.md):
 nomes quoted, built-ins qualificados, três operações e parser whole-input.
 Preview não significa aprovação de execução. ADR-0015 aprovado explicitamente
 em 2026-10-31; integração depende de #28, sincronização e nova validação.
+
+Revalidação da A1 após sincronizar #28 e a main pública: build raiz sem filtros
+aprovada, **298 testes aprovados e quatro skips Windows justificados**. A task
+de testes do adapter foi forçada a executar; os 32 casos da gramática passaram
+com zero skips, incluindo entradas adversariais, limites e round-trip. Os 14
+testes de histórico, 25 PG anteriores e launcher real passaram. JavaDoc Werror
+e Spotless mantidos. Build/checkConnection do playground passou depois da raiz,
+reutilizando os seus dois testes inalterados. Exemplo Java do guia compilado
+com -Xlint:all -Werror e executado offline; 148 links internos e 31 anchors
+README preservados. Sem SQL novo executado, alterações de protocolo ou comandos CLI.
 
 A2 implementada offline: 14 testes novos aprovados (0 skips), incluindo dois
 vetores normativos calculados também por referência PowerShell/.NET independente,
