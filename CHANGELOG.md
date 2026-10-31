@@ -20,6 +20,11 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Fundação F6-003B3: caminho interno de uma migration atómica, com aprovação
+  revalidada sob lock, bootstrap controlado do histórico, gates do catálogo e
+  DDL canónico + APPLIED na mesma transacção. Commit/rollback incertos descartam
+  a sessão sem retry; sem API pública de deploy ou novo comando CLI.
+
 - Fundação F6-003B2: sessão interna dedicada com validação do alvo vivo,
   advisory lock de sessão com prazo interruptível e descarte após falhas de
   cleanup. Sem execução de migrations nem novo comando público.

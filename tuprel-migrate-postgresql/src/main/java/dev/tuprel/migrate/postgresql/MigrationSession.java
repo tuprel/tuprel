@@ -102,11 +102,18 @@ final class MigrationSession implements AutoCloseable {
     }
 
     @Override public void close() throws MigrationSessionException {
+        close(false);
+    }
+
+    /** The internal runner has confirmed commit/rollback and will issue no further transactional SQL. */
+    void closeSettled() throws MigrationSessionException { close(true); }
+
+    private void close(boolean settled) throws MigrationSessionException {
         if (closed) { return; }
         closed = true;
         Reason failure = null;
         try {
-            if (!connection.getAutoCommit()) {
+            if (!settled && !connection.getAutoCommit()) {
                 try { connection.rollback(); }
                 catch (SQLException | RuntimeException exception) { throw new MigrationSessionException(Reason.OUTCOME_UNKNOWN); }
             }

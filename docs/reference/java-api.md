@@ -68,12 +68,17 @@ migrations.
 
 ## Offline DDL preview
 
-The PostgreSQL adapter also contains an internal dedicated-session lifecycle for
-the forthcoming runner. It validates the live target and uses a schema-scoped
+The PostgreSQL adapter also contains an internal single-migration runner.
+It validates the live target and uses a schema-scoped
 session advisory lock, with bounded, interruptible acquisition and physical
 discard on cleanup failure. It requires idle connections with finite timeouts
 and physical abort/discard support; transaction-pooling is unsupported. There
-is no new public runner API or migration-execution command in this delivery.
+is no public runner API or migration-execution command in this delivery.
+The internal write path rediscovers files, observes history on that connection
+and recompiles/revalidates the approved digest under lock. Canonical parsed DDL
+and the APPLIED row commit together. Unknown outcomes discard the session with
+no retries; catalog gates reject unsupported physical structures. See the
+[migration guide](../guides/migrations.md) and ADR-0017 for limits.
 
 `PostgresqlDdlParser.parse(MigrationFile)` consumes an immutable validated
 artifact and returns a complete `DdlParseResult`. `isSupported()` means syntax
