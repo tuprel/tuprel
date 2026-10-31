@@ -20,7 +20,7 @@ Tuprel is a development preview; there is no stable release or published artifac
 | [CRUD and queries](guides/crud-and-queries.md) | Writes, typed filters, pagination and SQL preview |
 | [Relations](guides/relations.md) | Explicit includes, batched loading and unloaded values |
 | [Transactions](guides/transactions.md) | Atomic work, savepoints, timeouts, locks and streams |
-| [Migrations](guides/migrations.md) | Offline drafts and current limits |
+| [Migrations](guides/migrations.md) | Offline drafts, read-only history/status and current limits |
 
 ## Reference and help
 
@@ -37,7 +37,8 @@ Tuprel is a development preview; there is no stable release or published artifac
 | Schema validation, formatting and Java generation | Available from source |
 | Generated CRUD/query client, relations and transactions | Available from source; API is preview |
 | init, checks, dry-runs and offline migrate create | Available from source |
-| Migration history/status, SQL planning and execution | In development in separate PRs; not available in main |
+| Read-only PostgreSQL migration history/status | Available from source; no physical drift check |
+| Migration SQL planning and execution | Not available in main |
 | Automatic build plugins, Spring Boot starter and introspection | Future work |
 
 The playground uses temporary manual bootstrap SQL. It is not a migration engine.

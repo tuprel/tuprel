@@ -19,8 +19,8 @@ Tables/defaults/constraints currently require explicit reviewed SQL.
 
 ## Can I deploy migrations?
 
-No. Main offers offline drafts and catalog validation. History/status, planning,
-deploy, diff and dev are separate work in progress. Design documents and open
+No. Main offers offline drafts, catalog validation and read-only PostgreSQL
+history/status. Execution, diff and dev remain unavailable. Design documents and open
 PRs do not represent commands in the installed main launcher.
 
 ## Can I try it without Docker or PostgreSQL?
@@ -33,6 +33,8 @@ without Docker. CI uses isolated real PostgreSQL tests.
 
 No. Validation checks the declaration without resolving it. The application
 supplies a `DataSource`; the example/test .env loader is not a production API.
+Migration status separately requires explicit `TUPREL_DATABASE_*` environment
+variables and a target schema; it never loads that .env automatically.
 
 ## Does reading a relation issue a query?
 

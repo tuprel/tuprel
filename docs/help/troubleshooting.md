@@ -21,6 +21,24 @@ Start with tuprel `--help` or a command's --help. The
 | Stream/row lock rejected | Use a transaction client; consume and close streams inside its callback |
 | JDBC/mapping error | Check schema/search path and reviewed table DDL; inspect safe phase/SQLState, not raw credential-bearing errors |
 
+## Migration status
+
+| Diagnostic | Action |
+|---|---|
+| TUPREL-MIGRATE-HISTORY-CONFIGURATION | Supply all three TUPREL_DATABASE_* variables and an explicit valid target schema; check the URL allowlist in the [CLI reference](../reference/cli.md#migration-status) |
+| MISSING_SCHEMA | Select the intended existing schema; status never creates it |
+| PERMISSION | Ask the schema owner for USAGE and SELECT on history; do not escalate privileges to bypass a failure |
+| INCOMPATIBLE | Inspect the known v1 structure, constraints and row values with the owner; status does not repair them |
+| TRANSACTION, TIMEOUT or JDBC | Check the idle connection contract, connectivity and concurrent work; no snapshot is confirmed and no retry is automatic |
+| TUPREL-MIGRATE-STATUS-INTEGRITY | Review files against committed artifacts and recorded history; do not edit applied migrations to hide divergence |
+| UNINITIALISED | No history table exists; this is normal and status writes nothing |
+| DRIFT_NOT_CHECKED | Physical objects have not been compared; a clean status is not proof of schema equivalence |
+
+Local catalog errors use the existing migration-validation diagnostics. Inspect
+format-v1 files and project permissions. A file/history check cannot coordinate
+concurrent local edits or administrative DDL. Redact credentials and JDBC causes
+before sharing diagnostics.
+
 ## Playground setup
 
 The example accepts only loopback and dedicated tuprel_devtest. Follow its
