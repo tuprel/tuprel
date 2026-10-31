@@ -7,9 +7,9 @@ ainda pendentes. Java 21, PostgreSQL primeiro, CONTRIBUTING.md obrigatório.
 
 ## Estado observado
 
-Verificado em 2026-10-31: main em `9a6b4f872bc020634d9b8dee4ad6f56c2b5db938`,
+Verificado em 2026-10-31: main em `618756da423099ad77878a5891c863dc52a6311e`,
 CI/CodeQL aprovados. PR #28 aberto em draft, HEAD
-`1cb315c9ef6b36ba83bcf106c006efe45a14fcf3`, quatro checks remotos aprovados.
+`9448e0dd36cc77021d541747f1b747618abc0735`, quatro checks remotos aprovados.
 Isso não aprova as duas validações locais de permissões ainda pendentes.
 
 Estados: TODO, IN_PROGRESS, BLOCKED, TESTING, MERGED. TESTING inclui revisão e
@@ -22,15 +22,16 @@ não substituem nova consulta antes de cada integração.
 |---|---|---|---|---|---|
 | F6-001 CLI e formato v1 | MERGED | ADR-0012 aceite | feat/f6-001-cli-migration-foundation / #26 | bf057d50c086811ae0602d46aa8db6d8d1026868 | — |
 | F6-002A create offline | MERGED | F6-001 | feat/f6-002a-migration-create / #27 | 9a6b4f872bc020634d9b8dee4ad6f56c2b5db938 | — |
-| F6-002B histórico/status | BLOCKED | ADRs 0013/0014 aceites; role local | feat/f6-002b-migration-status / #28 | — | Dois testes locais e build completa; manter draft |
-| F6-003A1 gramática/AST/preview offline | IN_PROGRESS | Módulo/modelos de #28; aprovação da gramática antes de integrar contrato | feat/f6-003a-sql-grammar / PR por abrir | — | Proposta específica a rever; não executar SQL |
-| F6-003A2 plano, riscos e digest offline | TODO | A1; snapshot de histórico de #28 | — | — | Aprovação de serialização, target e segurança |
-| F6-003B runner transaccional | BLOCKED | #28 e A1/A2 integrados; aprovação específica de execução | — | — | SQL, preview, locks, falhas e confirmação por aprovar |
+| F6-002B histórico/status | BLOCKED | ADRs 0013/0014 aceites; role local | feat/f6-002b-migration-status / [#28](https://github.com/tuprel/tuprel/pull/28) | — | Dois testes locais e build completa; manter draft |
+| F6-003A1 gramática/AST/preview offline | BLOCKED | #28 integrado; aprovação ADR-0015 | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | — | 32 testes novos e quatro checks aprovados; aprovação específica pendente |
+| F6-003A2 plano, riscos e digest offline | BLOCKED | A1; snapshot de histórico de #28; aprovação ADR-0016 | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | — | 14 testes novos aprovados; aprovação específica pendente; CI acompanhada no PR |
+| F6-003B runner transaccional | BLOCKED | #28 e A1/A2 integrados; ADRs 0015/0016/0017 aprovados | — | — | SQL, preview, locks, falhas e confirmação por aprovar |
 | F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
 | F6-004 diff/preview | TODO | Deploy seguro; contrato de comparação | — | — | Modelo de diferenças/desconhecidos |
 | F6-005 drift/dev | TODO | Diff e catálogo físico conhecido | — | — | Catálogo parcial, drift e confirmação revalidada |
 | F6-006 consolidação | TODO | Subconjuntos anteriores integrados | — | — | Matriz, segurança, documentação e desempenho medido |
 | F6-006 playground baseline | TODO | Motor estável; tarefa isolada com plano de preservação | — | — | Inventário read-only e consentimento antes de adoptar migrations |
+| F6-006 ignore de create.lock | TODO | Contrato de init/ownership | — | — | Evitar inclusão acidental sem sobrescrever .gitignore |
 
 ## Critérios e testes por entrega
 
@@ -74,6 +75,25 @@ golden independentes da plataforma, mutação de cada campo, determinismo e
 invalidação por mudanças. Digest não prova revisão humana nem drift físico.
 Não anunciar comandos ainda não implementados; não abrir ligações JDBC.
 
+A1 implementada no adapter existente: 32 testes novos aprovados (0 skips),
+suite unitária da raiz aprovada, JavaDoc Werror/Spotless aprovados e build do
+playground aprovada depois da raiz. Tarefas sem mudanças reutilizadas pelo
+Gradle. Não se executou SQL novo nem testes locais dependentes da role.
+Contrato proposto em [ADR-0015](https://github.com/tuprel/tuprel/blob/feat/f6-003a-sql-grammar/docs/adr/ADR-0015-postgresql-ddl-subset.md):
+nomes quoted, built-ins qualificados, três operações e parser whole-input.
+Preview não significa aprovação; integrações continuam bloqueadas pela
+dependência #28 e aprovação específica da gramática.
+
+A2 implementada offline: 14 testes novos aprovados (0 skips), incluindo dois
+vetores normativos calculados também por referência PowerShell/.NET independente,
+mutação dos campos, limites de statements/preview e imutabilidade/concorrência.
+Suite unitária, JavaDoc Werror e Spotless aprovados; build do playground aprovada
+depois da raiz. Não se executou SQL novo nem os testes locais de role pendentes.
+Propostas [ADR-0016](https://github.com/tuprel/tuprel/blob/feat/f6-003a-plan-digest/docs/adr/ADR-0016-offline-migration-plan-digest.md) e
+[ADR-0017](https://github.com/tuprel/tuprel/blob/feat/f6-003a-plan-digest/docs/adr/ADR-0017-transactional-runner-gates.md) explicitam protocolo,
+target, limitações de attestation/drift/replay e gates reais do futuro runner.
+Nenhum executor ou comando CLI fictício foi implementado.
+
 As propostas de gramática/digest/segurança exigem aprovação específica. Até lá,
 os PRs correspondentes ficam draft/BLOCKED e não são integrados automaticamente.
 Podem ser desenvolvidos/testados offline enquanto a role local bloqueia #28.
@@ -95,6 +115,25 @@ reset. Testar estados reais e adversariais. Consolidação inclui Windows/Linux,
 macOS quando houver runner, segurança, locks/falhas, integridade, exemplos e
 desempenho medido sem inventar benchmarks. Bootstrap do playground só muda em
 tarefa própria; não apagar/modificar os dados persistidos para demonstrar o motor.
+
+## Baseline integrada e verificação independente
+
+PR #29 integrado em `618756da423099ad77878a5891c863dc52a6311e`: este plano e
+execução dos mesmos workflows em bases `feat/**`, permitindo PRs pequenos
+empilhados. Nenhum teste ou quality gate foi desactivado. CI/CodeQL da main
+aprovados após a integração.
+
+Validação local dessa baseline em 2026-10-31: build completa da raiz aprovada,
+240 testes aprovados e quatro skips de symlink por privilégios Windows. Os
+quatro casos permanecem activos na CI Linux. Inclui 25 testes PostgreSQL reais
+na tuprel_devtest, sem Docker; tarefas sem alterações reutilizadas pelo Gradle.
+Sequencialmente, build do playground (dois testes)
+e checkConnection aprovados, PostgreSQL 17.11. Consulta read-only confirmou
+4 clientes, 8 produtos, 4 encomendas, 8 itens e zero schemas de testes remanescentes.
+
+Esta baseline não contém o adapter/status do #28 nem os protótipos #30/#31.
+A sua build verde não aprova a build local completa dessas branches. Os dois
+casos de permissões do #28 continuam por executar depois da criação manual da role.
 
 ## Gates de integração e disciplina Git
 
