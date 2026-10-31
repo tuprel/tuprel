@@ -1,6 +1,8 @@
 # TUPREL CLI — Produto, arquitectura e contrato v1
 
-Estado: contrato F6-001 aceite (ADR-0012); criação offline F6-002A em revisão.
+Estado: contrato F6-001 aceite (ADR-0012); criação offline F6-002A integrada (#27).
+Entrada pública: [CLI reference](../reference/cli.md). Este documento mantém o
+desenho de produto e o roadmap interno, separados dos comandos disponíveis.
 A tabela distingue código entregue de roadmap. Java 21. Sem publicação, instalador ou integração automática
 com frameworks nesta entrega. A CLI é uma superfície principal do toolkit.
 

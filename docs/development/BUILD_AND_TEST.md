@@ -1,7 +1,9 @@
 # Build e Testes
 
 Este é o documento canónico sobre como construir e verificar o repositório.
-Descreve o estado **actual** da Fase 5. Nada aqui descreve funcionalidade
+Descreve o estado **actual** da main, incluindo a fundação offline de migrations.
+Para começar como utilizador, consulta [Build from Source](../getting-started/installation.md).
+Nada aqui descreve funcionalidade
 planeada como se já existisse.
 
 Para a estratégia de testes do produto (unit, golden, integração PostgreSQL,
@@ -79,6 +81,7 @@ Project hierarchy:
 Root project 'tuprel'
  +--- Project ':tuprel-cli'
  +--- Project ':tuprel-codegen-java'
+ +--- Project ':tuprel-migrate'
  +--- Project ':tuprel-postgresql'
  +--- Project ':tuprel-runtime'
  +--- Project ':tuprel-schema'
@@ -89,11 +92,12 @@ Included builds:
 \--- Included build ':build-logic'
 ```
 
-Os seis subprojectos de produto actuais são `tuprel-schema`,
+Os sete subprojectos de produto actuais são `tuprel-schema`,
 `tuprel-codegen-java`, `tuprel-cli`, `tuprel-sql`, `tuprel-runtime` e
-`tuprel-postgresql`. Os três primeiros preservam o pipeline de schema e
-geração; os três últimos fornecem CRUD estrutural mínimo, execução JDBC e o
-renderer PostgreSQL. Os módulos posteriores continuam fora da build.
+`tuprel-postgresql` e `tuprel-migrate`. Os três primeiros preservam o pipeline de schema e
+geração; os módulos de runtime e SQL fornecem CRUD, execução JDBC e o
+renderer PostgreSQL; `tuprel-migrate` fornece o catálogo offline. O adapter de
+histórico PostgreSQL continua num PR draft e não faz parte desta main.
 
 `build-logic` aparece como *included build*, não como subprojecto. Ver a
 secção 4.
@@ -159,7 +163,7 @@ Hoje, `check` na raiz executa:
 - `build-logic:validatePlugins`;
 - `build-logic:test` (os testes TestKit do convention plugin);
 - `build-logic:check`;
-- o `check` dos seis módulos de produto, incluindo compilação de Java gerado
+- o `check` dos sete módulos de produto, incluindo compilação de Java gerado
   com `javac` 21 e integration tests reais de PostgreSQL em
   `tuprel-postgresql:integrationTest`.
 
@@ -177,7 +181,7 @@ Podes confirmar o grafo sem executar nada:
 
 Executa o lifecycle `build` da raiz, que com o plugin `base` significa
 `assemble` + `check`. A raiz agrega os artefactos e verificações de
-os seis módulos actuais; não agrega módulos que ainda não foram implementados.
+os sete módulos actuais; não agrega módulos que ainda não foram implementados.
 
 ### Gerar Java a partir de um schema
 
