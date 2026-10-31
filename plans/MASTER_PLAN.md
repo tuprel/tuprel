@@ -2,6 +2,11 @@
 
 O desenvolvimento avança por gates. Não saltar fases porque uma funcionalidade futura parece interessante.
 
+O [plano de developer experience avançada](ADVANCED_DEVELOPER_EXPERIENCE.md)
+detalha objectivos, dependências, prioridades e critérios de aceitação das
+capacidades futuras. É uma proposta estratégica: não aprova contratos novos,
+não autoriza implementação nesta entrega e não transforma backlog em trabalho concluído.
+
 ## Fase 0 - Fundação de engenharia
 
 **Concluída.** Build preparado para futuros módulos, quality gates,
@@ -54,11 +59,28 @@ A relação N:N implícita espera pelas migrations.
 
 Execução contínua, dependências e gates em [PHASE_6_EXECUTION](PHASE_6_EXECUTION.md).
 
-**F6-001 integrada; ADR-0012 aceite. F6-002A em revisão.** Fundação CLI,
+**F6-001/F6-002A integradas; F6-002B em revisão.** Fundação CLI,
 ficheiros puros e criação offline de drafts, conforme RFC-006 e ADR-0012.
 Ver [contrato F6-002A](F6-002A_MIGRATION_CREATE.md). Histórico, adapter PostgreSQL e
 execução dependem da aprovação dos ADRs 0013/0014. Entregas seguintes: history,
 checksum, locking, diff/drift, safety e dev/deploy/status. Reset fora do MVP.
+
+A aprovação arquitectural dos ADRs 0013/0014 está registada no trabalho do
+[PR #28](https://github.com/tuprel/tuprel/pull/28), mas não autoriza o executor.
+Disponibilidade de histórico/status exige integração validada; o estado,
+as duas validações locais de permissões e a build completa seguem os gates de
+PHASE_6_EXECUTION. Gramática, plano, confirmação, locks e falhas continuam sujeitos
+à aprovação específica da F6-003.
+
+**Objectivo planeado — TUPREL Safe Migration Engine MVP (P0):** artefactos
+existentes e revistos, plano/preview determinístico, integridade, riscos,
+drift no catálogo conhecido e revisão vinculada ao estado antes da execução.
+O subconjunto aprovado deve proteger dados, bloquear desconhecidos/destrutivos,
+confirmar DDL e histórico na mesma transacção no subconjunto suportado e comunicar resultado
+incerto sem retries cegos. Diff/drift/dev continuam nas entregas F6-004/F6-005;
+consolidação na F6-006. Sem reset, SQL arbitrário, rollback universal ou garantia
+de zero downtime. Critérios em MIG-SAFE-01 do plano avançado; sequência e estado
+operacional continuam exclusivamente em PHASE_6_EXECUTION, sem antecipar a Fase 9.
 
 ## Fase 7 - Developer integrations
 
@@ -70,11 +92,32 @@ Catálogos PostgreSQL -> internal schema model -> `schema.tuprel`, com naming e 
 
 ## Fase 9 - PostgreSQL avançado e diagnostics
 
-JSONB, arrays, tipos prioritários, raw SQL seguro, SQL preview, EXPLAIN, observability e performance.
+**Planeada, prioridade P1 após os gates anteriores.** TUPREL Query Inspector core
+reutiliza o SQL preview existente e acrescenta captura opt-in, métricas limitadas,
+correlação e diagnóstico de consultas lentas. EXPLAIN é uma operação explícita,
+com permissões, limites e redacção; ANALYZE fica fora do comportamento automático.
+
+JSONB, arrays PostgreSQL e agregações tipadas além de count/exists evoluem o
+schema/codegen/query model existentes, sem uma DSL paralela. As extensões têm de
+ser coerentes com renderer/binding, migrations e catálogo conhecido; não confundir
+Json/listas do frontend com suporte de runtime já entregue. Dependências e testes
+em QINS-01/02, SLOW-01, PG-JSON-01, PG-ARRAY-01 e AGG-01 do plano avançado e em
+[PHASE_9_ADVANCED_POSTGRESQL](PHASE_9_ADVANCED_POSTGRESQL.md).
 
 ## Fase 10 - Maven, compatibilidade e hardening 1.0
 
-Maven plugin, API compatibility, documentação completa, benchmarks, security hardening, supply-chain/release pipeline.
+**Planeada.** Maven plugin, API compatibility, documentação completa,
+security hardening e supply-chain/release pipeline mantêm-se no âmbito.
+MIG-SAFE-02 (P0) aprofunda falhas, concorrência, preservação de dados e recuperação
+do subconjunto de migrations; não alarga silenciosamente a gramática aprovada.
+PERF-01 (P1) produz benchmarks reproduzíveis e análise de custos com evidência,
+sem vantagens de desempenho presumidas.
+
+DX-CONTRACT-01 (P1) estabiliza os contratos públicos de diagnóstico/plano para
+futuros consumidores IDE e Studio: versionamento, compatibilidade, redacção e
+teste de dependências sem UI no core. Não inclui uma aplicação visual nem plugin.
+Ver [PHASE_10_HARDENING](PHASE_10_HARDENING.md) e o plano avançado. A 1.0 exige
+os critérios do âmbito aprovado; reduzir esse âmbito requer decisão explícita.
 
 ## Fase 11 - Release candidate
 
@@ -82,4 +125,18 @@ Freeze de API, migration format, schema language version, RC testing e critério
 
 ## Pós 1.0
 
-Studio, reactive/R2DBC, novos dialectos e outras features só entram depois de dados reais de utilização e ADRs próprios.
+**Planeado, prioridade P2; sem data de entrega:**
+
+- **TUPREL Studio:** aplicação complementar opcional que consome contratos
+  públicos do toolkit, começa read-only e reutiliza Inspector/migrations;
+- **IntelliJ:** integração opcional, sem parser duplicado nem dependência de IDE no core;
+- **Index Advisor:** recomendações de índices fundamentadas em planos, métricas
+  e catálogo, com hipótese, limites e validação antes/depois; sem DDL automático;
+- evolução das interfaces de diagnóstico depois de experiência real com os
+  contratos da 1.0. Reactive/R2DBC e novos dialectos continuam candidatos separados.
+
+Studio e IntelliJ dependem de DX-CONTRACT-01; Advisor depende de Inspector,
+evidência suficiente e catálogo suportado. O visualizador geral de bases de dados
+e o cliente colaborativo de APIs são produtos independentes, fora deste repositório.
+Nada desta janela bloqueia a conclusão da Fase 6 ou introduz dependências de UI
+na arquitectura Java schema-first. Cada implementação exige RFC/ADR e gates próprios.
