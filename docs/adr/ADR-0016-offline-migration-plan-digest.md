@@ -1,8 +1,8 @@
 # ADR-0016 — Plano offline, riscos e digest contextual
 
-Estado: **proposta para aprovação específica**, F6-003A2. Código offline
-autorizado; não autoriza runner nem SQL em DB. Depende do ADR-0015 proposto e
-dos modelos de histórico do #28. Complementa a arquitectura aceite no ADR-0014.
+Estado: **aceite** em 2026-10-31 por aprovação explícita do utilizador, F6-003A2.
+Depende do ADR-0015 aceite e dos modelos de histórico do #28. Complementa a
+arquitectura aceite no ADR-0014. Não implementa runner nem executa SQL em DB.
 
 ## Contexto, problema e opções
 
@@ -16,7 +16,7 @@ Não criar portas de executor, locks ou introspecção ainda. Reutilizar
 MigrationFile/Checksum/Id, MigrationHistory e MigrationStatus.compare. Código
 específico PostgreSQL continua no adapter; nenhuma dependência externa nova.
 
-## Decisão proposta: target e estado observado
+## Decisão: target e estado observado
 
 MigrationDatabaseSettings.planTarget(schema) não abre connection. Cria um
 fingerprint do URL **já validado**, sem query, schema explícito, username
@@ -35,7 +35,7 @@ linhas APPLIED. A API offline aceita snapshots do chamador; não prova a sua
 proveniência. O futuro runner terá de rederivar target e ler histórico real sob
 lock; nunca confiar numa snapshot/plan fornecida como autorização.
 
-## Decisão proposta: plano e riscos
+## Decisão: plano e riscos
 
 Catálogo completo validado v1, IDs únicos, 1000 ficheiros/16 MiB. Ordenar por ID;
 ordem de enumeração e linhas da DB não altera o digest. Reutilizar comparação
@@ -77,7 +77,11 @@ Preview preserva ordem por migration/statement, com header LF `-- Migration
 Artefactos/checksums originais e preview canónico são vinculados separadamente;
 não reescrever ficheiros para normalizar SQL. Nenhum comando CLI novo é exposto.
 
-## Protocolo binário proposto v1
+## Protocolo binário v1
+
+Os identificadores de gramática/preview/policy mantêm os bytes `-proposal`
+originais como parte normativa do protocolo aprovado. Registar aceitação não
+muda versões, vetores golden ou digests existentes.
 
 SHA-256 dos bytes exactos abaixo; resultado hex lowercase. S = comprimento
 em **int32 big-endian** + UTF-8 estrito, sem BOM/normalização. I32/I64 assinados

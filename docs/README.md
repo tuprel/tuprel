@@ -20,7 +20,7 @@ Tuprel is a development preview; there is no stable release or published artifac
 | [CRUD and queries](guides/crud-and-queries.md) | Writes, typed filters, pagination and SQL preview |
 | [Relations](guides/relations.md) | Explicit includes, batched loading and unloaded values |
 | [Transactions](guides/transactions.md) | Atomic work, savepoints, timeouts, locks and streams |
-| [Migrations](guides/migrations.md) | Offline drafts, read-only status, library DDL preview and limits |
+| [Migrations](guides/migrations.md) | Offline drafts/status, library preview/plans, risks and limits |
 
 ## Reference and help
 
@@ -39,6 +39,7 @@ Tuprel is a development preview; there is no stable release or published artifac
 | init, checks, dry-runs and offline migrate create | Available from source |
 | Read-only PostgreSQL migration history/status | Available from source; no physical drift check |
 | Limited PostgreSQL DDL parsing/preview | Available as an offline Java API; no CLI preview command |
+| Migration risk plans and contextual SHA-256 digest | Available as an offline Java API; no execution capability |
 | Migration execution, diff and physical drift detection | Not available in main |
 | Automatic build plugins, Spring Boot starter and introspection | Future work |
 

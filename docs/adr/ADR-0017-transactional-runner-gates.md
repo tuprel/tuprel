@@ -1,8 +1,9 @@
-# ADR-0017 — Gates propostos para execução transaccional
+# ADR-0017 — Contrato de execução transaccional
 
-Estado: **proposta para aprovação específica antes de implementar F6-003B**.
-Não há executor, advisory locks ou DDL implementados neste PR. Desenvolvido como
-contrato de segurança complementar aos ADRs 0014/0015/0016; não inventar consenso.
+Estado: **aceite** em 2026-10-31 por aprovação explícita do utilizador.
+Contrato de segurança complementar aos ADRs 0014/0015/0016. Não há executor,
+advisory locks ou DDL implementados neste PR. O pedido actual autoriza integração
+do trabalho existente, sem iniciar o executor ou funcionalidades adicionais.
 
 ## Problema e restrições
 
@@ -12,7 +13,7 @@ sobre tipo/opclass customizado pode executar funções não presentes no source.
 É necessário decidir estes gates **antes** do primeiro runner, mesmo que drift
 completo permaneça na F6-005. Preservar dados, Java 21 e schemas isolados locais.
 
-## Decisão proposta para revisão
+## Decisão
 
 1. Uma connection dedicada e idle durante o deploy, não transaction-pooling.
    Verificar database/user/schema reais contra a configuração aprovada. Target
@@ -106,8 +107,9 @@ o prefixo confirmado e a falha de cleanup, sem repetir DDL já confirmado.
 ## Validação e gates para começar código
 
 F6-002B integrado só depois dos dois testes locais e build completa aprovados.
-ADRs 0015/0016 e este contrato precisam de aprovação específica. CI verde não
-substitui nenhuma destas aprovações. Depois, implementar em pequenas fatias:
+ADRs 0015/0016 e este contrato foram aprovados explicitamente em 2026-10-31.
+CI verde não substitui dependências, revisão ou os testes de execução ainda por
+implementar. Uma entrega futura F6-003B deve avançar em pequenas fatias:
 bootstrap canónico; lock/lifecycle; executor de uma migration; sequência/falhas;
 CLI deploy apenas após os componentes seguros e seus testes.
 

@@ -30,7 +30,7 @@ import java.util.TreeMap;
 
 /** Offline plan compiler. Snapshots are supplied by the caller; no JDBC/file access or execution. */
 public final class PostgresqlMigrationPlanCompiler {
-    /** Proposed policy/serialization version; changing it invalidates previous digests. */
+    /** Normative policy/serialization version; changing it invalidates previous digests. */
     public static final String POLICY_VERSION = "postgresql-plan-v1-proposal";
     /** Whole-plan statement budget, separate from per-file grammar bounds. */
     public static final int MAX_PLAN_STATEMENTS = 4096;
