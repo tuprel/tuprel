@@ -23,7 +23,7 @@ não substituem nova consulta antes de cada integração.
 | F6-001 CLI e formato v1 | MERGED | ADR-0012 aceite | feat/f6-001-cli-migration-foundation / #26 | bf057d50c086811ae0602d46aa8db6d8d1026868 | — |
 | F6-002A create offline | MERGED | F6-001 | feat/f6-002a-migration-create / #27 | 9a6b4f872bc020634d9b8dee4ad6f56c2b5db938 | — |
 | F6-002B histórico/status | BLOCKED | ADRs 0013/0014 aceites; role local | feat/f6-002b-migration-status / #28 | — | Dois testes locais e build completa; manter draft |
-| F6-003A1 gramática/AST/preview offline | TESTING | Módulo/modelos de #28; aprovação ADR-0015 | feat/f6-003a-sql-grammar / PR por abrir | — | Contrato proposto; 32 testes novos aprovados; CI a confirmar |
+| F6-003A1 gramática/AST/preview offline | TESTING | Módulo/modelos de #28; aprovação ADR-0015 | feat/f6-003a-sql-grammar / #30 | — | Contrato proposto; 32 testes novos aprovados; CI a confirmar |
 | F6-003A2 plano, riscos e digest offline | IN_PROGRESS | A1; snapshot de histórico de #28 | feat/f6-003a-plan-digest / PR por abrir | — | Aprovação de serialização, target e segurança |
 | F6-003B runner transaccional | BLOCKED | #28 e A1/A2 integrados; aprovação específica de execução | — | — | SQL, preview, locks, falhas e confirmação por aprovar |
 | F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
