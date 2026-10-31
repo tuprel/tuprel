@@ -97,7 +97,8 @@ Componentes package-private no adapter; sem API pública de execução, DDL,
 histórico novo ou comando CLI. A sessão valida URL configurado, database,
 CURRENT_USER/SESSION_USER, acesso USAGE ao schema e TLS efectivo; recusa
 schemas de sistema, transacção activa e qualquer advisory lock preexistente.
-Chave SHA-256/encoding idêntica ao ADR-0017; prazo monotónico de 30s, polling
+search_path é fixado em pg_catalog antes das consultas, mesmo que o DataSource
+forneça outro contexto. Chave SHA-256/encoding idêntica ao ADR-0017; prazo monotónico de 30s, polling
 interruptível de 100ms. Sem retries de ligações ou SQL após falha JDBC.
 
 O chamador tem de fornecer connections idle com timeouts finitos e descarte
@@ -112,8 +113,8 @@ divergente; interrupção antes de ligar e durante espera; falhas de rollback,
 unlock e close com descarte e redacção. Todos os schemas pertencem às fixtures.
 A primeira execução detectou que uma thread já interrompida podia chegar ao
 driver e receber CONNECTION: corrigido para recusar antes de abrir a ligação.
-Build raiz aprovada: 330 testes (incluindo seis do build-logic), quatro skips
-Windows de symlinks já justificados e mantidos obrigatórios em Linux. Nove testes
+Build raiz aprovada: 331 testes (incluindo seis do build-logic), quatro skips
+Windows de symlinks já justificados e mantidos obrigatórios em Linux. Dez testes
 novos de integração PostgreSQL e três unitários passaram. Build/checkConnection
 do playground aprovada depois da raiz; dois testes inalterados reutilizados.
 JavaDoc Werror, verificação estrita de dependências e links/anchors passaram.

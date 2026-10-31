@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +46,11 @@ final class MigrationSession implements AutoCloseable {
         try {
             connection = source.getConnection();
             if (!connection.getAutoCommit()) { throw new MigrationSessionException(Reason.ACTIVE_TRANSACTION); }
+            // Own the resolution context before any catalog predicate or lock query.
+            try (Statement statement = connection.createStatement()) {
+                statement.setQueryTimeout(10);
+                statement.execute("SET search_path = pg_catalog");
+            }
             if (!settings.matches(connection, target.schema())) { throw new MigrationSessionException(Reason.TARGET); }
             try (PreparedStatement query = query(connection, """
                     SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_locks

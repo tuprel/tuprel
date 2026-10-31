@@ -93,6 +93,22 @@ class MigrationSessionIntegrationTest {
                         () -> MigrationSession.open(settings.dataSource(), settings, "pg_catalog")).reason());
     }
 
+    @Test void callerSearchPathCannotShadowCatalogChecksOrLockResolution() throws Exception {
+        Connection actual = source.getConnection();
+        try (Statement statement = actual.createStatement()) {
+            statement.setQueryTimeout(10);
+            statement.execute("SET search_path = \"" + schema + "\", pg_catalog");
+        }
+        try (MigrationSession session = MigrationSession.open(single(actual), settings, schema);
+                Statement statement = session.connection().createStatement()) {
+            statement.setQueryTimeout(10);
+            try (java.sql.ResultSet result = statement.executeQuery("SHOW search_path")) {
+                assertTrue(result.next()); assertEquals("pg_catalog", result.getString(1));
+            }
+        }
+        assertTrue(actual.isClosed());
+    }
+
     @Test void interruptionIsPreservedAndDoesNotLeakTheLock() throws Exception {
         CompletableFuture<Boolean> result = CompletableFuture.supplyAsync(() -> {
             Thread.currentThread().interrupt();
