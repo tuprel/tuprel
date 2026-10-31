@@ -68,6 +68,32 @@ public final class MigrationDatabaseSettings {
      */
     public DataSource dataSource() { return new ConfiguredDataSource(); }
 
+    /** Checks the owned session against configured context without logging it. */
+    boolean matches(Connection connection, dev.tuprel.sql.SqlIdentifier schema) throws SQLException {
+        String actual = connection.getMetaData().getURL();
+        if (actual == null || !url.equals(actual.split("\\?", 2)[0])) { return false; }
+        try (java.sql.PreparedStatement statement = connection.prepareStatement("""
+                SELECT pg_catalog.current_database(), CURRENT_USER, SESSION_USER,
+                       pg_catalog.has_schema_privilege(n.oid, 'USAGE'),
+                       pg_catalog.current_setting('transaction_read_only'), s.ssl
+                FROM pg_catalog.pg_namespace n
+                LEFT JOIN pg_catalog.pg_stat_ssl s ON s.pid = pg_catalog.pg_backend_pid()
+                WHERE n.nspname = ?
+                """)) {
+            statement.setQueryTimeout(10);
+            statement.setString(1, schema.name());
+            try (java.sql.ResultSet result = statement.executeQuery()) {
+                if (!result.next()) { return false; }
+                boolean matches = URI.create(url.substring(5)).getPath().substring(1).equals(result.getString(1))
+                        && user.equals(result.getString(2)) && user.equals(result.getString(3))
+                        && result.getBoolean(4) && "off".equals(result.getString(5))
+                        && result.getObject(6) != null
+                        && result.getBoolean(6) == !sslMode.equals("disable");
+                return matches && !result.next();
+            }
+        }
+    }
+
     /**
      * Produces a proposed offline target binding, without opening a connection.
      * Binds the validated URL text (query removed), schema, configured username

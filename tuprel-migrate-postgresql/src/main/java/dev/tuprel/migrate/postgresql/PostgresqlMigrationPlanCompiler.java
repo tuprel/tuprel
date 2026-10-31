@@ -66,7 +66,7 @@ public final class PostgresqlMigrationPlanCompiler {
         List<MigrationFile> ordered = List.copyOf(files.values());
         EnumSet<Risk> risks = EnumSet.of(Risk.PHYSICAL_DRIFT_NOT_CHECKED);
         if (MigrationStatus.compare(ordered, history).hasProblems()) { risks.add(Risk.HISTORY_DIVERGENCE); }
-        if (target.schema().name().startsWith("pg_") || target.schema().name().equals("information_schema")) {
+        if (!target.supportedSchema()) {
             risks.add(Risk.TARGET_UNSUPPORTED);
         }
         Set<MigrationId> applied = new HashSet<>(history.applied().stream().map(AppliedMigration::id).toList());

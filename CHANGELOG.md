@@ -20,6 +20,10 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Fundação F6-003B2: sessão interna dedicada com validação do alvo vivo,
+  advisory lock de sessão com prazo interruptível e descarte após falhas de
+  cleanup. Sem execução de migrations nem novo comando público.
+
 - Fundação F6-003B1: definição canónica interna do histórico PostgreSQL v1,
   partilhada com a validação read-only e bootstrap transaccional validado em
   fixtures isoladas; sem API pública de execução ou novo comando CLI.
