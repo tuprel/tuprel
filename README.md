@@ -42,6 +42,12 @@ Generation writes Java files; it does not create database tables.
 
 ## See TUPREL in Action
 
+### See the CLI in action
+
+![TUPREL CLI demonstration](docs/assets/readme/tuprel-cli-review.gif)
+
+[View full-size animation](docs/assets/readme/tuprel-cli-review.gif) · [CLI reference](docs/reference/cli.md)
+
 Find in-stock products, ordered by price with an ID tie-breaker, using the
 [playground's generated client](examples/tuprel-playground/README.md):
 
