@@ -13,11 +13,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tuprel/tuprel/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/tuprel/tuprel/ci.yml?branch=main&amp;label=CI&amp;style=flat" alt="CI on main" height="20"></a>&nbsp;<a href="https://github.com/tuprel/tuprel/actions/workflows/codeql.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/tuprel/tuprel/codeql.yml?branch=main&amp;label=CodeQL&amp;style=flat" alt="CodeQL on main" height="20"></a>
+  <a href="https://github.com/tuprel/tuprel/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/tuprel/tuprel/ci.yml?branch=main&amp;label=CI&amp;style=flat" alt="CI on main" height="20"></a>&#8288;&nbsp;&#8288;<a href="https://github.com/tuprel/tuprel/actions/workflows/codeql.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/tuprel/tuprel/codeql.yml?branch=main&amp;label=CodeQL&amp;style=flat" alt="CodeQL on main" height="20"></a>
   &ensp;
-  <a href="docs/getting-started/installation.md"><img src="https://img.shields.io/badge/Java-21-426A86?style=flat" alt="Java 21 baseline" height="20"></a>&nbsp;<a href="examples/tuprel-playground/README.md#configure-a-dedicated-local-database"><img src="https://img.shields.io/badge/database-PostgreSQL-426A86?style=flat" alt="Database: PostgreSQL" height="20"></a>
+  <a href="docs/getting-started/installation.md"><img src="https://img.shields.io/badge/Java-21-426A86?style=flat" alt="Java 21 baseline" height="20"></a>&#8288;&nbsp;&#8288;<a href="examples/tuprel-playground/README.md#configure-a-dedicated-local-database"><img src="https://img.shields.io/badge/database-PostgreSQL-426A86?style=flat" alt="Database: PostgreSQL" height="20"></a>
   &ensp;
-  <a href="LICENSE"><img src="https://img.shields.io/badge/Apache%202.0-586069?style=flat" alt="Apache License 2.0" height="20"></a>&nbsp;<a href="#compatibility-and-project-status"><img src="https://img.shields.io/badge/Development%20Preview-91651E?style=flat" alt="Status: Development Preview" height="20"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/Apache%202.0-586069?style=flat" alt="Apache License 2.0" height="20"></a>&#8288;&nbsp;&#8288;<a href="#compatibility-and-project-status"><img src="https://img.shields.io/badge/Development%20Preview-91651E?style=flat" alt="Status: Development Preview" height="20"></a>
 </p>
 
 <a id="what-tuprel-is-building"></a>
@@ -27,7 +27,7 @@
     <source media="(max-width: 480px) and (prefers-color-scheme: dark)" srcset="docs/assets/readme/workflow-mobile-dark.svg">
     <source media="(max-width: 480px)" srcset="docs/assets/readme/workflow-mobile-light.svg">
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/workflow-dark.svg">
-    <img src="docs/assets/readme/workflow-light.svg" alt="Define models in schema.tuprel, generate Java code, use the type-safe client, and query PostgreSQL through your DataSource." width="720">
+    <img src="docs/assets/readme/workflow-light.svg" alt="Define models in schema.tuprel, generate Java code, use the type-safe client, and query PostgreSQL through your DataSource.">
   </picture>
 </p>
 
