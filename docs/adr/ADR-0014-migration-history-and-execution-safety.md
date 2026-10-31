@@ -1,9 +1,11 @@
 # ADR-0014 — Histórico confirmado e execução transaccional conservadora
 
-Estado: **proposto; bloqueia F6-002B/F6-003 até aprovação**. Sem implementação
-nesta entrega. Data: 2026-10-30. Complementa ADR-0008, ainda proposto.
+Estado: **aceite como contrato arquitectural** em 2026-10-30. A aprovação
+autoriza histórico/status read-only na F6-002B, mas **não autoriza executor**.
+F6-003 exige revisão específica de SQL, preview, locks, falhas e confirmação.
+Complementa ADR-0008, ainda proposto.
 
-## Histórico proposto (v1)
+## Histórico (v1)
 
 Uma tabela base `<schema_alvo>._tuprel_migrations`, sem RLS/views/regras
 customizadas, com estrutura e versão verificadas antes de uso. O schema alvo
@@ -30,6 +32,12 @@ Não persistir `RUNNING`/`FAILED` fora da transacção de DDL neste MVP. Isso cr
 uma segunda máquina de recovery com janelas de crash. `APPLIED` identifica só
 sucesso confirmado; tentativas são resultados do processo. Uma futura tabela
 de tentativas necessita de ADR próprio, não de estados inventados a posteriori.
+
+A F6-002B reconhece conservadoramente os tipos/constraints descritos no
+[contrato da tarefa](../../plans/F6-002B_MIGRATION_STATUS.md). Nomes de CHECKs
+podem variar; as definições devolvidas pelo deparser têm de ser conhecidas.
+Não é prova semântica de equivalência de SQL arbitrário. O futuro writer deve
+partilhar a definição canónica, a rever antes da F6-003; não existe bootstrap agora.
 
 ## Status read-only (F6-002B)
 

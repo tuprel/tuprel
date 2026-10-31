@@ -1,6 +1,6 @@
 # TUPREL CLI — Produto, arquitectura e contrato v1
 
-Estado: contrato F6-001 aceite (ADR-0012); criação offline F6-002A em revisão.
+Estado: F6-001/F6-002A integradas; F6-002B status read-only em revisão.
 A tabela distingue código entregue de roadmap. Java 21. Sem publicação, instalador ou integração automática
 com frameworks nesta entrega. A CLI é uma superfície principal do toolkit.
 
@@ -14,6 +14,7 @@ tuprel validate [--schema <ficheiro> | schema.tuprel]
 tuprel format [--check | --dry-run] [--schema <ficheiro> | schema.tuprel]
 tuprel generate [--check | --dry-run] [--schema <ficheiro> | schema.tuprel]
 tuprel migrate create --name <nome> [--dry-run]
+tuprel migrate status --target-schema <identificador>
 ```
 
 Cada comando implementado aceita `--help` ou `-h`, sem ler ficheiros. Help
@@ -70,6 +71,61 @@ sucesso. Não existe journal, rollback de filesystem ou aprovação implícita.
 Leitores/editores externos devem excluir escritas concorrentes. Filesystems
 remotos e adversários que trocam paths durante I/O ficam fora deste contrato.
 Ver [protocolo e trade-offs](../../plans/F6-002A_MIGRATION_CREATE.md).
+
+## Histórico e status (F6-002B)
+
+`migrate status --target-schema <identificador>` consulta o catálogo local v1 e
+o histórico da base configurada. `--schema` continua reservado ao ficheiro de
+modelos e não substitui `--target-schema`. Não existe target implícito, procura
+em pastas superiores, `--dry-run` ou criação de ficheiros neste comando.
+
+Configuração de produção: `TUPREL_DATABASE_URL`, `TUPREL_DATABASE_USER` e
+`TUPREL_DATABASE_PASSWORD` no ambiente do processo (por exemplo através da IDE
+ou gestor de secrets). **A CLI nunca carrega .env**, nem o do playground.
+Não passar passwords nos argumentos nem URLs. O URL deve ter host/porta/base
+explícitos; a única opção aceite é sslmode=verify-full, ou disable em loopback.
+Por omissão TLS verify-full fora de localhost/127.0.0.1/::1, disable em loopback.
+Certificados usam o trust/root certificate do pgJDBC; não existem flags de bypass.
+Timeouts connect/login 5s, queries 10s e socket 30s. Nomes de utilizador, URLs,
+passwords e mensagens originais do driver não aparecem na saída normal.
+
+Requer schema existente, USAGE e SELECT no histórico, mais leitura normal de
+pg_catalog. A transacção é REPEATABLE READ, READ ONLY confirmada no servidor;
+o snapshot só é devolvido após rollback e fecho bem-sucedidos. Nunca cria tabela,
+schema ou linhas. Histórico ausente é UNINITIALISED; ficheiros locais são PENDING.
+
+Saída sem cores, com colunas ID UTC, nome e estados independentes: APPLIED,
+PENDING, MODIFIED, REMOVED, RENAMED e OUT_OF_ORDER. Uma linha pode acumular
+divergências; o nome nunca substitui a identidade. Gaps/ficheiros retroactivos e
+tempos de execução incompatíveis com a ordem dos IDs são assinalados.
+Finaliza sempre com `DRIFT_NOT_CHECKED`: integridade de ficheiros/histórico não
+prova equivalência do schema físico. Não interpreta nem executa migration.sql.
+
+Exit 0 para normal/pending/uninitialised; 1 para divergências; 2 para uso,
+configuração, permissões, estrutura desconhecida ou falha JDBC/limpeza. Não há
+retries, repair, bootstrap ou aprovação para deploy. Estruturas aparentemente
+equivalentes mas fora da allowlist conservadora falham: ver
+[contrato de histórico](../../plans/F6-002B_MIGRATION_STATUS.md).
+
+Leitores devem excluir alterações concorrentes ao catálogo local. O snapshot
+PostgreSQL não é uma transacção conjunta com o filesystem; o comando não adquire
+locks de deployment e não coordena DDL administrativo concorrente no histórico.
+
+PowerShell, ambiente de produção já configurado de forma segura:
+
+```powershell
+.\gradlew.bat :tuprel-cli:installDist --dependency-verification strict
+$tuprelCli = (Resolve-Path '.\tuprel-cli\build\install\tuprel\bin\tuprel.bat').Path
+& $tuprelCli migrate status --help
+$tuprelTargetSchema = Read-Host 'Schema alvo existente'
+# Executar a partir do projecto com tuprel/migrations:
+& $tuprelCli migrate status --target-schema $tuprelTargetSchema
+$LASTEXITCODE
+```
+
+Os testes internos continuam a usar apenas TUPREL_TEST_* e o .env ignorado,
+mapeados explicitamente pelo harness para processos CLI isolados. Não é uma API
+de produção. Ver [testes e role read-only](../development/BUILD_AND_TEST.md).
 
 ## Contratos do terminal
 
@@ -166,7 +222,6 @@ tuprel_demo="$(mktemp -d)"
 
 | Comando | Entrega/contrato proposto |
 |---|---|
-| `migrate status` | F6-002B; histórico read-only, pending/removed/modified; drift ainda explicitamente não verificado |
 | `migrate deploy` | F6-003, só após ADRs e testes de falha/concurrency; aplica ficheiros aprovados, nunca gera DDL |
 | `migrate diff` | F6-004 preview conhecido; F6-005 comparação ao catálogo, desconhecidos não são sucesso |
 | `migrate dev --name add_products` | F6-005; preview e confirmação vinculada ao plano antes de aplicação permitida; sem reset implícito |

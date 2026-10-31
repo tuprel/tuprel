@@ -52,10 +52,11 @@ A relação N:N implícita espera pelas migrations.
 
 ## Fase 6 - Migration engine
 
-**F6-001 integrada; ADR-0012 aceite. F6-002A em revisão.** Fundação CLI,
+**F6-001/F6-002A integradas; F6-002B em revisão.** Fundação CLI,
 ficheiros puros e criação offline de drafts, conforme RFC-006 e ADR-0012.
-Ver [contrato F6-002A](F6-002A_MIGRATION_CREATE.md). Histórico, adapter PostgreSQL e
-execução dependem da aprovação dos ADRs 0013/0014. Entregas seguintes: history,
+Ver [contrato F6-002A](F6-002A_MIGRATION_CREATE.md) e
+[status F6-002B](F6-002B_MIGRATION_STATUS.md). ADRs 0012/0013/0014 aceites;
+histórico/status read-only implementados. Executor depende da revisão F6-003. Entregas seguintes:
 checksum, locking, diff/drift, safety e dev/deploy/status. Reset fora do MVP.
 
 ## Fase 7 - Developer integrations

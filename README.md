@@ -30,7 +30,7 @@ The implemented foundation provides:
 - `generate` and `generate --check` CLI commands. Generated files have an ownership manifest and are written under `build/generated/sources/tuprel/main` relative to the CLI process.
 - A PostgreSQL runtime with prepared statements for every value, explicit JDBC resource ownership, typed row mapping without reflection, explicit transactions with savepoints, isolation levels, read-only mode, and deadlines, and real PostgreSQL integration tests.
 
-The current modules are [`tuprel-schema`](tuprel-schema/), [`tuprel-codegen-java`](tuprel-codegen-java/), [`tuprel-cli`](tuprel-cli/), [`tuprel-sql`](tuprel-sql/), [`tuprel-runtime`](tuprel-runtime/), [`tuprel-postgresql`](tuprel-postgresql/), and [`tuprel-migrate`](tuprel-migrate/). The migration module provides offline draft creation, file validation and checksums; database migrations are not executable yet. The CLI has no public installer or binary release yet. The supported schema and Java mapping are defined in [RFC-001](docs/rfcs/RFC-001-schema-language.md) and [RFC-002](docs/rfcs/RFC-002-java-client-api.md). [ADR-0009](docs/adr/ADR-0009-runtime-postgresql-foundation.md) defines the runtime subset, [RFC-004](docs/rfcs/RFC-004-type-safe-query-api.md) defines the generated client and query API, and [RFC-003](docs/rfcs/RFC-003-relation-loading.md) and [RFC-005](docs/rfcs/RFC-005-transactions-concurrency.md) define relations, transactions, and concurrency.
+The current modules are [`tuprel-schema`](tuprel-schema/), [`tuprel-codegen-java`](tuprel-codegen-java/), [`tuprel-cli`](tuprel-cli/), [`tuprel-sql`](tuprel-sql/), [`tuprel-runtime`](tuprel-runtime/), [`tuprel-postgresql`](tuprel-postgresql/), [`tuprel-migrate`](tuprel-migrate/), and [`tuprel-migrate-postgresql`](tuprel-migrate-postgresql/). The migration module provides offline draft creation, file validation and checksums; database migrations are not executable yet. The CLI has no public installer or binary release yet. The supported schema and Java mapping are defined in [RFC-001](docs/rfcs/RFC-001-schema-language.md) and [RFC-002](docs/rfcs/RFC-002-java-client-api.md). [ADR-0009](docs/adr/ADR-0009-runtime-postgresql-foundation.md) defines the runtime subset, [RFC-004](docs/rfcs/RFC-004-type-safe-query-api.md) defines the generated client and query API, and [RFC-003](docs/rfcs/RFC-003-relation-loading.md) and [RFC-005](docs/rfcs/RFC-005-transactions-concurrency.md) define relations, transactions, and concurrency.
 
 ## Schema example
 
@@ -119,6 +119,14 @@ UTC-identified, comment-only `migration.sql` for manual editing in an existing
 v1 catalog. Names must already be canonical lowercase ASCII; collisions and
 unsafe paths fail without overwriting. Creation retains an empty sibling
 coordination file, `tuprel/.migrations.create.lock`. No SQL is applied or approved.
+
+F6-002B adds `tuprel migrate status --target-schema <name>`. It reads the local
+catalog and existing PostgreSQL history in a repeatable-read, read-only snapshot,
+reporting pending files and integrity/order divergences. It never bootstraps
+history or applies SQL, and explicitly reports `DRIFT_NOT_CHECKED`. Production
+configuration uses `TUPREL_DATABASE_URL`, `TUPREL_DATABASE_USER`, and
+`TUPREL_DATABASE_PASSWORD`; the CLI never loads `.env`. See the
+[status contract](docs/product/CLI_EXPERIENCE.md#histórico-e-status-f6-002b).
 
 Build a local CLI distribution with `./gradlew :tuprel-cli:installDist`, then
 invoke `tuprel-cli/build/install/tuprel/bin/tuprel` (or `tuprel.bat` on Windows)

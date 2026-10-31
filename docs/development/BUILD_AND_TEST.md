@@ -709,3 +709,31 @@ cobertura com `./gradlew build -PtuprelTestDatabase=container`.
 
 A aplicação [tuprel-playground](../../examples/tuprel-playground/README.md) usa
 as mesmas variáveis e tem comandos próprios para IntelliJ e PowerShell.
+
+## Status de migrations (F6-002B)
+
+As suites `tuprel-migrate-postgresql` e `tuprel-cli` reutilizam a fixture real
+partilhada em test-support: schemas novos, alvo local validado e cleanup restrito
+ao schema da suite. O launcher real é exercitado em PowerShell/Windows ou
+Bash/Linux, incluindo variáveis de produção explicitamente injectadas pelo teste.
+Os valores das credenciais nunca entram em argumentos Gradle ou ficheiros novos.
+
+Para os dois testes locais de privilégios, um administrador deve executar uma
+vez [STATUS_TEST_ROLE.sql](STATUS_TEST_ROLE.sql) no pgAdmin ligado a tuprel_devtest.
+Cria uma role NOLOGIN sem password nem grants globais de aplicação e permite SET
+ROLE ao utilizador local de testes. O script não altera outras bases. Os testes
+concedem USAGE/SELECT somente nos schemas temporários que possuem. Falta deste
+pré-requisito causa falha explícita, sem skip ou fallback. CI cria essa role apenas
+no container isolado. Não executar a CLI de produção como superuser para contornar
+permissões em falta.
+
+```powershell
+.\gradlew.bat :tuprel-migrate:test :tuprel-migrate-postgresql:check :tuprel-cli:check --dependency-verification strict -PtuprelTestDatabase=local
+.\gradlew.bat build --dependency-verification strict -PtuprelTestDatabase=local
+# Só depois da raiz:
+.\gradlew.bat -p examples/tuprel-playground build checkConnection --dependency-verification strict
+```
+
+O adapter não contém DDL/DML de bootstrap; criação da tabela v1 e adulterações
+são exclusivamente fixtures. Valida CHECKs pelo deparser PG17 sem prometer
+compreender SQL arbitrário. Locks de deployment e executor exigem revisão F6-003.
