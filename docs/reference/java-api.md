@@ -73,7 +73,7 @@ It validates the live target and uses a schema-scoped
 session advisory lock, with bounded, interruptible acquisition and physical
 discard on cleanup failure. It requires idle connections with finite timeouts
 and physical abort/discard support; transaction-pooling is unsupported. There
-is no CLI migration-execution command in this delivery.
+is also a [CLI deployment command](cli.md#migration-deployment) over this adapter.
 The internal write path rediscovers files, observes history on that connection
 and recompiles/revalidates the approved digest under lock. Canonical parsed DDL
 and the APPLIED row commit together. Unknown outcomes discard the session with

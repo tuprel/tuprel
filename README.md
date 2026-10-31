@@ -342,7 +342,7 @@ Checks detect differences without writing; dry-runs preview supported changes.
 Commands have individual help, plain-text output and documented exit codes for
 scripts. The [CLI reference](docs/reference/cli.md) lists the complete available surface.
 
-**[Migrations](docs/guides/migrations.md) support offline drafts and read-only status.** `create`
+**[Migrations](docs/guides/migrations.md) support reviewed transactional deployment.** `create`
 writes a UTC-named folder and a comment-only `migration.sql` for manual editing.
 It neither derives SQL from your schema nor applies it to a database.
 `tuprel migrate status --target-schema app` compares local files with existing
@@ -350,8 +350,12 @@ PostgreSQL history using explicit environment configuration; it never initialise
 history or applies SQL. See the [status contract](docs/reference/cli.md#migration-status)
 for configuration and integrity states. Physical drift is not checked.
 For tooling, the [Java migration API](docs/guides/migrations.md#run-reviewed-migrations-in-java)
-also offers limited DDL preview, contextual risk/digest plans and a transactional
-runner for explicitly approved migration files. The CLI has no deploy command yet.
+also offers limited DDL preview, contextual risk/digest plans and the same runner.
+For an existing target, `tuprel migrate deploy --target-schema app --dry-run`
+shows SQL, risks and the approval digest. Applying existing files requires
+`--approve-digest`; changed or unsupported plans are refused before DDL.
+See the [deployment guide](docs/guides/migrations.md#deploy-reviewed-files-from-the-cli)
+for approval, locks and uncertain outcomes.
 
 <a id="learn-and-explore"></a>
 
@@ -396,7 +400,7 @@ Maven Central artifact or public installer. APIs and formats may change.
 - **Platforms:** Windows/PowerShell locally and Linux/Bash in CI. macOS validation is pending.
 - **Migrations:** offline file creation/validation and read-only PostgreSQL
   history/status; Java APIs for limited DDL preview, risk plans and an approved
-  transactional runner. CLI deploy, dev, diff and physical drift remain unavailable.
+  transactional runner and CLI deploy. Dev, diff and physical drift remain unavailable.
 
 Spring Boot Starter, `db pull`, Query Inspector and Studio are planned, not
 available features. Open PRs do not expand the supported surface. Read the

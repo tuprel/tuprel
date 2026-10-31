@@ -16,15 +16,16 @@ tuprel format [--check | --dry-run] [--schema <file> | schema.tuprel]
 tuprel generate [--check | --dry-run] [--schema <file> | schema.tuprel]
 tuprel migrate create --name <name> [--dry-run]
 tuprel migrate status --target-schema <name>
+tuprel migrate deploy --target-schema <name> --dry-run
+tuprel migrate deploy --target-schema <name> --approve-digest <sha256>
 ```
 
 Every implemented command accepts `--help` or `-h`. `migrate --help` describes the
 group. Global help/version must be used alone. No command reads stdin or prompts.
 Output is plain text without ANSI colours.
 
-The [Java migration runner](java-api.md#transactional-migration-runner) is
-available for embedding. It does not add a deploy command to this CLI revision;
-only the migration commands listed above are exposed.
+The [Java migration runner](java-api.md#transactional-migration-runner) is also
+available for embedding; the CLI delegates execution and safety rules to it.
 
 | Command | Effect |
 |---|---|
@@ -34,10 +35,15 @@ only the migration commands listed above are exposed.
 | generate | Writes Java under ownership control; `--check` compares without writing |
 | migrate create | Writes a comment-only draft; never contacts a database |
 | migrate status | Reads local files and existing PostgreSQL history; no application writes |
+| migrate deploy | Inspects a plan or applies existing explicitly approved migration files |
 
 `--dry-run` previews init/format/generate/create without writing or reserving
-anything. Ownership, edited-file and path checks still apply. Do not combine
+files/IDs. Ownership, edited-file and path checks still apply. Do not combine
 it with `--check`. Validate and status have neither flag.
+
+Deploy dry-run is a database operation: it requires explicit configuration and
+temporarily takes the session advisory lock. It writes no files, schema/history
+objects or migration rows. It does not take the writer's DDL relation locks.
 
 ## Migration status
 
@@ -71,6 +77,43 @@ Output lists UTC IDs, names and state flags, followed by applied/pending counts
 and `DRIFT_NOT_CHECKED`. See the [migration guide](../guides/migrations.md#inspect-existing-history)
 for integrity states and limitations. No physical drift check is performed.
 
+## Migration deployment
+
+Use the same three explicit environment settings and an existing target schema
+as [status](#migration-status). Run from the project containing the format-v1
+catalog at `tuprel/migrations`. No dotenv, schema datasource, upward search or
+`--schema` option is used. Deploy never generates SQL from schema.tuprel.
+
+1. Edit and review existing migration files using the supported DDL subset.
+2. Run `tuprel migrate deploy --target-schema app --dry-run` to inspect current
+   history, the complete canonical preview, risks and approval digest.
+3. After review, pass that exact lowercase SHA-256 with `--approve-digest`.
+   The two flags are exclusive. There is no implicit approval or generic --yes.
+
+Dry-run uses a fresh read-only history snapshot under the session advisory lock.
+It can wait up to the lock polling deadline or return LOCK_BUSY. It never
+bootstraps history or applies migration SQL; it does not reserve the plan.
+Actual deployment independently reobserves files/history and revalidates the
+complete digest under lock. Changed/blocked plans are refused before DDL.
+Unknown or destructive SQL has no partial preview or approval bypass.
+
+Output reports APPLIED, NO_CHANGES, REFUSED, FAILED or OUTCOME_UNKNOWN and the
+newly confirmed prefix. Each migration has its own atomic DDL/history transaction;
+earlier confirmed migrations survive later failure. Normal deployment diagnostics
+never include SQL or raw driver messages. Only explicit dry-run displays canonical
+SQL. DRIFT_NOT_CHECKED always remains visible.
+
+After OUTCOME_UNKNOWN, stop and inspect current history/artifacts. Use status
+and a fresh deploy dry-run under lock before reviewing another explicit invocation.
+Never assume rollback or repeat the confirmed prefix. There is no automatic retry,
+repair, durable attempt log or automatic crash recovery. A deterministic digest
+does not attest human review and can remain identical after unchanged rollback.
+
+Timeouts are separate: connect/login 5s, session-lock polling 30s, DDL lock 10s,
+statement 20s, socket 30s. These do not impose one wall-clock deadline on the
+entire sequence. See [Migrations](../guides/migrations.md#deploy-reviewed-files-from-the-cli)
+for shell examples, physical catalog restrictions and recovery limits.
+
 ## Paths and output
 
 Default: `tuprel/schema.tuprel` relative to the process directory, with no upward
@@ -88,7 +131,7 @@ needs `../`. Prefer the packaged launcher when working in another Java project.
 |---|---|
 | 0 | Success, valid dry-run, or check with no differences |
 | 1 | Invalid schema, unsupported generation, differences in `--check`, or status integrity/order divergence |
-| 2 | Invalid usage, I/O, missing file, unsafe path, ownership, status configuration/permissions/history/JDBC failure |
+| 2 | Invalid usage, I/O, unsafe path/ownership, database failure, blocked/stale deployment approval or OUTCOME_UNKNOWN |
 
 Help/version/success go to stdout; diagnostics to stderr. Errors use stable
 codes and corrective instructions without echoing arguments, secrets, source
@@ -100,6 +143,6 @@ snapshot exits 2 and reports `DRIFT_NOT_CHECKED`; no partial result is confirmed
 
 See [Troubleshooting](../help/troubleshooting.md) and
 [Migrations](../guides/migrations.md). Future migration commands are not presented
-as usable commands. Limited DDL preview and contextual risk/digest planning are
-offline Java library APIs, not additional CLI commands. The internal [CLI contract](../product/CLI_EXPERIENCE.md)
+as usable commands. Deploy dry-run uses the same limited DDL preview and
+contextual risk/digest contracts as the Java library. The internal [CLI contract](../product/CLI_EXPERIENCE.md)
 also documents design decisions and the separate roadmap.

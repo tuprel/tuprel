@@ -66,14 +66,17 @@ são âmbitos distintos; os dois últimos não serão implementados neste reposi
 - migration file format v1, IDs, bounded read-only discovery and exact SHA-256;
   offline `migrate create --name <name> [--dry-run]` for comment-only drafts (F6-002A);
   `migrate status --target-schema <name>` with read-only PostgreSQL history and
-  integrity/order diagnostics (F6-002B); no CLI execution/diff/physical drift yet;
+  integrity/order diagnostics (F6-002B); no diff/physical drift yet;
 - offline Java APIs for a limited PostgreSQL DDL grammar, immutable AST and
   canonical preview (F6-003A1), plus conservative risk plans and context-bound
   SHA-256 digests (F6-003A2), without additional CLI commands;
 - Java runner PostgreSQL transaccional (F6-003B): aprovação revalidada sob lock,
   histórico/DDL atómicos por migration, prefixo confirmado, OUTCOME_UNKNOWN e
   inspecção read-only numa nova sessão para reconciliação explícita;
-  sem retries/reparação automática, drift completo ou comando CLI deploy;
+  sem retries/reparação automática ou drift completo;
+- CLI `migrate deploy` (F6-003C): dry-run read-only sob lock de sessão e
+  execução exclusiva de ficheiros existentes com digest revisto, revalidado
+  pelo runner; sem gerar SQL a partir do schema ou aprovar unknown/destructive;
 - testes em PostgreSQL real;
 - nenhum compromisso de compatibilidade binária.
 

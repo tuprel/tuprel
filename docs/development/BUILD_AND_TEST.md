@@ -99,7 +99,11 @@ Os oito subprojectos de produto actuais são `tuprel-schema`,
 Os três primeiros preservam o pipeline de schema e
 geração; os módulos de runtime e SQL fornecem CRUD, execução JDBC e o
 renderer PostgreSQL; `tuprel-migrate` fornece o catálogo e comparação puros.
-`tuprel-migrate-postgresql` consulta histórico read-only, sem executor.
+`tuprel-migrate-postgresql` fornece consulta read-only, planos e runner
+transaccional com locks, prefixos confirmados e falhas conservadoras.
+Os testes de CLI executam o launcher real em PowerShell/BAT localmente e
+Bash na CI, usando apenas schemas/PIDs próprios da fixture. O harness mapeia
+configuração de teste para o ambiente do subprocesso; a CLI não carrega .env.
 
 `build-logic` aparece como *included build*, não como subprojecto. Ver a
 secção 4.

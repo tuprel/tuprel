@@ -4,8 +4,8 @@ F6-001/F6-002A/F6-002B integradas pelos PRs #26/#27/#28; histórico/status é
 read-only. F6-003A1 integrada no #30, com gramática/AST/preview offline.
 F6-003A2 (plano/digest) integrada no #31. ADRs 0012–0017 aceites.
 A entrega F6-003B disponibiliza o runner Java transaccional, com gates,
-prefixos confirmados e inspecção para reconciliação explícita. A CLI deploy
-continua dependente da F6-003C; drift completo permanece na F6-005.
+prefixos confirmados e inspecção para reconciliação explícita. A F6-003C expõe
+deploy CLI com dry-run e digest revisto; drift completo permanece na F6-005.
 Ver [contrato do status](F6-002B_MIGRATION_STATUS.md),
 [RFC-006](../docs/rfcs/RFC-006-migration-engine-proposal.md) e
 [contrato CLI](../docs/product/CLI_EXPERIENCE.md).

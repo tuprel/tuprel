@@ -7,10 +7,10 @@ validate files through the library and compute exact SHA-256 checksums. The
 read-only `migrate status` command compares those files with PostgreSQL history.
 
 Offline Java APIs also parse/preview the limited PostgreSQL DDL subset and
-compile contextual risk/digest plans. They do not add preview/deploy commands
-to the CLI.
+compile contextual risk/digest plans. `migrate deploy --dry-run` inspects the
+same limited subset; applying it requires an explicitly reviewed digest.
 
-**Not available in the CLI:** deploy, dev, diff or reset.
+**Not available:** dev, diff or reset.
 Physical drift detection remains unavailable. Open PRs are not installed CLI features.
 
 The Java `PostgresqlMigrationRunner` can inspect and apply reviewed migration
@@ -35,7 +35,7 @@ collation and a known pg_catalog btree default operator class; explicit alternat
 collations are conservatively rejected. Active event triggers and extra history
 indexes block execution. These gates are not full drift detection or protection
 against privileged concurrent DDL; controlled ownership/ACLs and an operational
-window remain required. No migration-execution command is available yet.
+window remain required.
 
 ## Create a draft
 
@@ -226,13 +226,63 @@ excluded. Reordering equivalent catalog/history snapshots preserves the digest;
 changing bound bytes or context invalidates it. The digest is not a signature,
 proof of human review, live-server attestation or one-use execution token.
 
-No plan method applies SQL. A future runner must independently observe live
-state and recompile under the approved session-lock and transaction contract;
+No plan method applies SQL. The runner independently observes live
+state and recompiles under the approved session-lock and transaction contract;
 caller-supplied snapshots are not execution authority. See
 [ADR-0016](../adr/ADR-0016-offline-migration-plan-digest.md) for the exact encoding
 and limits, and [ADR-0017](../adr/ADR-0017-transactional-runner-gates.md) for the
-accepted execution gates. CLI deploy, dev, diff and physical drift remain
+accepted execution gates. Dev, diff and physical drift remain
 unavailable.
+
+## Deploy reviewed files from the CLI
+
+Build the [packaged launcher](../getting-started/installation.md) and supply the
+three TUPREL_DATABASE_* process settings through your secret mechanism. The
+CLI never loads .env or TUPREL_TEST_* automatically. The explicit target schema
+must already exist. Use isolated schemas in the dedicated test database during
+development; these commands do not create databases/schemas or adopt playground data.
+
+Create a draft, then manually edit its migration.sql using the supported subset.
+Qualify every table with the exact target schema. `deploy` reads existing files;
+it never derives changes from schema.tuprel or silently approves generated SQL.
+
+PowerShell, from the consumer project with the packaged launcher on PATH:
+
+```powershell
+tuprel.bat migrate deploy --target-schema app --dry-run
+# Review the complete canonical SQL, every risk and the current target/history.
+$reviewedDigest = Read-Host 'Paste the digest only after reviewing the plan'
+tuprel.bat migrate deploy --target-schema app --approve-digest $reviewedDigest
+$LASTEXITCODE
+```
+
+The prompt above belongs to the shell example; the CLI itself never reads stdin.
+In a pipeline, supply the reviewed digest as an explicit argument from your
+approval process. Do not automatically extract-and-apply a fresh digest.
+
+Bash, after reviewing the dry-run output:
+
+```bash
+tuprel migrate deploy --target-schema app --dry-run
+read -r -p 'Paste the digest only after reviewing the plan: ' reviewed_digest
+tuprel migrate deploy --target-schema app --approve-digest "$reviewed_digest"
+```
+
+`--dry-run` takes the accepted session advisory lock for a consistent fresh
+inspection, but never bootstraps history, applies DDL or writes files. It can
+wait for another executor; status remains the non-deployment-lock observer.
+The dry-run is not a reservation: actual deployment reacquires the lock,
+rediscovers files and compares the newly compiled digest before any DDL.
+`--dry-run` and `--approve-digest` are exclusive. Invalid, stale or blocked
+approval exits 2; no --yes or unsafe escape hatch bypasses the contract.
+
+Successful deployment exits 0. Failed/refused/uncertain deployment exits 2 and
+retains the confirmed prefix in its output. After OUTCOME_UNKNOWN, use status
+and a new dry-run to inspect history/artifacts under a fresh session lock, then
+review the current plan before another explicit invocation. Do not assume
+rollback or repeat earlier confirmed migrations. See the
+[CLI reference](../reference/cli.md#migration-deployment) for diagnostics and
+the [uncertainty contract](#partial-failures-and-uncertain-outcomes) below.
 
 ## Run reviewed migrations in Java
 

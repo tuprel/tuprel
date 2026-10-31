@@ -44,8 +44,8 @@ não substituem nova consulta antes de cada integração.
 | F6-003B1 definição/bootstrap | MERGED | ADRs 0014–0017; #28/#30/#31 integrados | feat/f6-003b-history-bootstrap / [#38](https://github.com/tuprel/tuprel/pull/38) | 3457c1ad519a6f4c7de2ec712145bad72c6c9fd7 | — |
 | F6-003B2 sessão/locks/lifecycle | MERGED | B1 integrada e main validada | feat/f6-003b-session-locks / [#39](https://github.com/tuprel/tuprel/pull/39) | fe00a8364dcda077d5657080585ab1b33b3c2f4c | — |
 | F6-003B3 uma migration atómica | MERGED | B2 integrada; main validada antes do PR | feat/f6-003b-atomic-migration / [#40](https://github.com/tuprel/tuprel/pull/40) | 6d8f979123525ab4b3aa1beb0696fd8d5600bafa | — |
-| F6-003B4 sequência/falhas/reconciliação | TESTING | B3 integrada e main validada | feat/f6-003b-sequence-recovery / [#41](https://github.com/tuprel/tuprel/pull/41) | — | Build local aprovada; revisão e checks do HEAD |
-| F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
+| F6-003B4 sequência/falhas/reconciliação | MERGED | B3 integrada e main validada | feat/f6-003b-sequence-recovery / [#41](https://github.com/tuprel/tuprel/pull/41) | 2abf673b6f269f7984f91aca854e52be2120c231 | — |
+| F6-003C CLI deploy | TESTING | B4 integrada e main validada | feat/f6-003c-migrate-deploy / [#42](https://github.com/tuprel/tuprel/pull/42) | — | Build local aprovada; revisão e checks do HEAD |
 | F6-004 diff/preview | TODO | Deploy seguro; contrato de comparação | — | — | Modelo de diferenças/desconhecidos |
 | F6-005 drift/dev | TODO | Diff e catálogo físico conhecido | — | — | Catálogo parcial, drift e confirmação revalidada |
 | F6-006 consolidação | TODO | Subconjuntos anteriores integrados | — | — | Matriz, segurança, documentação e desempenho medido |
@@ -217,7 +217,47 @@ seguida; dois testes inalterados reutilizados, sem bootstrap/run. Dois exemplos
 do guia compilaram/executaram offline; a classe do novo exemplo Java compilou
 e os fluxos reais passaram nas fixtures PostgreSQL. 136 links internos e 31
 anchors passaram; GIF aprovado preservado byte a byte. Revisão/CI no HEAD
-continuam gates antes do merge.
+Os quatro checks do HEAD 029622f passaram, CodeQL sem resultados e revisão
+sem bloqueadores/threads pendentes. #41 integrado normalmente em 2abf673;
+CI/CodeQL main aprovados (runs 41231854991/41231855189, análise 2069183368
+sem erro/resultados) antes do PR C. Nenhuma protecção foi contornada.
+
+### F6-003C — CLI deploy
+
+Comando implementado sobre o runner, sem lógica de SQL/histórico/execução própria.
+Exige --target-schema e exactamente um de --dry-run ou --approve-digest.
+Configuração de produção explícita, sem .env/test loader; help/erros de opções
+não acedem a ambiente/files/DB. Só ficheiros v1 existentes; schema.tuprel não
+é lido para gerar DDL. CLI sem prompts/ANSI, exit 0 para sucesso/preview válido,
+2 para recusa/falha/incerteza; comandos existentes mantêm os códigos.
+
+Dry-run reutiliza inspect read-only numa nova sessão sob advisory lock, em vez
+da observação sem lock inicialmente proposta no roadmap CLI. Não usa os locks
+DDL do writer nem escreve schema/histórico/ficheiros. Esta orquestração usa
+o contrato B4 aceite, mantém revalidação independente antes da aplicação e
+permite a mesma inspecção para reconciliação explícita após OUTCOME_UNKNOWN.
+O help documenta espera/LOCK_BUSY; status mantém a observação sem advisory lock.
+
+Sete unitários: help sem acesso; opções ambíguas/duplicadas/digest inválido;
+dotenv ignorado; preview canónico/riscos/digest sem comentários crus; plano
+bloqueado sem SQL parcial/aprovação; prefixo e UNKNOWN claros; diagnósticos
+seguros/códigos estáveis. Cinco PostgreSQL end-to-end pelo launcher real:
+PowerShell/BAT local e Bash em Linux; preview/aprovação/no-op/replay recusado,
+ficheiro alterado/unknown, configuração ausente, falha parcial e perda real
+da conexão durante espera de lock, seguida de nova inspecção/revisão explícita.
+Só schemas e PIDs próprios das fixtures. Nenhuma role local foi criada/alterada.
+
+Uma primeira execução falhou na fixture PowerShell porque quotes de -split
+eram removidas ao passar -Command pelo processo. Corrigida para [char]10,
+sem mudar CLI nem retirar asserts. Cinco casos repetidos/aprovados. Build
+inicial completa passou: 371 aprovados, quatro skips Windows justificados;
+base B4 sincronizada por fast-forward. A validação final detectou um warning
+StringConcatToTextBlock num novo teste de preview; corrigido sem supressões.
+Build final na raiz passou: 371 aprovados, quatro skips Windows justificados;
+playground build/checkConnection passou em seguida, com dois testes inalterados
+reutilizados e sem bootstrap/run. Três exemplos Java compilaram (dois executados
+offline; runner exercitado nos testes PG); 197 links internos e 31 anchors
+passaram. Revisão/checks no HEAD continuam obrigatórios antes do merge.
 
 ### F6-002B
 

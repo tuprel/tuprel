@@ -1,7 +1,8 @@
 # RFC-006 — Proposta incremental para o motor de migrations
 
 Estado: **F6-001/F6-002A/F6-002B/F6-003A1/F6-003A2 integradas.
-ADRs 0012–0017 aceites. Executor não implementado nem iniciado nesta integração.**
+ADRs 0012–0017 aceites; F6-003B implementa o runner e F6-003C a CLI deploy,
+conforme os gates específicos aceites. Diff/dev/drift completo continuam futuros.**
 Data: 2026-10-30. Relacionados: Fase 6, ADR-0008 (ainda proposto),
 especificação canónica, secções 42–53, 143 e 174.
 

@@ -38,9 +38,10 @@ Tuprel is a development preview; there is no stable release or published artifac
 | Generated CRUD/query client, relations and transactions | Available from source; API is preview |
 | init, checks, dry-runs and offline migrate create | Available from source |
 | Read-only PostgreSQL migration history/status | Available from source; no physical drift check |
-| Limited PostgreSQL DDL parsing/preview | Available as an offline Java API; no CLI preview command |
-| Migration risk plans and contextual SHA-256 digest | Available as an offline Java API; no execution capability |
-| Migration execution, diff and physical drift detection | Not available in main |
+| Limited PostgreSQL DDL parsing/preview | Java API and deploy dry-run |
+| Migration risk plans and contextual SHA-256 digest | Java API and CLI, with explicit review before execution |
+| Transactional migration execution | Java runner and CLI deploy for the approved DDL subset |
+| Migration diff, dev and physical drift detection | Future work |
 | Automatic build plugins, Spring Boot starter and introspection | Future work |
 
 The playground uses temporary manual bootstrap SQL. It is not a migration engine.

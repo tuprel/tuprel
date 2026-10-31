@@ -53,6 +53,7 @@ jobs:
           "$tuprel_cli" migrate --help
           "$tuprel_cli" migrate create --help
           "$tuprel_cli" migrate status --help
+          "$tuprel_cli" migrate deploy --help
           "$tuprel_cli" migrate create --name initial --dry-run
           test ! -e tuprel/.migrations.create.lock
           test "$(find tuprel/migrations -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 0
@@ -64,10 +65,10 @@ jobs:
           "$tuprel_cli" migrate create --name '../invalid_name'
           invalid_name_exit=$?
           "$tuprel_cli" migrate deploy
-          unavailable_exit=$?
+          deploy_usage_exit=$?
           set -e
           test "$invalid_name_exit" -eq 2
-          test "$unavailable_exit" -eq 2
+          test "$deploy_usage_exit" -eq 2
           "$tuprel_cli" validate
           "$tuprel_cli" format --check
           "$tuprel_cli" generate --dry-run
