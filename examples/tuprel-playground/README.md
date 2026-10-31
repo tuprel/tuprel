@@ -1,122 +1,127 @@
-# Tuprel Playground — PostgreSQL local, Java 21
+<a id="tuprel-playground--postgresql-local-java-21"></a>
 
-Aplicação consumidora independente para experimentar o Tuprel da Fase 5,
-integrada em `main`. Sem Docker ou Testcontainers. A fundação offline F6-001
-não substitui o bootstrap por migrations: essa adopção terá tarefa própria,
-baseline revisto e preservação dos dados existentes.
+# Java playground
 
-## Preparação no Windows
+A standalone Java 21 consumer application using Tuprel from this checkout.
+It demonstrates products, customers and orders with local PostgreSQL, without
+Docker or Testcontainers.
 
-1. Instalar/seleccionar JDK 21 no IntelliJ e para a JVM do Gradle.
-2. Confirmar o serviço PostgreSQL com `Get-Service *postgres*`, ou localizar
-   a instalação e executar `pg_isready.exe -h localhost -p <porta-real>`.
-3. Criar, com uma conta administrativa e **uma única vez**, uma base vazia
-   chamada `tuprel_devtest`, cujo proprietário seja o utilizador de testes.
-   Pode usar pgAdmin. A aplicação não cria/apaga bases nem altera utilizadores.
-   O utilizador precisa de CONNECT e CREATE nessa base; não precisa de superuser.
+[Documentation](../../docs/README.md) · [Schema](tuprel/schema.tuprel) · [Application](src/main/java/dev/tuprel/playground/Playground.java)
 
-Abrir `.env` nesta pasta no IntelliJ e preencher a password. O ficheiro local
-já foi preparado para a base indicada; noutro checkout, copiar `.env.example`
-para `.env`. Nunca colocar a password em `.env.example`.
+## Build without a database
+
+From the repository root:
+
+```bash
+./gradlew -p examples/tuprel-playground build --dependency-verification strict
+```
+
+PowerShell: `.\gradlew.bat -p examples/tuprel-playground build --dependency-verification strict`.
+
+This validates the schema, generates/compiles the Java client and runs two local
+target-safety unit tests. It does not run the database demonstration. Run the
+root and playground builds sequentially.
+
+The [build](build.gradle.kts) consumes Tuprel through `includeBuild("../..")`.
+No artifact publication or product Gradle plugin is required. Open this directory
+as a Gradle project in your IDE; select JDK 21 for both the project and Gradle JVM.
+The example has its own Wrapper, fixed to the same version as the root Wrapper.
+
+<a id="preparação-no-windows"></a>
+
+## Configure a dedicated local database
+
+Use local PostgreSQL and a dedicated database named `tuprel_devtest`, owned by
+your test user. If it does not exist, an administrator must create it once.
+The application never creates/deletes databases or changes users/permissions.
+If it already exists, retain its data and settings; do not recreate it for this example.
+
+For a new checkout, copy the template without overwriting an existing .env:
+
+```powershell
+Copy-Item .\examples\tuprel-playground\.env.example .\examples\tuprel-playground\.env -Confirm
+```
+
+Then edit the ignored .env locally. The expected entries are:
 
 ```dotenv
 TUPREL_TEST_JDBC_URL=jdbc:postgresql://localhost:5432/tuprel_devtest
-TUPREL_TEST_DB_USER=tuprel_test_user
+TUPREL_TEST_DB_USER=
 TUPREL_TEST_DB_PASSWORD=
 ```
 
-Não é preciso configurar variáveis no PowerShell. A aplicação e as suites de
-integração internas carregam o mesmo `examples/tuprel-playground/.env` no
-processo Java. O ficheiro está excluído do Git. O agente não precisa de abrir
-nem mostrar o seu conteúdo. Não activar logs `--debug` com credenciais reais.
+Fill the username/password in your editor. Do not put them in Git, command-line
+arguments, screenshots or issue attachments. Adjust the port if your local
+installation uses another one. Only the dedicated database on loopback is accepted.
 
-O carregador aceita as três entradas acima, comentários em linhas próprias,
-linhas vazias e valores opcionalmente entre aspas simples/duplas. Os valores
-são literais: `#`, `=`, `$` e barras não executam comandos nem interpolação;
-aspas permitem conservar espaços nas extremidades. Não suporta valores
-multilinha, `export`, comentários no fim de atribuições ou substituição de
-variáveis. Entradas desconhecidas, duplicadas ou malformadas falham sem mostrar
-valores. Variáveis de ambiente não vazias, quando existirem, têm precedência.
-Não se procuram outros ficheiros `.env` nas pastas superiores.
+The test/example loader reads this exact file. Non-empty process environment
+values take precedence. It accepts literal values, optional surrounding quotes,
+blank lines and full-line comments; it does not execute shell interpolation,
+export statements or variable substitution. It is not a production configuration API.
 
-No painel Gradle do IntelliJ executar, por ordem:
+## Check the connection, then run deliberately
 
-1. `checkConnection` — SELECT de diagnóstico JDBC, sem alterar dados/tabelas.
-2. `run` — aplicação e verificações funcionais completas.
+From the root, a read-only connection check is:
 
-Os mesmos comandos podem ser executados num terminal, a partir da raiz:
-
-```text
-.\gradlew.bat -p examples/tuprel-playground checkConnection
-.\gradlew.bat -p examples/tuprel-playground run --dependency-verification strict
-.\gradlew.bat check --dependency-verification strict
+```bash
+./gradlew -p examples/tuprel-playground checkConnection
 ```
 
-## IntelliJ
+PowerShell uses .\gradlew.bat. A successful check verifies connectivity only.
 
-Abrir **esta pasta**, `examples/tuprel-playground`, como projecto Gradle.
-O `includeBuild("../..")` liga os módulos do repositório sem publicação Maven.
-Seleccionar JDK 21 tanto no Project SDK como na Gradle JVM e seleccionar o
-Wrapper incluído neste exemplo, fixado na mesma versão do Wrapper da raiz.
-Também é possível abrir a raiz e ligar este build como projecto Gradle adicional.
+The next command **runs bootstrap SQL and writes demonstration rows** into
+the dedicated database's `tuprel_playground` schema:
 
-Executar `generateClient` no painel Gradle e sincronizar o projecto. O cliente
-fica em `build/generated/sources/tuprel/main`, integrado no source set; não se
-edita nem se versiona. `compileJava` gera e valida o schema automaticamente.
-
-Para correr classes directamente, começar por `dev.tuprel.playground.CheckConnection`
-e depois `dev.tuprel.playground.Playground`. Na Run Configuration, seleccionar
-JDK 21 e **Working directory = esta pasta, `examples/tuprel-playground`**, para
-que o caminho relativo `.env` seja inequívoco. Não é necessário guardar passwords
-na Run Configuration. As tasks Gradle já fixam essa pasta automaticamente.
-
-## O que comprova
-
-- CLI real `validate` e `generate`, seguida de compilação Java 21.
-- Criação em transacção de cliente, dois produtos, encomenda e dois itens.
-- `createMany`, consultas tipadas, filtros, ordenação, offset e cursor pagination.
-- Includes explícitos de cliente, itens e produtos, sem lazy loading.
-- `updateById` com versão, conflito de optimistic locking e `deleteById`.
-- Rollback completo e rollback de savepoint com continuação da transacção exterior.
-- Unicidade (`23505`), FK (`23503`), CHECK (`23514`) e rejeição de campo
-  obrigatório pelo input gerado, antes de executar SQL.
-- SQL preview com placeholders, sem imprimir binds, credenciais ou causas JDBC.
-
-Cada verificação falha com exit code 1 se o resultado não for o esperado. `OK`
-significa que o percurso inteiro executou contra PostgreSQL. Apenas compilar o
-exemplo não valida o acesso à base de dados.
-
-As execuções seguintes adicionam um cliente e encomenda novos com UUIDs únicos.
-Os dados ficam guardados para inspecção no pgAdmin/IntelliJ Database:
-
-```sql
-SELECT * FROM tuprel_playground."Customer";
-SELECT * FROM tuprel_playground."Product";
-SELECT * FROM tuprel_playground."SalesOrder";
-SELECT * FROM tuprel_playground."OrderItem";
+```bash
+./gradlew -p examples/tuprel-playground run --dependency-verification strict
 ```
 
-## Limitações deliberadas
+It adds new customers, orders and products on each run, preserving them for
+inspection. It only deletes its own temporary product used to demonstrate DELETE.
+Existing schema/table/data are not dropped. Do not run against production or
+use this as a connection-only probe.
 
-`src/main/resources/bootstrap.sql` é **DDL manual temporário**, executado em
-transacção exclusivamente no schema `tuprel_playground` da base dedicada.
-O motor de migrations ainda não existe. `CREATE TABLE IF NOT EXISTS` não
-compara/evolui tabelas existentes, não detecta drift, não guarda histórico e
-não aplica checksums. As CHECK constraints são SQL manual, não geradas pelo
-schema Tuprel. Se modificar o schema, tem de rever o DDL explicitamente.
+<a id="intellij"></a>
 
-O exemplo não apaga schemas, tabelas ou dados de execuções anteriores. Só elimina
-o produto temporário que criou para demonstrar DELETE. As relações escrevem-se
-pelas FKs escalares; não há escrita aninhada de grafos nem cascatas implícitas.
-Não há artefactos Tuprel publicados nem plugin Gradle de produto nesta fase:
-as tasks `validateSchema` e `generateClient` são integração local deste exemplo.
+For direct IDE execution, use JDK 21 and set the working directory to this
+example directory. Start with dev.tuprel.playground.CheckConnection, then
+dev.tuprel.playground.Playground only when you intend the writes above.
 
-O composite build usa também as dependências de build do repositório. Por isso,
-`gradle/verification-metadata.xml` é uma cópia exacta do catálogo verificado da
-raiz, comparada pela CI; ao actualizar dependências, actualizar ambas as cópias.
-As versões efectivamente consumidas pelo exemplo têm lockfile próprio. O build
-executa também dois testes unitários de segurança do target local, sem precisar
-de PostgreSQL; a validação funcional completa é feita por `run`.
+<a id="o-que-comprova"></a>
 
-As três suites internas de integração usam o mesmo ambiente, com schemas
-temporários próprios. Consultar [Build e Testes](../../docs/development/BUILD_AND_TEST.md).
+## What it demonstrates
+
+- CLI validation/generation and compilation of the generated Java 21 client.
+- Transactional writes across customers, products, orders and items.
+- Typed filters, ordering, offset/cursor pagination and createMany.
+- Explicit nested includes, without lazy loading.
+- Versioned updates, optimistic-lock conflicts and deletion.
+- Full rollback and nested savepoint rollback with outer continuation.
+- Unique/FK/CHECK errors and required-field validation before SQL.
+- SQL text with placeholders, without printing binds or credentials.
+
+The demonstration fails if its assertions fail. A successful build alone does
+not establish that these database paths were executed.
+
+<a id="limitações-deliberadas"></a>
+
+## Bootstrap is temporary
+
+[src/main/resources/bootstrap.sql](src/main/resources/bootstrap.sql) is reviewed
+manual DDL, executed transactionally in the example schema. CREATE TABLE IF NOT
+EXISTS does not evolve tables, validate drift, record migration history or check
+migration checksums. CHECK constraints here are manual SQL, not generated schema DDL.
+
+Offline migration drafts do not replace this bootstrap. Adoption of a migration
+engine needs its own reviewed baseline and data-preservation task; existing
+playground data must not be reset to demonstrate it.
+
+## Generated files and tests
+
+compileJava runs validateSchema/generateClient. Generated files live under
+build/generated/sources/tuprel/main; never edit or commit them.
+
+The example's dependency-verification metadata mirrors the root and is compared
+by CI. Its consumed dependencies have their own lockfile. The internal PostgreSQL
+integration suites use isolated test schemas, separate from persisted playground
+rows. Contributor setup is in [Build and Test](../../docs/development/BUILD_AND_TEST.md).

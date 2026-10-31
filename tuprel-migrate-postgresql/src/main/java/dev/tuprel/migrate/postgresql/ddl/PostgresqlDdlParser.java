@@ -10,11 +10,11 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Proposed whole-input parser for the documented small DDL subset, not a general
+ * Whole-input parser for the documented small DDL subset, not a general
  * PostgreSQL parser or safety verdict. Never opens files/connections or executes SQL.
  */
 public final class PostgresqlDdlParser {
-    /** Versioned proposal identifier; recognition does not approve this contract. */
+    /** Normative grammar identifier; recognition does not authorize execution. */
     public static final String GRAMMAR_VERSION = "postgresql-ddl-v1-proposal";
     /** Token budget including EOF; comments do not produce tokens. */
     public static final int MAX_TOKENS = 32768;

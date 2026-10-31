@@ -1,182 +1,414 @@
-# Tuprel
+<h1 align="center" id="tuprel">TUPREL</h1>
 
-**Modern relational data toolkit for Java.**
+<p align="center"><strong>Define the schema. Own the query.</strong></p>
 
-Tuprel is an open-source relational data toolkit for Java focused on explicit, predictable, and type-safe relational database development. Its direction is a schema-first workflow with generated Java APIs and a PostgreSQL-first runtime.
+<p align="center">
+  A schema-first Java toolkit for typed PostgreSQL access.
+</p>
 
-> **Early development:** Schema validation, Java source generation, a generated type-safe PostgreSQL client, and offline migration drafts are available from a source checkout. There is no stable public release or published Maven artifact. Database migration execution is not implemented yet.
+<p align="center">
+  <a href="docs/getting-started/quickstart.md"><strong>Getting Started</strong></a> ·
+  <a href="docs/README.md"><strong>Documentation</strong></a> ·
+  <a href="examples/tuprel-playground/README.md"><strong>Examples</strong></a>
+</p>
 
-## What Tuprel is building
+<p align="center">
+  <a href="https://github.com/tuprel/tuprel/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/tuprel/tuprel/ci.yml?branch=main&amp;label=CI&amp;style=flat" alt="CI on main" height="20"></a> <a href="https://github.com/tuprel/tuprel/actions/workflows/codeql.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/tuprel/tuprel/codeql.yml?branch=main&amp;label=CodeQL&amp;style=flat" alt="CodeQL on main" height="20"></a>
+  <br>
+  <a href="docs/getting-started/installation.md"><img src="https://img.shields.io/badge/Java-21-426A86?style=flat" alt="Java 21 baseline" height="20"></a> <a href="examples/tuprel-playground/README.md#configure-a-dedicated-local-database"><img src="https://img.shields.io/badge/database-PostgreSQL-426A86?style=flat" alt="Database: PostgreSQL" height="20"></a>
+  <br>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/Apache%202.0-586069?style=flat" alt="Apache License 2.0" height="20"></a> <a href="#compatibility-and-project-status"><img src="https://img.shields.io/badge/Development%20Preview-91651E?style=flat" alt="Status: Development Preview" height="20"></a>
+</p>
 
-The workflow starts with `schema.tuprel` as the declarative source for models and relationships. Tuprel generates Java domain types and a type-safe client that runs explicit queries against PostgreSQL through a caller-supplied `DataSource`. It loads relations only when a query includes them and runs work in explicit transactions. Future phases will add reviewed migrations and Gradle and Maven integrations. The core is designed to work without a framework; Spring Boot integration is planned as a separate module.
+<a id="what-tuprel-is-building"></a>
 
-The design favors visible relational behavior over implicit database work. Every client method runs a parameterized statement you can preview, plus one statement per included relation; there is no lazy loading, dirty checking, hidden session, or implicit transaction. Migration behavior remains future work.
+<p align="center">
+  <picture>
+    <source media="(max-width: 480px) and (prefers-color-scheme: dark)" srcset="docs/assets/readme/workflow-mobile-dark.svg">
+    <source media="(max-width: 480px)" srcset="docs/assets/readme/workflow-mobile-light.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/workflow-dark.svg">
+    <img src="docs/assets/readme/workflow-light.svg" alt="Define models in schema.tuprel, generate Java code, use the type-safe client, and query PostgreSQL through your DataSource.">
+  </picture>
+</p>
 
-## What works today
+Define models in [schema.tuprel](docs/guides/schema.md).
+Run [`tuprel generate`](docs/reference/cli.md).
+Use the generated [Java client](docs/guides/java-client.md) with your `DataSource`.
+Generation writes Java files; it does not create database tables.
 
-The implemented foundation provides:
+<a id="what-works-today"></a>
+<a id="generated-client-example"></a>
+<a id="a-query-in-java"></a>
 
-- A UTF-8 `schema.tuprel` frontend with a deterministic lexer, recursive-descent parser, immutable AST, semantic validation, structured diagnostics with source locations, and a deterministic formatter.
-- Datasource and Java generator declarations; models, enums, the initial scalar types, nullable and list cardinality, single-field IDs, unique fields, supported defaults, indexes, unique constraints, and explicit basic relation references.
-- An initial CLI with `validate`, `format`, and `format --check` commands. Validation and formatting operate on schema text; they do not connect to a database.
-- Java 21 source generation from a validated schema through `tuprel-codegen-java`, with immutable model values, enums, typed field metadata, and create/update inputs.
-- A generated type-safe client per model:
-  - `create`, `findById`, `findMany`, `findFirst`, and cursor pagination;
-  - projections, `count`, `exists`, `updateById`, `deleteById`, and SQL preview;
-  - explicit `include` of 1:1, 1:N, and N:N relations (through a join model), loaded in batches without N+1 queries;
-  - `createMany`, `updateMany`, `deleteMany`, streaming, row locks, query timeouts, and optimistic locking with `@version`.
+## See TUPREL in Action
 
-  Conditions are typed by model and column type, so a condition from another model or an operator that does not fit the column does not compile.
-- `generate` and `generate --check` CLI commands. Generated files have an ownership manifest and are written under `build/generated/sources/tuprel/main` relative to the CLI process.
-- A PostgreSQL runtime with prepared statements for every value, explicit JDBC resource ownership, typed row mapping without reflection, explicit transactions with savepoints, isolation levels, read-only mode, and deadlines, and real PostgreSQL integration tests.
+Find in-stock products, ordered by price with an ID tie-breaker, using the
+[playground's generated client](examples/tuprel-playground/README.md):
 
-The current modules are [`tuprel-schema`](tuprel-schema/), [`tuprel-codegen-java`](tuprel-codegen-java/), [`tuprel-cli`](tuprel-cli/), [`tuprel-sql`](tuprel-sql/), [`tuprel-runtime`](tuprel-runtime/), [`tuprel-postgresql`](tuprel-postgresql/), [`tuprel-migrate`](tuprel-migrate/), and [`tuprel-migrate-postgresql`](tuprel-migrate-postgresql/). The migration module provides offline draft creation, file validation and checksums; database migrations are not executable yet. The CLI has no public installer or binary release yet. The supported schema and Java mapping are defined in [RFC-001](docs/rfcs/RFC-001-schema-language.md) and [RFC-002](docs/rfcs/RFC-002-java-client-api.md). [ADR-0009](docs/adr/ADR-0009-runtime-postgresql-foundation.md) defines the runtime subset, [RFC-004](docs/rfcs/RFC-004-type-safe-query-api.md) defines the generated client and query API, and [RFC-003](docs/rfcs/RFC-003-relation-loading.md) and [RFC-005](docs/rfcs/RFC-005-transactions-concurrency.md) define relations, transactions, and concurrency.
+```java
+TuprelClient db = new TuprelClient(PostgresqlDatabase.using(dataSource));
 
-## Schema example
+List<Product> available = db.product().findMany(query -> query
+        .where(ProductWhere.stock().gt(0)
+                .and(ProductWhere.name().startsWith("Key")))
+        .orderBy(ProductOrder.price().asc(), ProductOrder.id().asc())
+        .take(20));
+```
 
-For the source-checkout command below, save this as `tuprel/schema.tuprel` at the repository root:
+`dataSource` is provided by your application and selects an existing database
+and schema with matching tables. Tuprel does not create those tables or manage
+your connection pool. The [client guide](docs/guides/java-client.md) covers setup
+and lifecycle; [queries](docs/guides/crud-and-queries.md) explains filtering and pagination.
+
+<details>
+<summary>Imports for the Java examples on this page</summary>
+
+```java
+import dev.tuprel.playground.generated.TuprelClient;
+import dev.tuprel.playground.generated.include.SalesOrderInclude;
+import dev.tuprel.playground.generated.model.Customer;
+import dev.tuprel.playground.generated.model.Product;
+import dev.tuprel.playground.generated.model.SalesOrder;
+import dev.tuprel.playground.generated.order.ProductOrder;
+import dev.tuprel.playground.generated.update.ProductUpdate;
+import dev.tuprel.playground.generated.where.ProductWhere;
+import dev.tuprel.postgresql.PostgresqlDatabase;
+import dev.tuprel.sql.RenderedSql;
+import java.util.List;
+import java.util.UUID;
+import javax.sql.DataSource;
+```
+
+The snippets share `db`. Relation and transaction examples also assume existing
+`UUID orderId` and `UUID productId` values, respectively.
+
+</details>
+
+## Why TUPREL?
+
+- **Let the schema shape your API.** Generate immutable model values, input
+  builders, filters and ordering instead of maintaining matching entities,
+  mappers and repositories by hand.
+- **Choose when database work happens.** Relations load through explicit includes;
+  getters never issue queries. Transaction boundaries belong in your code.
+- **Keep SQL within reach.** Preview a query before running it. Values travel as
+  bound parameters, separate from SQL text.
+- **Use your application's infrastructure.** Supply a JDBC `DataSource`; the core
+  has no dependency on JPA, Hibernate or Spring.
+
+[Get started](#getting-started) · [Explore the guides](#documentation-navigation) ·
+[Check compatibility](#compatibility-and-project-status)
+
+<a id="what-you-can-do"></a>
+
+## What You Can Build
+
+- **Product catalogs and back-office tools:** typed CRUD, composed filters,
+  projections, counts and deterministic pagination.
+- **Customer and order workflows:** explicitly include related data and group
+  dependent writes in transactions, with savepoints and optimistic locking.
+- **Java services and command-line applications:** use generated clients with
+  your own `DataSource`, build and application lifecycle.
+
+The [runnable playground](examples/tuprel-playground/README.md) brings these
+pieces together. Tuprel is currently a development preview; evaluate its
+[supported surface](#compatibility-and-project-status) before adopting it.
+
+<a id="cli-from-a-source-checkout"></a>
+<a id="build-from-source"></a>
+<a id="try-the-cli"></a>
+
+## Getting Started
+
+**Start offline with JDK 21 and Git.** Build the CLI from source, then generate
+Java in a fresh temporary project. This path needs no database, credentials or Docker.
+
+<details open>
+<summary>Bash</summary>
+
+```bash
+git clone https://github.com/tuprel/tuprel.git
+cd tuprel
+./gradlew :tuprel-cli:installDist --dependency-verification strict
+tuprel_cli="$PWD/tuprel-cli/build/install/tuprel/bin/tuprel"
+demo="$(mktemp -d)"
+cd "$demo" || exit 2
+"$tuprel_cli" init --dry-run
+"$tuprel_cli" init
+"$tuprel_cli" validate
+"$tuprel_cli" generate
+"$tuprel_cli" generate --check
+```
+
+</details>
+
+<details>
+<summary>PowerShell</summary>
+
+```powershell
+git clone https://github.com/tuprel/tuprel.git
+Set-Location tuprel
+.\gradlew.bat :tuprel-cli:installDist --dependency-verification strict
+$tuprelCli = (Resolve-Path '.\tuprel-cli\build\install\tuprel\bin\tuprel.bat').Path
+$demo = Join-Path ([IO.Path]::GetTempPath()) ('tuprel-demo-' + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $demo | Out-Null
+Set-Location $demo
+& $tuprelCli init --dry-run
+& $tuprelCli init
+& $tuprelCli validate
+& $tuprelCli generate
+& $tuprelCli generate --check
+```
+
+</details>
+
+Inspect `tuprel/schema.tuprel` and `build/generated/sources/tuprel/main` in that
+temporary project. `init` starts with a minimal User model; it refuses an existing
+`tuprel` path and does not change your build or install dependencies.
+
+Continue with the [Quickstart](docs/getting-started/quickstart.md) for an explanation
+of each file, or [Installation](docs/getting-started/installation.md) to use the
+launcher in an existing Java project. For database access, follow the
+[PostgreSQL setup](examples/tuprel-playground/README.md#configure-a-dedicated-local-database).
+
+<a id="schema-example"></a>
+
+## Schema and Java Client
+
+Describe models, scalar types and relations in one file. Here is a compact
+version of the [playground schema](examples/tuprel-playground/tuprel/schema.tuprel)
+that supports the queries on this page:
+
+<details>
+<summary>schema.tuprel — products, customers and orders</summary>
 
 ```tuprel
-datasource db {
-    provider = "postgresql"
-    url = env("DATABASE_URL")
-}
-
 generator java {
-    package = "dev.example.generated"
+    package = "dev.tuprel.playground.generated"
 }
 
-enum UserStatus {
-    ACTIVE
-    BLOCKED
+model Product {
+    id UUID @id
+    name String
+    price Decimal
+    stock Int
+    version Int @version @default(0)
 }
 
-model User {
-    id UUID @id @default(uuid())
+model Customer {
+    id UUID @id
     email String @unique
-    status UserStatus @default(ACTIVE)
-    posts Post[]
+    name String
+    orders SalesOrder[]
 }
 
-model Post {
-    id UUID @id @default(uuid())
-    title String
-    authorId UUID
-    author User @relation(fields: [authorId], references: [id])
-
-    @@index([authorId])
+model SalesOrder {
+    id UUID @id
+    customerId UUID
+    status String
+    createdAt Instant
+    customer Customer @relation(fields: [customerId], references: [id])
 }
 ```
 
-The validator checks this declaration locally. `generate` can produce Java source from it without creating tables or reading the value of `DATABASE_URL`.
+</details>
 
-## Generated client example
+Save it as `tuprel/schema.tuprel` in your own project. With the built launcher's
+`bin` directory on your PATH, generate and check the client:
 
-Given a `model Customer` with `name String`, `age Int?`, and `createdAt Instant` fields, the generated client is used like this. The same calls are compiled and run against PostgreSQL by the integration tests:
-
-```java
-TuprelDatabase database = PostgresqlDatabase.using(dataSource);
-TuprelClient db = new TuprelClient(database);
-
-List<Customer> adults = db.customer().findMany(query -> query
-        .where(CustomerWhere.age().gte(18).and(CustomerWhere.name().startsWith("A")))
-        .orderBy(CustomerOrder.createdAt().desc())
-        .take(20));
-
-long withoutAge = db.customer().count(query -> query.where(CustomerWhere.age().isNull()));
-
-RenderedSql preview = db.customer().preview(query -> query.where(CustomerWhere.name().eq("Ana")));
-// SELECT "id", ... FROM "Customer" WHERE "name" = ?   (the value stays a bound parameter)
+```bash
+tuprel validate --schema tuprel/schema.tuprel
+tuprel generate --schema tuprel/schema.tuprel
+tuprel generate --check --schema tuprel/schema.tuprel
 ```
 
-The application owns the `DataSource`. Outside a transaction, each call runs its statements on their own autocommit connection. Tables and columns use the schema names until name mapping and migrations exist.
+On Windows, use `tuprel.bat` or invoke `$tuprelCli` with `&` as above. Generation
+produces records, create/update builders, filters, ordering, includes and the
+client. Keep generated files separate from application code. The
+[schema guide](docs/guides/schema.md) defines the supported language; the
+[Java client guide](docs/guides/java-client.md) shows how to compile and consume it.
 
-Relations are loaded only when included, and several writes run atomically in an explicit transaction. The integration tests also run this example:
+## Queries, Relations and Transactions
+
+### Inspect a query before running it
 
 ```java
-List<Customer> customers = db.customer().findMany(query -> query
-        .include(CustomerInclude.notes(notes -> notes.orderBy(NoteOrder.id().desc()))));
-List<Note> notes = customers.getFirst().notes().get();
+RenderedSql preview = db.product().preview(query -> query
+        .where(ProductWhere.name().eq("Keyboard")));
+String sql = preview.text();
+```
 
-Product updated = db.transaction(tx -> {
-    Product product = tx.product().findById(1L, query -> query.lock(RowLock.FOR_UPDATE)).orElseThrow();
-    return tx.product().updateById(product.id(), product.version(),
-            ProductUpdate.builder().stock(product.stock() - 1).build()).orElseThrow();
+Preview renders the root SELECT without executing it. Parameter values stay
+separate; avoid logging binds. This is SQL preview, not a PostgreSQL execution
+plan. Explore [CRUD and queries](docs/guides/crud-and-queries.md) for projections,
+batch operations and pagination.
+
+### Load the relations you ask for
+
+```java
+SalesOrder order = db.salesOrder().findById(orderId, query -> query
+        .include(SalesOrderInclude.customer())).orElseThrow();
+Customer customer = order.customer().get();
+```
+
+[Relations](docs/guides/relations.md) load in batches for the requested paths.
+Reading an unloaded relation fails without I/O. Includes are explicit extra
+queries, not implicit JOINs; the guide covers their consistency and pagination limits.
+
+### Make transaction boundaries visible
+
+```java
+Product changed = db.transaction(tx -> {
+    Product current = tx.product().findById(productId).orElseThrow();
+    return tx.product().updateById(current.id(), current.version(),
+            ProductUpdate.builder().stock(current.stock() + 1).build()).orElseThrow();
 });
 ```
 
-Reading a relation that was not included fails with a message naming the include to add; it never queries the database.
+Success commits; an exception rolls back. The Product model's `@version` enables
+an atomic expected-version check. Nested transactions use savepoints. The
+[transaction guide](docs/guides/transactions.md) explains isolation, deadlines,
+streams and uncertain connection/commit outcomes; callbacks are not automatically retried.
 
-## CLI from a source checkout
+## CLI Experience
 
-F6-001 adds `--help`, `--version`, safe `init`, `--schema`, and write-free
-`--dry-run` for init/format/generate. Existing positional commands and exit
-codes remain supported. The [CLI contract and quickstart](docs/product/CLI_EXPERIENCE.md)
-separate implemented commands from the migration roadmap.
+Use `tuprel` on Bash or `tuprel.bat` on Windows after
+[building the distribution](docs/getting-started/installation.md).
 
-F6-002A adds `tuprel migrate create --name initial [--dry-run]`. It creates a
-UTC-identified, comment-only `migration.sql` for manual editing in an existing
-v1 catalog. Names must already be canonical lowercase ASCII; collisions and
-unsafe paths fail without overwriting. Creation retains an empty sibling
-coordination file, `tuprel/.migrations.create.lock`. No SQL is applied or approved.
+### See the CLI in action
 
-F6-002B adds `tuprel migrate status --target-schema <name>`. It reads the local
-catalog and existing PostgreSQL history in a repeatable-read, read-only snapshot,
-reporting pending files and integrity/order divergences. It never bootstraps
-history or applies SQL, and explicitly reports `DRIFT_NOT_CHECKED`. Production
-configuration uses `TUPREL_DATABASE_URL`, `TUPREL_DATABASE_USER`, and
-`TUPREL_DATABASE_PASSWORD`; the CLI never loads `.env`. See the
-[status contract](docs/product/CLI_EXPERIENCE.md#histórico-e-status-f6-002b).
+Watch seven commands from a real Windows session: initialise a project, validate
+its schema, generate and check Java, then preview an offline migration draft.
+These commands do not contact a database.
 
-Build a local CLI distribution with `./gradlew :tuprel-cli:installDist`, then
-invoke `tuprel-cli/build/install/tuprel/bin/tuprel` (or `tuprel.bat` on Windows)
-from your project directory. `tuprel init` creates only the Tuprel structure;
-build integration and dependencies remain explicit user decisions.
+![Real Tuprel CLI session: initialise a project, validate its schema, generate and check Java, and preview an offline migration draft.](docs/assets/readme/tuprel-cli-review.gif)
 
-The commands are:
+[Open the animation at original size](docs/assets/readme/tuprel-cli-review.gif)
+— 18.69 seconds, 96.3 KiB. On a narrow screen, use the original-size view or
+the text transcript below.
+
+<details>
+<summary>Read the commands and captured Windows output</summary>
 
 ```text
-tuprel validate [schema.tuprel]
-tuprel format [schema.tuprel]
-tuprel format --check [schema.tuprel]
-tuprel generate [schema.tuprel]
-tuprel generate --check [schema.tuprel]
+demo> tuprel --version
+tuprel development
+
+demo> tuprel init --dry-run
+Would create tuprel/schema.tuprel and tuprel/migrations/.tuprel-migrations.
+
+demo> tuprel init
+Created tuprel/schema.tuprel and an empty format-v1 migration directory.
+Next: tuprel validate; tuprel generate. Set the generator package to your Java package.
+Add the generated source directory and required Tuprel libraries to your build manually.
+
+demo> tuprel validate
+Schema is valid.
+
+demo> tuprel generate
+Generated Java sources: build\generated\sources\tuprel\main
+
+demo> tuprel generate --check
+Generated Java sources are current: build\generated\sources\tuprel\main
+
+demo> tuprel migrate create --name initial --dry-run
+Would create draft: tuprel/migrations/20261031_073911_initial/migration.sql
+No files written; this UTC ID is not reserved.
+
+demo> echo %ERRORLEVEL%
+0
 ```
 
-Without a path, they use `tuprel/schema.tuprel` relative to the CLI process. `format` writes the formatted file; `format --check` only checks it. Alternatively to the local distribution above, run the CLI through the checked-in Gradle Wrapper. Gradle starts the `run` task in `tuprel-cli/`, so use `../` for a schema at the repository root:
+This is captured output, including Windows path separators and the UTC ID
+observed during that run. A new dry-run reports its current UTC ID. The final
+`echo` is a Windows shell command; `development` identifies a source build,
+not a published version.
+
+</details>
+
+For help, formatting checks and additional dry-runs:
 
 ```bash
-./gradlew :tuprel-cli:run --args="validate ../tuprel/schema.tuprel"
+tuprel --help
+tuprel --version
+tuprel format --check
+tuprel generate --dry-run
+tuprel migrate create --name initial --dry-run
+tuprel migrate create --name initial
 ```
 
-```powershell
-.\gradlew.bat :tuprel-cli:run --args="validate ../tuprel/schema.tuprel"
-```
+Run project commands from the directory containing `tuprel/schema.tuprel`.
+Checks detect differences without writing; dry-runs preview supported changes.
+Commands have individual help, plain-text output and documented exit codes for
+scripts. The [CLI reference](docs/reference/cli.md) lists the complete available surface.
 
-Replace `validate` with `format`, `format --check`, `generate`, or `generate --check` to run the other commands. With Gradle's `:tuprel-cli:run`, the process works in `tuprel-cli/`, so generated Java appears in `tuprel-cli/build/generated/sources/tuprel/main/`. See [Build and Test](docs/development/BUILD_AND_TEST.md) for the full development workflow.
+**[Migrations](docs/guides/migrations.md) support offline drafts and read-only status.** `create`
+writes a UTC-named folder and a comment-only `migration.sql` for manual editing.
+It neither derives SQL from your schema nor applies it to a database.
+`tuprel migrate status --target-schema app` compares local files with existing
+PostgreSQL history using explicit environment configuration; it never initialises
+history or applies SQL. See the [status contract](docs/reference/cli.md#migration-status)
+for configuration and integrity states. Physical drift is not checked.
 
-## Roadmap
+<a id="learn-and-explore"></a>
 
-The engineering foundation, Phase 1 schema language, Phase 2 Java source generation, Phase 3 minimal PostgreSQL runtime, Phase 4 type-safe query API, and Phase 5 relations and transactions are in place. The [master plan](plans/MASTER_PLAN.md) next calls for migrations and developer integrations. Broader tooling, including Studio, is later work. No release dates are promised.
+## Documentation Navigation
 
-## Build from source
+**Learn:** [Installation](docs/getting-started/installation.md) ·
+[Quickstart](docs/getting-started/quickstart.md) · [Schema](docs/guides/schema.md) ·
+[Java client](docs/guides/java-client.md)
 
-Use Java 21 and the checked-in Gradle Wrapper; a global Gradle installation is not required. PostgreSQL integration tests use a dedicated local `tuprel_devtest` database by default. Fill `TUPREL_TEST_JDBC_URL`, `TUPREL_TEST_DB_USER` and `TUPREL_TEST_DB_PASSWORD` in the playground's ignored `.env` (copy `.env.example`); process environment variables can override them. Missing configuration fails without starting containers. CI selects Testcontainers explicitly with `-PtuprelTestDatabase=container`. See [local setup](docs/development/BUILD_AND_TEST.md#postgresql-local-no-windows) and the executable [Java playground](examples/tuprel-playground/README.md).
+**Build:** [CRUD and queries](docs/guides/crud-and-queries.md) ·
+[Relations](docs/guides/relations.md) · [Transactions](docs/guides/transactions.md) ·
+[Migrations](docs/guides/migrations.md)
 
-```bash
-./gradlew check
-```
+**Look up:** [CLI reference](docs/reference/cli.md) ·
+[Java API reference](docs/reference/java-api.md) ·
+[Troubleshooting](docs/help/troubleshooting.md) · [FAQ](docs/help/faq.md)
 
-```powershell
-.\gradlew.bat check
-```
+The [documentation hub](docs/README.md) includes a learning path and a separate
+entry for contributor architecture, decisions and plans.
 
-The root `check` includes the product modules and the `build-logic` TestKit suite. Build and testing details are in [Build and Test](docs/development/BUILD_AND_TEST.md).
+## Examples and Playground
 
-## Contributing and security
+The [Java playground](examples/tuprel-playground/README.md) is a standalone consumer
+project for products, customers, orders and order items. Its composite build
+generates and compiles a client directly from the checkout, without publishing artifacts.
 
-Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request; design-sensitive changes should be discussed before implementation. Report vulnerabilities privately according to [SECURITY.md](SECURITY.md), not in a public issue.
+Build it without a database, or follow its local PostgreSQL instructions to
+exercise CRUD, includes, transactions, savepoints and optimistic locking.
+Running the demonstration bootstraps tables and writes sample data: review its
+instructions and use the dedicated development database. No Docker is needed locally.
 
-## License
+<a id="roadmap"></a>
+<a id="compatibility-and-status"></a>
 
-Tuprel is licensed under the [Apache License 2.0](LICENSE) (`Apache-2.0`).
+## Compatibility and Project Status
+
+**Development Preview — built from source.** There is no stable public release,
+Maven Central artifact or public installer. APIs and formats may change.
+
+- **Java:** JDK 21 baseline, synchronous JDBC and an application-provided `DataSource`.
+- **Database:** PostgreSQL; the local playground is exercised with PostgreSQL 17.
+- **Platforms:** Windows/PowerShell locally and Linux/Bash in CI. macOS validation is pending.
+- **Migrations:** offline file creation/validation and read-only PostgreSQL
+  history/status. Deploy, dev, diff and physical drift detection remain unavailable.
+
+Spring Boot Starter, `db pull`, Query Inspector and Studio are planned, not
+available features. Open PRs do not expand the supported surface. Read the
+[FAQ](docs/help/faq.md) for current limitations and the
+[contributor roadmap](plans/MASTER_PLAN.md) for proposed work.
+
+<a id="contributing-and-security"></a>
+<a id="contribute-get-help-and-report-security-issues"></a>
+
+## Contributing, Security and License
+
+Questions, bug reports and reproducible examples belong in
+[Issues](https://github.com/tuprel/tuprel/issues). To contribute, start with
+[Contributing](CONTRIBUTING.md) and the [contributor documentation](docs/README.md#for-contributors).
+Report vulnerabilities privately through [Security](SECURITY.md).
+
+<a id="license"></a>
+
+Tuprel is licensed under the [Apache License 2.0](LICENSE).

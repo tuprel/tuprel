@@ -143,6 +143,7 @@ plano/SQL para revisão. `deploy` só executa artefactos existentes e aprovados.
 
 Cada fatia DB precisa de aprovação do contrato e testes PostgreSQL real local
 e na CI. F6-001 e F6-002A estão autorizadas sem ligações ou DDL
-novos de migrations. F6-002B autoriza apenas leitura read-only. F6-003 continua
-bloqueada por revisão específica; não interpretar aprovação arquitectural como
-autorização para implementar ou executar o executor.
+novos de migrations. F6-002B autoriza apenas leitura read-only. Os contratos
+específicos dos ADRs 0015/0016/0017 foram aprovados em 2026-10-31; os PRs offline
+#30/#31 ainda exigem integração validada. O pedido actual limita-se à integração:
+não implementar nem executar o executor nesta tarefa.

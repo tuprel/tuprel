@@ -20,10 +20,15 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Parser/AST de gramática DDL PostgreSQL limitada e preview canónico offline na
+  API Java; input desconhecido bloqueia todo o script, sem execução ou novo comando CLI.
+- `migrate status --target-schema`: consulta read-only de histórico PostgreSQL
+  e integridade/ordem do catálogo local, com configuração explícita e snapshot
+  REPEATABLE READ. Sem criar histórico, executar migrations ou verificar drift físico.
 - Fundação offline F6-001: help/version, init seguro, `--schema` e dry-run na CLI;
   módulo `tuprel-migrate` com IDs, formato versionado, snapshots e SHA-256.
-  Histórico, JDBC e execução de migrations continuam indisponíveis, sujeitos
-  à aprovação dos contratos propostos nos ADRs 0013/0014.
+  Execução de migrations continua indisponível; ADRs 0013/0014 aceites para
+  separação do adapter e contrato conservador de histórico.
 - Licença open source Apache-2.0 no `LICENSE` da raiz.
 - Fundação documental do projecto: especificação de produto, princípios,
   arquitectura, module boundaries, modelo de erros, estratégia de testes,

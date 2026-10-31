@@ -1,6 +1,9 @@
 # TUPREL CLI — Produto, arquitectura e contrato v1
 
-Estado: F6-001/F6-002A integradas; F6-002B status read-only em revisão.
+Estado: F6-001/F6-002A integradas; status read-only F6-002B implementado
+conforme os ADRs 0013/0014, sem executor de migrations.
+Entrada pública: [CLI reference](../reference/cli.md). Este documento mantém o
+desenho de produto e o roadmap interno, separados dos comandos disponíveis.
 A tabela distingue código entregue de roadmap. Java 21. Sem publicação, instalador ou integração automática
 com frameworks nesta entrega. A CLI é uma superfície principal do toolkit.
 
@@ -47,7 +50,8 @@ não se muda silenciosamente o destino ao detectar um pom.xml.
 
 Requer catálogo v1 existente em `tuprel/migrations`; num projecto novo, executar
 `tuprel init` primeiro. Não lê schema, `.env` ou base de dados. Não aceita
-`--schema`, ID manual nem flags de aplicação. A CLI só anuncia `migrate create`.
+`--schema`, ID manual nem flags de aplicação. A CLI anuncia apenas os comandos
+implementados: `migrate create` e `migrate status`.
 
 O nome segue o ADR-0012: 1–64 caracteres ASCII minúsculos, começa por letra,
 palavras separadas por `_` ou `-`. Exemplo: `add_products-v2`. Não converte
@@ -171,10 +175,9 @@ nem modifica PATH. O utilizador pode invocar o path absoluto ou adicionar esse
 conhecer classes Java internas. Distribuição assinada, instalador e política de
 releases continuam fora desta entrega.
 
-PowerShell, da raiz do repositório (o `.env` local continua só nos testes):
+PowerShell, da raiz do repositório, com JDK 21 seleccionado (o `.env` local continua só nos testes):
 
 ```powershell
-$env:JAVA_HOME = 'C:\Users\mamad\.jdks\jdk-21.0.13+9'
 .\gradlew.bat :tuprel-migrate:test :tuprel-cli:test :tuprel-codegen-java:test :tuprel-cli:installDist --dependency-verification strict
 $tuprelCli = (Resolve-Path '.\tuprel-cli\build\install\tuprel\bin\tuprel.bat').Path
 $tuprelDemo = Join-Path ([IO.Path]::GetTempPath()) ('tuprel-demo-' + [Guid]::NewGuid().ToString('N'))

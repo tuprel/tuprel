@@ -5,7 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
-/** Proposed bounded DDL AST; syntax recognition is not approval or permission to execute. */
+/** Bounded DDL AST; syntax recognition is not approval or permission to execute. */
 public sealed interface DdlStatement permits DdlStatement.CreateTable, DdlStatement.AddColumn, DdlStatement.CreateIndex {
     /** Maximum columns in a proposed CREATE TABLE. */
     int MAX_COLUMNS = 256;
