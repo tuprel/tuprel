@@ -10,19 +10,32 @@ Offline Java APIs also parse/preview the limited PostgreSQL DDL subset and
 compile contextual risk/digest plans. They do not add preview/deploy commands
 to the CLI.
 
-**Not available:** deploy, dev, diff, database bootstrap,
-deployment locks, drift detection or reset. Open PRs are not installed CLI features.
+**Not available as public commands/APIs:** deploy, dev, diff or reset.
+Physical drift detection remains unavailable. Open PRs are not installed CLI features.
 
-The runner foundation now shares an internal canonical history definition with
-the read-only validator. Its bootstrap statement is tested transactionally in
-isolated PostgreSQL schemas. It is not a public bootstrap API: the controlled
-write path must first enforce the accepted session, lock and approval gates.
-Status never invokes bootstrap. The internal runner session now validates the
+The internal runner can bootstrap the canonical history and apply one approved
+migration transactionally in isolated tests. It rediscovers files and observes
+history on the owned connection under the session lock, recompiles the whole
+plan and compares the approved digest before bootstrap or migration DDL.
+This is an internal foundation, with no public execution API or deploy command;
+sequence handling and failure/reconciliation coverage are the next gate.
+Status never invokes bootstrap. The owned session validates the
 configured live database, principal, schema access and TLS mode, rejects active
 transactions and preheld advisory locks, and acquires a session lock with a
 30-second interruptible deadline. It releases only its own lock; failed cleanup
-discards the connection. This foundation does not execute migration SQL or
-expose a public deployment API. No migration-execution command is available yet.
+discards the connection. The write path executes only canonical parsed SQL and
+commits DDL with its APPLIED row in the same transaction. Known statement
+failures roll back; commit/connection/rollback uncertainty discards the session
+and reports OUTCOME_UNKNOWN, with no automatic retry.
+
+Existing tables must be persistent heap tables without inheritance, partitions,
+RLS, rules or custom triggers. Relation locks precede validation, with OID checks
+after acquisition. Index columns require admitted built-in types, their default
+collation and a known pg_catalog btree default operator class; explicit alternate
+collations are conservatively rejected. Active event triggers and extra history
+indexes block execution. These gates are not full drift detection or protection
+against privileged concurrent DDL; controlled ownership/ACLs and an operational
+window remain required. No migration-execution command is available yet.
 
 ## Create a draft
 

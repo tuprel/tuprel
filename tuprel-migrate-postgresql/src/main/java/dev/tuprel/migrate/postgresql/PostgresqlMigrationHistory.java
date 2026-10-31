@@ -94,7 +94,8 @@ public final class PostgresqlMigrationHistory implements MigrationHistoryReader 
         }
     }
 
-    private static MigrationHistory snapshot(Connection connection, SqlIdentifier schema)
+    /** Caller owns the transaction and catalog resolution context; performs no lifecycle changes. */
+    static MigrationHistory snapshot(Connection connection, SqlIdentifier schema)
             throws SQLException, MigrationHistoryException {
         long namespace;
         try (PreparedStatement statement = query(connection, """

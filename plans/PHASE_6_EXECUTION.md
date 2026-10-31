@@ -42,8 +42,8 @@ não substituem nova consulta antes de cada integração.
 | F6-003A1 gramática/AST/preview offline | MERGED | #28 integrado; ADR-0015 aprovado | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | fa9ebbfac408b18a5da046cd447cc9d1bfe6a6a8 | — |
 | F6-003A2 plano, riscos e digest offline | MERGED | A1 integrado; ADRs 0016/0017 aprovados | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | 1f36f2c55883711389b030dd87dd06fb95f36fab | — |
 | F6-003B1 definição/bootstrap | MERGED | ADRs 0014–0017; #28/#30/#31 integrados | feat/f6-003b-history-bootstrap / [#38](https://github.com/tuprel/tuprel/pull/38) | 3457c1ad519a6f4c7de2ec712145bad72c6c9fd7 | — |
-| F6-003B2 sessão/locks/lifecycle | TESTING | B1 integrada e main validada | feat/f6-003b-session-locks / [#39](https://github.com/tuprel/tuprel/pull/39) | — | Build local aprovada; revisão e checks do HEAD |
-| F6-003B3 uma migration atómica | TODO | B2 integrada; aprovação revalidada sob lock | — | — | Gates de catálogo/DDL e histórico na mesma transacção |
+| F6-003B2 sessão/locks/lifecycle | MERGED | B1 integrada e main validada | feat/f6-003b-session-locks / [#39](https://github.com/tuprel/tuprel/pull/39) | fe00a8364dcda077d5657080585ab1b33b3c2f4c | — |
+| F6-003B3 uma migration atómica | TESTING | B2 integrada; main validada antes do PR | feat/f6-003b-atomic-migration | — | Gates de catálogo/DDL, testes e revisão antes do PR |
 | F6-003B4 sequência/falhas/reconciliação | TODO | B3 integrada | — | — | Prefixo confirmado, OUTCOME_UNKNOWN e recuperação sem retries |
 | F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
 | F6-004 diff/preview | TODO | Deploy seguro; contrato de comparação | — | — | Modelo de diferenças/desconhecidos |
@@ -118,7 +118,50 @@ Windows de symlinks já justificados e mantidos obrigatórios em Linux. Dez test
 novos de integração PostgreSQL e três unitários passaram. Build/checkConnection
 do playground aprovada depois da raiz; dois testes inalterados reutilizados.
 JavaDoc Werror, verificação estrita de dependências e links/anchors passaram.
-CI e revisão do HEAD continuam obrigatórias antes do merge.
+Os quatro checks do HEAD 37c330a passaram; CodeQL sem resultados e revisão
+sem bloqueadores/threads pendentes. #39 integrado normalmente em fe00a836;
+CI e CodeQL da main fe00a836 aprovados (runs 41226425520 e 41226425527;
+análise 2069020013, sem resultados/erro), antes de abrir o PR B3. Auto-merge nativo indisponível no
+repositório; merge explícito condicionado aos gates e ao SHA revisto.
+
+### F6-003B3 — Uma migration atómica, interna
+
+MigrationRunner package-private aplica no máximo um script pendente. Redescobre
+ficheiros e observa histórico REPEATABLE READ/READ ONLY na connection dedicada
+sob lock; recompila o plano e verifica aprovação antes de bootstrap. NO_CHANGES,
+BLOCKED, divergência e planos com mais de um script não iniciam DDL.
+
+Bootstrap usa a definição canónica numa transacção própria. A migration usa
+READ COMMITTED, ROW EXCLUSIVE no histórico conhecido, validação de estrutura/
+índice canónico e locks ONLY determinísticos nos alvos existentes: ACCESS
+EXCLUSIVE para ADD, SHARE para index. Identidade/OID validada após aquisição.
+Tipos, collation/default opclass e estruturas desconhecidas são recusados.
+Event triggers activos bloqueiam; não são desactivados. Nenhum schema é criado
+pelo runner nem se adopta/repara um histórico desconhecido.
+
+Só o renderer do AST aprovado fornece SQL de migrations. DDL e registo APPLIED
+partilham commit; checksum original, tempos UTC com precisão PostgreSQL e duração
+monotónica são registados. Falha de statement faz rollback; commit/conexão/
+rollback incertos exigem descarte e OUTCOME_UNKNOWN, sem retry ou autocommit
+como recuperação. Cleanup de uma transacção confirmada não repete rollback
+nem apaga evidência de commit. O status e a CLI continuam inalterados.
+
+Testes reais: SQL canónico/uma connection; DDL+histórico confirmados; erro de
+statement ou INSERT faz rollback; artefacto/histórico alterado invalida digest;
+unknown/NO_CHANGES sem bootstrap; histórico incompatível/índice extra recusados;
+herança, RLS, regras, triggers, views/partições e tipos/collations não admitidos;
+permissão CREATE ausente; perda real do ack simulado depois de commit confirmado
+no servidor, sem retry; falha de cleanup preserva evidência confirmada.
+Event trigger é observado por fault injection sobre
+uma ligação real, sem criar objectos globais administrativos. Localmente a role
+preexistente só detém um schema temporário; grants limitam-se a esse schema.
+Na CI a role sem login existe apenas na base/container descartável da fixture.
+
+Primeiros treze testes passaram e a build raiz inicial passou no checkout isolado, com
+o caminho da fixture local explicitamente fornecido por init script ignorado,
+sem ler/copiar credenciais. A build final após os testes adicionais continua
+em validação. B4 cobrirá sequências, matriz de perdas de ack, concorrência,
+timeouts e reconciliação numa sessão nova antes de qualquer API/CLI de deploy.
 
 ### F6-002B
 
