@@ -30,7 +30,8 @@ criam módulos: estendem estes três, `tuprel-schema` e o código gerado (RFC-00
 RFC-004, RFC-005, ADR-0010, ADR-0011).
 A F6-001 acrescenta `tuprel-migrate`, com identificação, ficheiros e checksums
 puros (ADR-0012 aceite). F6-002B acrescenta o adapter PostgreSQL read-only
-(ADR-0013/0014 aceites, executor não implementado). Os restantes módulos
+(ADRs 0013/0014 aceites); F6-003B acrescenta o runner no mesmo adapter,
+conforme ADRs 0015–0017. Os restantes módulos
 continuam planeados. `build-logic` é um included build de
 infraestrutura e não faz parte deste grafo de produto.
 
@@ -100,15 +101,15 @@ com exclusão entre criadores via lock de filesystem, sem dependências novas.
 
 F6-002B acrescenta snapshots tipados de histórico, comparação pura de integridade
 e o port MigrationHistoryReader, consumido pela CLI e implementado pelo adapter.
-Locking de DB, planner/applier e safety analysis continuam planeados. O domínio
-mantém apenas java.base; JDBC nunca entra neste módulo.
+Locking de DB, planner/applier e safety analysis PostgreSQL ficam no adapter.
+O domínio mantém apenas java.base; JDBC nunca entra neste módulo.
 
 ### `tuprel-migrate-postgresql`
 
 ADR-0013 aceite: CLI → migrate-postgresql → migrate/sql, sem aresta do driver
 CRUD para migrate. Implementa leitura de histórico via DataSource/JDBC numa
 transacção read-only repeatable-read. Valida metadados, constraints, permissões
-e linhas; não cria tabela nem executor. Recebe driver do consumidor, sem
+e linhas; o reader nunca cria tabelas ou executa migrations. Recebe driver do consumidor, sem
 dependência de PG obrigatória no adapter; a CLI compõe runtime PG 42.7.14.
 Não depende de runtime, postgresql CRUD, schema ou codegen. Migrate não depende dele.
 
@@ -116,8 +117,13 @@ F6-003A acrescenta gramática DDL/AST/renderer e compilador de planos/riscos/dig
 offline no mesmo adapter (ADRs 0015/0016 aceites). Reutilizam MigrationFile,
 MigrationStatus e SqlIdentifier; não abrem ficheiros/connections nem executam
 SQL. A dependência existente de sql é exportada como api porque o AST público
-usa SqlIdentifier. Sem novo módulo, ciclo ou dependência externa. O futuro
-runner obedece ao ADR-0017 aceite e continua fora destas APIs de observação.
+usa SqlIdentifier. Sem novo módulo, ciclo ou dependência externa.
+F6-003B acrescenta PostgresqlMigrationRunner, com connection dedicada,
+aprovação revalidada sob lock, gates de catálogo, bootstrap e transacção por
+migration. A inspecção é read-only e separada da execução explícita; o reader
+de status permanece inalterado. Resultados preservam prefixos confirmados e
+OUTCOME_UNKNOWN, sem retries. O JDBC e estes gates continuam no adapter,
+sem arestas novas nem reutilização do lifecycle CRUD.
 
 ### `tuprel-introspection-postgresql`
 

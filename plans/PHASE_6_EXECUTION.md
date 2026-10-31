@@ -43,8 +43,8 @@ não substituem nova consulta antes de cada integração.
 | F6-003A2 plano, riscos e digest offline | MERGED | A1 integrado; ADRs 0016/0017 aprovados | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | 1f36f2c55883711389b030dd87dd06fb95f36fab | — |
 | F6-003B1 definição/bootstrap | MERGED | ADRs 0014–0017; #28/#30/#31 integrados | feat/f6-003b-history-bootstrap / [#38](https://github.com/tuprel/tuprel/pull/38) | 3457c1ad519a6f4c7de2ec712145bad72c6c9fd7 | — |
 | F6-003B2 sessão/locks/lifecycle | MERGED | B1 integrada e main validada | feat/f6-003b-session-locks / [#39](https://github.com/tuprel/tuprel/pull/39) | fe00a8364dcda077d5657080585ab1b33b3c2f4c | — |
-| F6-003B3 uma migration atómica | TESTING | B2 integrada; main validada antes do PR | feat/f6-003b-atomic-migration / [#40](https://github.com/tuprel/tuprel/pull/40) | — | Build local aprovada; revisão e checks do HEAD |
-| F6-003B4 sequência/falhas/reconciliação | TODO | B3 integrada | — | — | Prefixo confirmado, OUTCOME_UNKNOWN e recuperação sem retries |
+| F6-003B3 uma migration atómica | MERGED | B2 integrada; main validada antes do PR | feat/f6-003b-atomic-migration / [#40](https://github.com/tuprel/tuprel/pull/40) | 6d8f979123525ab4b3aa1beb0696fd8d5600bafa | — |
+| F6-003B4 sequência/falhas/reconciliação | TESTING | B3 integrada e main validada | feat/f6-003b-sequence-recovery | — | Revisão da API, documentação e checks finais |
 | F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
 | F6-004 diff/preview | TODO | Deploy seguro; contrato de comparação | — | — | Modelo de diferenças/desconhecidos |
 | F6-005 drift/dev | TODO | Diff e catálogo físico conhecido | — | — | Catálogo parcial, drift e confirmação revalidada |
@@ -173,8 +173,45 @@ do HEAD continuam obrigatórios. A primeira CI Linux do #40 falhou na fixture
 de permissões que simulava a sessão de outra role; corrigida para autenticação
 real com role restrita exclusivamente no container. Nenhum gate do runner,
 assert de permissão, teste ou configuração local foi enfraquecido/retirado.
-B4 cobrirá sequências, matriz de perdas de ack, concorrência,
-timeouts e reconciliação numa sessão nova antes de qualquer API/CLI de deploy.
+Os quatro checks do HEAD 871a442 passaram depois da correcção; CodeQL sem
+resultados, revisão sem bloqueadores/threads pendentes. #40 integrado por merge
+normal em 6d8f979. CI e CodeQL da main aprovados (runs 41228720965 e
+41228720945; análise 2069084460 sem erro/resultados), antes do PR B4.
+
+### F6-003B4 — Sequências, falhas e reconciliação explícita
+
+API embebida PostgresqlMigrationRunner no adapter: inspect read-only sob lock,
+deploy com aprovação revalidada. Sem arestas novas, dependências novas, UI,
+loader dotenv ou alteração dos bytes normativos de gramática/preview/digest.
+MigrationExecutionResult separa outcome/failure do prefixo recém-confirmado,
+imutável e ordenado. Uma transacção por migration; falhas terminam a sequência.
+O reader de status e os comandos CLI continuam inalterados; deploy CLI fica para C.
+
+Inspecção numa nova connection/sessão sob lock devolve histórico confirmado e
+plano actual, sem DDL/bootstrap/repair/retry. Não reescreve o resultado anterior
+nem promete drift completo/rollback global. Depois de OUTCOME_UNKNOWN, o
+operador tem de reconciliar o histórico/artefactos e rever um novo plano antes
+de outra invocação explícita. Bootstrap/prefixo confirmados mudam o digest;
+rollback sem mudanças pode manter o mesmo hash, que não é token de uso único.
+Não há persistência adicional de tentativas nem recuperação automática de crash.
+
+Onze casos PostgreSQL adicionais: sequência ordenada; falha posterior preserva
+prefixo; backend próprio terminado antes de commit; rollback falhado; bootstrap
+com/sem commit confirmado no servidor e ack perdido; timeout de lock real;
+dois executores sincronizados por barreiras; inspecção falha após rollback/
+cleanup incerto; histórico adulterado entre commits; interrupção entre scripts;
+cancelamento real com pg_cancel_backend, após observar espera em pg_locks.
+O teste verifica lock_timeout=10s e statement_timeout=20s sem alterar limites
+de produção. Só PIDs/objetos das fixtures são usados. O caso prévio de ack
+perdido após commit também prova nova inspecção/APPLIED e recusa do digest antigo.
+
+Quatro unitários validam invariantes/imutabilidade do resultado, ordem, erros
+redigidos, ausência de retries e argumentos/alvos inválidos sem ligação.
+Build inicial no checkout isolado aprovada: 359 testes, quatro skips Windows
+justificados e mantidos obrigatórios em Linux. JavaDoc Werror preservado;
+warnings iniciais de finally/serialização corrigidos. O PID passou a ser obtido
+por JDBC/pg_backend_pid, evitando dependências transitivas de annotations do
+driver. Build final/guia/README/playground/revisão/CI no HEAD continuam gates.
 
 ### F6-002B
 

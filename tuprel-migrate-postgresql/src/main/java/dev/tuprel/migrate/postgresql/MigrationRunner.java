@@ -1,7 +1,7 @@
 package dev.tuprel.migrate.postgresql;
 
-import static dev.tuprel.migrate.postgresql.MigrationRunResult.Failure;
-import static dev.tuprel.migrate.postgresql.MigrationRunResult.Outcome;
+import static dev.tuprel.migrate.postgresql.MigrationExecutionResult.Failure;
+import static dev.tuprel.migrate.postgresql.MigrationExecutionResult.Outcome;
 
 import dev.tuprel.migrate.AppliedMigration;
 import dev.tuprel.migrate.MigrationDirectory;
@@ -23,18 +23,19 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Optional;
 import javax.sql.DataSource;
 
-/** Internal single-migration slice; no deployment CLI/public execution API yet. */
+/** Internal execution mechanics behind the public adapter facade. */
 final class MigrationRunner {
     private MigrationRunner() { }
 
-    static MigrationRunResult applyOne(DataSource source, MigrationDatabaseSettings settings, String targetSchema,
+    static MigrationExecutionResult deploy(DataSource source, MigrationDatabaseSettings settings, String targetSchema,
             Path directory, MigrationPlanDigest approval) {
         MigrationSession session = null;
-        List<AppliedMigration> confirmed = List.of();
-        MigrationRunResult result = new MigrationRunResult(Outcome.OUTCOME_UNKNOWN, Failure.CONNECTION, confirmed);
+        List<AppliedMigration> confirmed = new ArrayList<>();
+        MigrationExecutionResult result = new MigrationExecutionResult(Outcome.OUTCOME_UNKNOWN, Failure.CONNECTION, confirmed);
         try {
             session = MigrationSession.open(source, settings, targetSchema);
             Connection connection = session.connection();
@@ -46,44 +47,51 @@ final class MigrationRunner {
             if (plan.state() == MigrationPlan.State.BLOCKED) { throw new MigrationRunFailure(Failure.BLOCKED, false); }
             if (!plan.digest().equals(approval)) { throw new MigrationRunFailure(Failure.APPROVAL, false); }
             if (plan.state() == MigrationPlan.State.NO_CHANGES) {
-                result = new MigrationRunResult(Outcome.NO_CHANGES, Failure.NONE, confirmed);
+                result = new MigrationExecutionResult(Outcome.NO_CHANGES, Failure.NONE, confirmed);
             } else {
-                // B3 deliberately has no sequence capability; B4 adds confirmed-prefix/reconciliation tests.
-                if (plan.scripts().size() != 1) { throw new MigrationRunFailure(Failure.BLOCKED, false); }
+                interrupted();
                 if (!history.initialised()) {
                     bootstrap(connection, schema);
                     history = new MigrationHistory(true, List.of());
                 }
-                MigrationFile file = files.stream().filter(value -> value.id().equals(plan.scripts().getFirst().id())).findFirst().orElseThrow();
-                AppliedMigration applied = apply(connection, schema, file, history);
-                confirmed = List.of(applied);
-                result = new MigrationRunResult(Outcome.APPLIED, Failure.NONE, confirmed);
+                List<AppliedMigration> expected = new ArrayList<>(history.applied());
+                for (MigrationPlan.Script script : plan.scripts()) {
+                    interrupted();
+                    MigrationFile file = files.stream().filter(value -> value.id().equals(script.id())).findFirst().orElseThrow();
+                    AppliedMigration applied = apply(connection, schema, file, new MigrationHistory(true, expected));
+                    confirmed.add(applied); expected.add(applied);
+                }
+                result = new MigrationExecutionResult(Outcome.APPLIED, Failure.NONE, confirmed);
             }
         } catch (MigrationRunFailure failure) {
             if (failure.uncertain() && session != null) { session.discard(); }
-            result = new MigrationRunResult(failure.uncertain() ? Outcome.OUTCOME_UNKNOWN : Outcome.REFUSED, failure.failure(), confirmed);
+            result = new MigrationExecutionResult(failure.uncertain() ? Outcome.OUTCOME_UNKNOWN : Outcome.REFUSED, failure.failure(), confirmed);
         } catch (MigrationSessionException failure) {
-            result = new MigrationRunResult(failure.reason() == MigrationSessionException.Reason.OUTCOME_UNKNOWN
-                    ? Outcome.OUTCOME_UNKNOWN : Outcome.REFUSED, Failure.SESSION, confirmed);
+            result = new MigrationExecutionResult(failure.reason() == MigrationSessionException.Reason.OUTCOME_UNKNOWN
+                    ? Outcome.OUTCOME_UNKNOWN : Outcome.REFUSED, sessionFailure(failure), confirmed);
         } catch (MigrationValidationException failure) {
-            result = new MigrationRunResult(Outcome.REFUSED, Failure.FILES, confirmed);
+            result = new MigrationExecutionResult(Outcome.REFUSED, Failure.FILES, confirmed);
         } catch (MigrationHistoryException failure) {
-            result = new MigrationRunResult(Outcome.REFUSED, Failure.HISTORY, confirmed);
+            result = new MigrationExecutionResult(Outcome.REFUSED, Failure.HISTORY, confirmed);
         } catch (SQLException failure) {
             boolean uncertain = connectionFailure(failure);
             if (uncertain && session != null) { session.discard(); }
-            result = new MigrationRunResult(uncertain ? Outcome.OUTCOME_UNKNOWN : Outcome.FAILED, classify(failure), confirmed);
+            result = new MigrationExecutionResult(uncertain ? Outcome.OUTCOME_UNKNOWN : Outcome.FAILED, classify(failure), confirmed);
         } catch (RuntimeException failure) {
             if (session != null) { session.discard(); }
-            result = new MigrationRunResult(Outcome.OUTCOME_UNKNOWN, Failure.CONNECTION, confirmed);
+            result = new MigrationExecutionResult(Outcome.OUTCOME_UNKNOWN, Failure.CONNECTION, confirmed);
         } finally {
             if (session != null) {
-                if (result.outcome() == Outcome.OUTCOME_UNKNOWN) { session.discard(); }
+                if (result.outcome() == Outcome.OUTCOME_UNKNOWN || Thread.currentThread().isInterrupted()) {
+                    if (!session.discard() && result.outcome() != Outcome.OUTCOME_UNKNOWN) {
+                        result = new MigrationExecutionResult(Outcome.FAILED, Failure.CLEANUP, confirmed);
+                    }
+                }
                 try { session.closeSettled(); }
                 catch (MigrationSessionException failure) {
                     // A cleanup failure never erases confirmed commit evidence.
                     if (result.outcome() != Outcome.OUTCOME_UNKNOWN) {
-                        result = new MigrationRunResult(Outcome.FAILED, Failure.CLEANUP, confirmed);
+                        result = new MigrationExecutionResult(Outcome.FAILED, Failure.CLEANUP, confirmed);
                     }
                 }
             }
@@ -91,7 +99,7 @@ final class MigrationRunner {
         return result;
     }
 
-    private static MigrationHistory observe(Connection connection, SqlIdentifier schema)
+    static MigrationHistory observe(Connection connection, SqlIdentifier schema)
             throws SQLException, MigrationHistoryException, MigrationRunFailure {
         connection.setReadOnly(true);
         connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
@@ -196,9 +204,25 @@ final class MigrationRunner {
         return failure.getSQLState() == null || failure.getSQLState().startsWith("08");
     }
 
-    private static Failure classify(SQLException failure) {
+    static Failure classify(SQLException failure) {
         String state = failure.getSQLState();
         return connectionFailure(failure) ? Failure.CONNECTION : "42501".equals(state) ? Failure.PERMISSION
                 : failure instanceof SQLTimeoutException || "57014".equals(state) || "55P03".equals(state) ? Failure.TIMEOUT : Failure.STATEMENT;
+    }
+
+    static Failure sessionFailure(MigrationSessionException failure) {
+        return switch (failure.reason()) {
+            case TARGET -> Failure.CONFIGURATION;
+            case ACTIVE_TRANSACTION, PREHELD_LOCK -> Failure.SESSION;
+            case LOCK_BUSY -> Failure.LOCK_BUSY;
+            case INTERRUPTED -> Failure.INTERRUPTED;
+            case CONNECTION -> Failure.CONNECTION;
+            case CLEANUP -> Failure.CLEANUP;
+            case OUTCOME_UNKNOWN -> Failure.ROLLBACK;
+        };
+    }
+
+    private static void interrupted() throws MigrationRunFailure {
+        if (Thread.currentThread().isInterrupted()) { throw new MigrationRunFailure(Failure.INTERRUPTED, false); }
     }
 }

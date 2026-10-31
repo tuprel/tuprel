@@ -22,6 +22,10 @@ Every implemented command accepts `--help` or `-h`. `migrate --help` describes t
 group. Global help/version must be used alone. No command reads stdin or prompts.
 Output is plain text without ANSI colours.
 
+The [Java migration runner](java-api.md#transactional-migration-runner) is
+available for embedding. It does not add a deploy command to this CLI revision;
+only the migration commands listed above are exposed.
+
 | Command | Effect |
 |---|---|
 | init | Exclusively creates schema/catalog; refuses an existing tuprel path |
