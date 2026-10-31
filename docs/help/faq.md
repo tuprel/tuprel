@@ -23,6 +23,13 @@ No. Main offers offline drafts, catalog validation and read-only PostgreSQL
 history/status. Execution, diff and dev remain unavailable. Design documents and open
 PRs do not represent commands in the installed main launcher.
 
+## Does a migration plan or digest approve execution?
+
+No. The [offline plan API](../guides/migrations.md#compile-an-offline-plan) reports
+risks and binds artifacts to observed context. It does not prove human review,
+physical drift, snapshot provenance or live-server identity. No executor or
+deploy command is available.
+
 ## Can I try it without Docker or PostgreSQL?
 
 Yes: [CLI quickstart](../getting-started/quickstart.md). Real queries can use

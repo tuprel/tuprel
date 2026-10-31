@@ -20,6 +20,9 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Plano offline de migrations com riscos conservadores, target redigido e
+  digest contextual SHA-256; vincula artefactos/histórico/preview sem autorizar
+  execução ou atestar drift físico. Nenhum comando CLI adicional.
 - Parser/AST de gramática DDL PostgreSQL limitada e preview canónico offline na
   API Java; input desconhecido bloqueia todo o script, sem execução ou novo comando CLI.
 - `migrate status --target-schema`: consulta read-only de histórico PostgreSQL

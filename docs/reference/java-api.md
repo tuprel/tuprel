@@ -37,6 +37,8 @@ these ignored generated paths are intentionally not GitHub links.
 | Migration environment settings | [MigrationDatabaseSettings](../../tuprel-migrate-postgresql/src/main/java/dev/tuprel/migrate/postgresql/MigrationDatabaseSettings.java) |
 | Offline PostgreSQL DDL parser | [PostgresqlDdlParser](../../tuprel-migrate-postgresql/src/main/java/dev/tuprel/migrate/postgresql/ddl/PostgresqlDdlParser.java) |
 | DDL AST and preview | [DdlStatement](../../tuprel-migrate-postgresql/src/main/java/dev/tuprel/migrate/postgresql/ddl/DdlStatement.java) · [DdlParseResult](../../tuprel-migrate-postgresql/src/main/java/dev/tuprel/migrate/postgresql/ddl/DdlParseResult.java) |
+| Offline migration plans | [PostgresqlMigrationPlanCompiler](../../tuprel-migrate-postgresql/src/main/java/dev/tuprel/migrate/postgresql/PostgresqlMigrationPlanCompiler.java) · [MigrationPlan](../../tuprel-migrate-postgresql/src/main/java/dev/tuprel/migrate/postgresql/MigrationPlan.java) |
+| Configured target and digest | [MigrationPlanTarget](../../tuprel-migrate-postgresql/src/main/java/dev/tuprel/migrate/postgresql/MigrationPlanTarget.java) · [MigrationPlanDigest](../../tuprel-migrate-postgresql/src/main/java/dev/tuprel/migrate/postgresql/MigrationPlanDigest.java) |
 
 ## Read-only migration history
 
@@ -77,6 +79,25 @@ for a compilable fragment and the exact limits in ADR-0015.
 Grammar/preview version strings retain their original `-proposal` suffix as
 normative protocol identifiers after contract acceptance. Renaming those bytes
 would change the future approval context; it is not part of this integration.
+
+## Offline migration plan and digest
+
+`MigrationDatabaseSettings.planTarget(String schema)` derives a redacted
+configured fingerprint without opening a connection. Passwords are excluded;
+this does not identify or attest a live server.
+
+`PostgresqlMigrationPlanCompiler.compile(MigrationPlanTarget, List<MigrationFile>, MigrationHistory)`
+returns an immutable `MigrationPlan` with state, ordered script metadata, risks
+and `MigrationPlanDigest`. `preview()` yields canonical SQL only for a complete,
+unblocked plan; BLOCKED throws instead of exposing a supported prefix.
+NO_CHANGES yields empty text and still reports PHYSICAL_DRIFT_NOT_CHECKED.
+
+The compiler is stateless and performs no filesystem/JDBC I/O. Callers supply
+validated snapshots; execution must not trust their provenance. The digest
+binds original artifacts and observed context, but grants no execution capability.
+See the [migration guide](../guides/migrations.md#compile-an-offline-plan) for a
+fragment, limitations and the normative encoding in ADR-0016. Grammar/preview/
+policy version strings are preserved exactly after acceptance.
 
 ## Generated APIs belong to your schema
 

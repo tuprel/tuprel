@@ -10,13 +10,13 @@ ainda pendentes. Java 21, PostgreSQL primeiro, CONTRIBUTING.md obrigatório.
 Em 2026-10-31 o utilizador confirmou a execução de STATUS_TEST_ROLE.sql na
 tuprel_devtest e aprovou explicitamente os ADRs 0015, 0016 e 0017. Os dois
 testes locais de permissões passaram depois dessa confirmação (2 testes,
-0 falhas/skips). A build completa sem filtros passou: 266 testes aprovados,
+0 falhas/skips). A build completa do #28 passou: 266 testes aprovados,
 4 symlinks ignorados por privilégio Windows; os quatro casos continuam
 obrigatórios na CI Linux. Integrações seguem #28 → #30 → #31, com nova CI no
 HEAD de cada PR e da main. Não implementar executor nesta tarefa de integração.
 
-Main observada em `894b408ddee6bfd98ad158c656f3909cf045d5b3` após #28;
-CI pós-merge em verificação. CI/CodeQL pós-#36 passaram sem resultados CodeQL.
+Main observada em `fa9ebbfac408b18a5da046cd447cc9d1bfe6a6a8` após #30;
+CI pós-merge em verificação. CI/CodeQL pós-#28 e pós-#36 passaram sem resultados CodeQL.
 #35 e o roadmap #34 foram integrados pelo proprietário durante
 a preparação. A apresentação, exemplos, navegação e política são preservados.
 
@@ -30,9 +30,9 @@ não substituem nova consulta antes de cada integração.
 |---|---|---|---|---|---|
 | F6-001 CLI e formato v1 | MERGED | ADR-0012 aceite | feat/f6-001-cli-migration-foundation / #26 | bf057d50c086811ae0602d46aa8db6d8d1026868 | — |
 | F6-002A create offline | MERGED | F6-001 | feat/f6-002a-migration-create / #27 | 9a6b4f872bc020634d9b8dee4ad6f56c2b5db938 | — |
-| F6-002B histórico/status | MERGED | ADRs 0013/0014 aceites; role/testes confirmados | feat/f6-002b-migration-status / [#28](https://github.com/tuprel/tuprel/pull/28) | 894b408ddee6bfd98ad158c656f3909cf045d5b3 | CI pós-merge por confirmar antes da integração seguinte |
-| F6-003A1 gramática/AST/preview offline | TESTING | #28 integrado; ADR-0015 aprovado | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | — | Testes locais/documentação aprovados; CI actualizada antes de ready/merge |
-| F6-003A2 plano, riscos e digest offline | BLOCKED | A1 integrado; ADRs 0016/0017 aprovados | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | — | Sincronizar após #30, registar aprovação e repetir testes/vetores/revisão/CI |
+| F6-002B histórico/status | MERGED | ADRs 0013/0014 aceites; role/testes confirmados | feat/f6-002b-migration-status / [#28](https://github.com/tuprel/tuprel/pull/28) | 894b408ddee6bfd98ad158c656f3909cf045d5b3 | — |
+| F6-003A1 gramática/AST/preview offline | MERGED | #28 integrado; ADR-0015 aprovado | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | fa9ebbfac408b18a5da046cd447cc9d1bfe6a6a8 | CI pós-merge por confirmar antes da integração seguinte |
+| F6-003A2 plano, riscos e digest offline | TESTING | A1 integrado; ADRs 0016/0017 aprovados | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | — | Testes/vetores/documentação aprovados; CI no HEAD final antes de ready/merge |
 | F6-003B runner transaccional | BLOCKED | #28 e A1/A2 integrados; ADRs 0015/0016/0017 aprovados | — | — | Dependências por integrar; executor fora desta tarefa |
 | F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
 | F6-004 diff/preview | TODO | Deploy seguro; contrato de comparação | — | — | Modelo de diferenças/desconhecidos |
@@ -84,7 +84,7 @@ golden independentes da plataforma, mutação de cada campo, determinismo e
 invalidação por mudanças. Digest não prova revisão humana nem drift físico.
 Não anunciar comandos ainda não implementados; não abrir ligações JDBC.
 
-A1 implementada no adapter existente: 32 testes novos aprovados (0 skips),
+Validação inicial da A1 (antes da confirmação da role): 32 testes novos aprovados (0 skips),
 suite unitária da raiz aprovada, JavaDoc Werror/Spotless aprovados e build do
 playground aprovada depois da raiz. Tarefas sem mudanças reutilizadas pelo
 Gradle. Não se executou SQL novo nem testes locais dependentes da role.
@@ -103,7 +103,7 @@ reutilizando os seus dois testes inalterados. Exemplo Java do guia compilado
 com -Xlint:all -Werror e executado offline; 148 links internos e 31 anchors
 README preservados. Sem SQL novo executado, alterações de protocolo ou comandos CLI.
 
-A2 implementada offline: 14 testes novos aprovados (0 skips), incluindo dois
+Validação inicial da A2 (antes da confirmação da role): 14 testes novos aprovados (0 skips), incluindo dois
 vetores normativos calculados também por referência PowerShell/.NET independente,
 mutação dos campos, limites de statements/preview e imutabilidade/concorrência.
 Suite unitária, JavaDoc Werror e Spotless aprovados; build do playground aprovada
@@ -112,6 +112,17 @@ Propostas [ADR-0016](https://github.com/tuprel/tuprel/blob/feat/f6-003a-plan-dig
 [ADR-0017](https://github.com/tuprel/tuprel/blob/feat/f6-003a-plan-digest/docs/adr/ADR-0017-transactional-runner-gates.md) explicitam protocolo,
 target, limitações de attestation/drift/replay e gates reais do futuro runner.
 Nenhum executor ou comando CLI fictício foi implementado.
+
+Revalidação da A2 com #30 sincronizado: **312 testes aprovados, quatro skips de
+symlinks Windows justificados**, zero falhas. Task unitária do adapter forçada
+a executar: 32 testes de gramática e 14 de planos/digests sem skips. Suite
+completa inclui os 14 testes reais de histórico, 25 PG anteriores e launcher.
+JavaDoc Werror e Spotless aprovados. Playground build/checkConnection passou
+sequencialmente, com os dois testes inalterados reutilizados. Ambos os exemplos
+Java do guia compilaram com -Xlint:all -Werror e executaram offline. Os dois
+vetores normativos foram recalculados por PowerShell/.NET e coincidiram.
+ADRs 0016/0017 registam aceitação; versões/binário/digests preservados. Nenhum
+executor, lock de deployment ou SQL de migrations foi executado ou implementado.
 
 ADRs 0015/0016/0017 aprovados explicitamente em 2026-10-31. A aprovação não
 substitui dependências, revisão de segurança nem testes/CI no HEAD sincronizado.

@@ -6,8 +6,9 @@
 validate files through the library and compute exact SHA-256 checksums. The
 read-only `migrate status` command compares those files with PostgreSQL history.
 
-An offline Java API also parses and previews the limited PostgreSQL DDL subset
-described below. It does not add a migration preview command to the CLI.
+Offline Java APIs also parse/preview the limited PostgreSQL DDL subset and
+compile contextual risk/digest plans. They do not add preview/deploy commands
+to the CLI.
 
 **Not available:** deploy, dev, diff, database bootstrap,
 deployment locks, drift detection or reset. Open PRs are not installed CLI features.
@@ -151,6 +152,63 @@ Syntax recognition is not a safety verdict, execution approval or physical
 drift check. Even an ordinary index can block writes. Review the exact subset
 and limits in [ADR-0015](../adr/ADR-0015-postgresql-ddl-subset.md) and the
 [Java API reference](../reference/java-api.md#offline-ddl-preview).
+
+## Compile an offline plan
+
+`PostgresqlMigrationPlanCompiler` combines a complete validated catalog, a
+configured target and an observed history snapshot. It analyses pending files,
+preserves migration/statement order, and binds original file checksums and
+canonical preview separately. Applied SQL is not reparsed or reexecuted.
+
+In this fragment, `environment` is a caller-supplied `Map<String, String>` with
+the three explicit TUPREL_DATABASE_* settings. `observedHistory` is a confirmed
+MigrationHistory snapshot from the read-only reader above. Neither is inferred
+from .env. The compiler itself does not connect or attest snapshot provenance:
+
+```java
+import dev.tuprel.migrate.MigrationDirectory;
+import dev.tuprel.migrate.MigrationFile;
+import dev.tuprel.migrate.postgresql.MigrationDatabaseSettings;
+import dev.tuprel.migrate.postgresql.MigrationPlan;
+import dev.tuprel.migrate.postgresql.MigrationPlanDigest;
+import dev.tuprel.migrate.postgresql.MigrationPlanTarget;
+import dev.tuprel.migrate.postgresql.PostgresqlMigrationPlanCompiler;
+import java.nio.file.Path;
+import java.util.List;
+
+MigrationPlanTarget target = MigrationDatabaseSettings.fromEnvironment(environment)
+        .planTarget("app");
+List<MigrationFile> files = MigrationDirectory.discover(Path.of("tuprel/migrations"));
+MigrationPlan plan = new PostgresqlMigrationPlanCompiler()
+        .compile(target, files, observedHistory);
+if (plan.state() == MigrationPlan.State.REVIEW_REQUIRED) {
+    String sqlPreview = plan.preview();
+    MigrationPlanDigest digest = plan.digest();
+    // Present the preview, all risks and this digest together for review.
+}
+```
+
+Plans report NO_CHANGES, REVIEW_REQUIRED or BLOCKED, never SAFE. Unknown or
+destructive SQL, empty drafts, integrity/order divergence, target mismatches,
+reserved engine objects, known plan conflicts and resource limits block the
+whole plan. `preview()` refuses a blocked plan. Known syntax still reports
+DDL locks; ordinary indexes additionally report write blocking and build cost.
+Physical drift is always unverified, including NO_CHANGES.
+
+The versioned SHA-256 digest binds the configured endpoint/schema/principal/TLS,
+history presence and every recorded field, file identities/names/checksums,
+grammar/preview/policy versions, risks and canonical preview. Passwords are
+excluded. Reordering equivalent catalog/history snapshots preserves the digest;
+changing bound bytes or context invalidates it. The digest is not a signature,
+proof of human review, live-server attestation or one-use execution token.
+
+No plan method applies SQL. A future runner must independently observe live
+state and recompile under the approved session-lock and transaction contract;
+caller-supplied snapshots are not execution authority. See
+[ADR-0016](../adr/ADR-0016-offline-migration-plan-digest.md) for the exact encoding
+and limits, and [ADR-0017](../adr/ADR-0017-transactional-runner-gates.md) for the
+accepted future execution gates. Deploy, dev, diff and physical drift remain
+unavailable.
 
 [ADR-0012](../adr/ADR-0012-offline-cli-and-migration-files.md) defines the exact
 format. The playground still uses

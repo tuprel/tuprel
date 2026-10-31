@@ -112,6 +112,13 @@ e linhas; não cria tabela nem executor. Recebe driver do consumidor, sem
 dependência de PG obrigatória no adapter; a CLI compõe runtime PG 42.7.14.
 Não depende de runtime, postgresql CRUD, schema ou codegen. Migrate não depende dele.
 
+F6-003A acrescenta gramática DDL/AST/renderer e compilador de planos/riscos/digest
+offline no mesmo adapter (ADRs 0015/0016 aceites). Reutilizam MigrationFile,
+MigrationStatus e SqlIdentifier; não abrem ficheiros/connections nem executam
+SQL. A dependência existente de sql é exportada como api porque o AST público
+usa SqlIdentifier. Sem novo módulo, ciclo ou dependência externa. O futuro
+runner obedece ao ADR-0017 aceite e continua fora destas APIs de observação.
+
 ### `tuprel-introspection-postgresql`
 
 Leitura de catálogos PostgreSQL e transformação no modelo de schema.

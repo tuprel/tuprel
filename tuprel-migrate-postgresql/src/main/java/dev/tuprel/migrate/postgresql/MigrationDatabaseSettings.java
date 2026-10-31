@@ -68,6 +68,26 @@ public final class MigrationDatabaseSettings {
      */
     public DataSource dataSource() { return new ConfiguredDataSource(); }
 
+    /**
+     * Produces a proposed offline target binding, without opening a connection.
+     * Binds the validated URL text (query removed), schema, configured username
+     * and effective TLS mode; excludes the password. Does not verify live server
+     * identity/current_user. A future runner must verify/rederive those itself.
+     * @param targetSchema explicit target schema
+     * @return redacted configured target
+     * @throws MigrationHistoryException for invalid schema or noncanonical text
+     */
+    public MigrationPlanTarget planTarget(String targetSchema) throws MigrationHistoryException {
+        try {
+            dev.tuprel.sql.SqlIdentifier schema = new dev.tuprel.sql.SqlIdentifier(targetSchema);
+            return new MigrationPlanTarget(schema, PlanEncoding.digest(output -> {
+                PlanEncoding.text(output, "TUPREL-PG-TARGET"); output.writeInt(1);
+                PlanEncoding.text(output, url); PlanEncoding.text(output, schema.name());
+                PlanEncoding.text(output, user); PlanEncoding.text(output, sslMode);
+            }));
+        } catch (IllegalArgumentException | NullPointerException exception) { throw invalid(); }
+    }
+
     /** Omits URL, username and password. */
     @Override public String toString() { return "MigrationDatabaseSettings[redacted]"; }
 

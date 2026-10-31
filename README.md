@@ -349,6 +349,8 @@ It neither derives SQL from your schema nor applies it to a database.
 PostgreSQL history using explicit environment configuration; it never initialises
 history or applies SQL. See the [status contract](docs/reference/cli.md#migration-status)
 for configuration and integrity states. Physical drift is not checked.
+For tooling, the Java library also offers limited DDL preview and contextual
+risk/digest plans, with no execution capability.
 
 <a id="learn-and-explore"></a>
 
@@ -392,7 +394,8 @@ Maven Central artifact or public installer. APIs and formats may change.
 - **Database:** PostgreSQL; the local playground is exercised with PostgreSQL 17.
 - **Platforms:** Windows/PowerShell locally and Linux/Bash in CI. macOS validation is pending.
 - **Migrations:** offline file creation/validation and read-only PostgreSQL
-  history/status. Deploy, dev, diff and physical drift detection remain unavailable.
+  history/status; offline Java APIs for limited DDL preview and risk plans.
+  Deploy, dev, diff and physical drift detection remain unavailable.
 
 Spring Boot Starter, `db pull`, Query Inspector and Studio are planned, not
 available features. Open PRs do not expand the supported surface. Read the
