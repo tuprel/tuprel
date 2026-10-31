@@ -2,7 +2,7 @@
 
 F6-001/F6-002A/F6-002B integradas pelos PRs #26/#27/#28; histórico/status é
 read-only. F6-003A1 integrada no #30, com gramática/AST/preview offline.
-F6-003A2 (plano/digest) em revisão no #31. ADRs 0012–0017 aceites;
+F6-003A2 (plano/digest) integrada no #31. ADRs 0012–0017 aceites;
 executor continua não implementado e fora da tarefa actual de integração.
 Ver [contrato do status](F6-002B_MIGRATION_STATUS.md),
 [RFC-006](../docs/rfcs/RFC-006-migration-engine-proposal.md) e
@@ -22,8 +22,9 @@ Ver [contrato do status](F6-002B_MIGRATION_STATUS.md),
 
 Create e status são subtarefas separadas: escrita offline não deve depender de
 aprovar/implementar uma connection de DB. As entregas mantêm o âmbito do pedido.
-Próxima tarefa desta integração: concluir #31 após validar CI da dependência e
-do HEAD final. Runner F6-003B fica para uma entrega própria, com os testes do contrato aceite.
+Integração #28 → #30 → #31 concluída com testes locais e CI/CodeQL main
+aprovados. Evidência e SHAs em [PHASE_6_EXECUTION](PHASE_6_EXECUTION.md).
+Runner F6-003B fica para uma entrega própria, com os testes do contrato aceite.
 
 ## Comandos alvo
 
