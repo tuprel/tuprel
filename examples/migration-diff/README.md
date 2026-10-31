@@ -30,3 +30,9 @@ is significant. This does not read schema.tuprel or inspect a live database.
 
 See the [migration guide](../../docs/guides/migrations.md#compare-logical-schemas-offline)
 and [accepted contract](../../docs/adr/ADR-0018-logical-schema-diff.md).
+
+For projection from schema.tuprel, compile SchemaProjectionExample.java using
+the same commands with tuprel-schema/build/classes/java/main added to the
+classpath, then run SchemaProjectionExample. It prints a proposal for a table
+and plain index without connecting or writing files. Unsupported attributes
+refuse the entire projection; see the [projection guide](../../docs/guides/migrations.md#project-schematuprel-for-comparison).

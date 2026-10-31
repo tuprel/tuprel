@@ -1,6 +1,6 @@
 # ADR-0019 — Projecção conservadora de schema.tuprel e contrato de diff offline
 
-Estado: **proposto**. Complementa ADR-0018; a integração aguarda aprovação.
+Estado: **aceite** por aprovação explícita do utilizador. Complementa ADR-0018.
 Não amplia a gramática SQL nem autoriza novas operações de escrita.
 
 ## Contexto e fronteiras
@@ -10,7 +10,7 @@ programador com migrations existentes é necessário mapear todos os atributos
 relevantes ou recusar a representação inteira. O frontend suporta mais do que
 a gramática DDL aceite. Nenhum atributo desconhecido pode desaparecer do diff.
 
-Propor uma dependência API directa migrate-postgresql -> schema para consumir
+Usar uma dependência API directa migrate-postgresql -> schema para consumir
 ValidatedSchema no projector PostgreSQL. É uma alteração explícita da aresta
 futura migrate -> schema prevista no ADR-0013: a projecção física depende do
 dialecto e fica no adapter, mantendo migrate puro e sem acrescentar uma
@@ -18,10 +18,12 @@ representação intermédia redundante. Schema continua independente; sem ciclo,
 driver CRUD, runtime, codegen ou dependência externa nova. Reutilizar
 SchemaCompiler; a CLI não implementa projecção nem compara modelos.
 
-API proposta: PostgresqlSchemaProjector.project(SqlIdentifier, ValidatedSchema)
+API: PostgresqlSchemaProjector.project(SqlIdentifier, ValidatedSchema)
 devolve SchemaProjection com snapshot() opcional e diagnostics() imutáveis.
 Qualquer diagnóstico torna o snapshot ausente. Cada diagnóstico expõe categoria
-e SourceSpan, sem reter source, nomes inválidos, expressões ou configuração.
+e SourcePosition de início/fim, sem reter source, nomes inválidos, expressões ou configuração.
+SourceSpan retém SourceText; posições destacadas cumprem o requisito de não conservar source.
+A dependência Gradle é api porque ValidatedSchema e SourcePosition fazem parte das assinaturas públicas.
 O projector constrói nós do AST existente e reutiliza SchemaSnapshot para os
 invariantes finais. Não cria uma segunda linguagem, parser ou modelo de tipos.
 

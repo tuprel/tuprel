@@ -111,7 +111,9 @@ CRUD para migrate. Implementa leitura de histórico via DataSource/JDBC numa
 transacção read-only repeatable-read. Valida metadados, constraints, permissões
 e linhas; o reader nunca cria tabelas ou executa migrations. Recebe driver do consumidor, sem
 dependência de PG obrigatória no adapter; a CLI compõe runtime PG 42.7.14.
-Não depende de runtime, postgresql CRUD, schema ou codegen. Migrate não depende dele.
+Não depende de runtime, postgresql CRUD ou codegen. F6-004B acrescenta api(schema),
+pois o projector público consome ValidatedSchema e devolve posições destacadas.
+ADR-0019 revê a aresta futura do ADR-0013; migrate continua java.base. Migrate não depende dele.
 
 F6-003A acrescenta gramática DDL/AST/renderer e compilador de planos/riscos/digest
 offline no mesmo adapter (ADRs 0015/0016 aceites). Reutilizam MigrationFile,

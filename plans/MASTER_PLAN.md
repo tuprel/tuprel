@@ -78,7 +78,7 @@ testes/revisão e CI dos HEADs actuais, com CI/CodeQL main aprovados após cada 
 O executor do subconjunto aceite está implementado. F6-004A integrada no #44:
 comparação lógica offline do AST existente, sem escrita, conforme
 [ADR-0018 aceite](../docs/adr/ADR-0018-logical-schema-diff.md).
-[ADR-0019 proposto](../docs/adr/ADR-0019-schema-projection-and-offline-diff.md)
+[ADR-0019 aceite](../docs/adr/ADR-0019-schema-projection-and-offline-diff.md)
 define a projecção de schema.tuprel e a futura CLI diff. Catálogo/drift/dev seguem
 em fatias posteriores com contratos próprios; não são funcionalidades disponíveis.
 

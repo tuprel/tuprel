@@ -68,7 +68,7 @@ não substituem nova consulta antes de cada integração.
 | F6-003B4 sequência/falhas/reconciliação | MERGED | B3 integrada e main validada | feat/f6-003b-sequence-recovery / [#41](https://github.com/tuprel/tuprel/pull/41) | 2abf673b6f269f7984f91aca854e52be2120c231 | — |
 | F6-003C CLI deploy | MERGED | B4 integrada e main validada | feat/f6-003c-migrate-deploy / [#42](https://github.com/tuprel/tuprel/pull/42) | afd606859c026d88c0e6d2ad094e6d86f48fa396 | — |
 | F6-004A estados lógicos/diff Java | MERGED | ADRs 0015–0018 aceites | feat/f6-004a-schema-diff / [#44](https://github.com/tuprel/tuprel/pull/44) | 5e2bd1909dd695755e40e83ad522bfa289e20962 | — |
-| F6-004B projecção de schema.tuprel | BLOCKED | 004A; ADR-0019 proposto | feat/f6-004b-schema-projection / [#45](https://github.com/tuprel/tuprel/pull/45) (draft) | — | Aprovação de mapping/dependência/names antes de implementar |
+| F6-004B projecção de schema.tuprel | TESTING | 004A; ADR-0019 aceite | feat/f6-004b-schema-projection / [#45](https://github.com/tuprel/tuprel/pull/45) (draft) | — | Testes/revisão/checks do HEAD final |
 | F6-004C CLI diff | TODO | 004B; fontes/opções/exit codes definidos | — | — | CLI apenas com comportamento completo e launchers testados |
 | F6-005A contrato/leitura de catálogo | TODO | 004 consolidada; ADR de catálogo | — | — | Snapshot read-only, completude, permissões e desconhecidos |
 | F6-005B comparação de drift | TODO | 005A | — | — | Distinguir drift confirmado de observação desconhecida |
@@ -136,7 +136,7 @@ igual ao HEAD revisto. CI/CodeQL pós-merge confirmados antes de iniciar 004B.
 
 ### F6-004B — Projecção completa ou recusada
 
-ADR-0019 proposto define mapping dos oito scalars para os tipos já admitidos,
+ADR-0019 aceite define mapping dos oito scalars para os tipos já admitidos,
 NOT NULL/PK, indexes simples com nomes legíveis limitados e recusas integrais
 de defaults/relações/unique/enums/listas/tipos desconhecidos. Reutiliza o modelo
 validado do compiler, AST e snapshots existentes, sem parser ou tipo paralelo.
@@ -144,11 +144,9 @@ API e contrato posterior de CLI diff são concretos; não anunciam comando novo.
 
 A aresta proposta migrate-postgresql -> schema altera explicitamente a aresta
 futura migrate -> schema do ADR-0013. Justificação: mapping físico pertence ao
-dialecto, sem contaminar o núcleo ou criar um DTO intermédio redundante. Não
-acrescentar a dependência nem implementar a API antes da decisão do utilizador.
+dialecto, sem contaminar o núcleo ou criar um DTO intermédio redundante. Decisão aprovada explicitamente; dependência/API implementadas nesta entrega.
 O commit inicial desta branch é apenas documentação; nenhum teste de projector
-ou CLI diff é apresentado como executado. Depois da aprovação, implementar
-projector/testes neste mesmo PR; manter CLI em 004C separada.
+ou CLI diff é apresentado como executado. Projector/testes implementados neste mesmo PR; manter CLI em 004C separada.
 
 Aceitação prevista: mapping completo ou snapshot ausente; diagnósticos seguros
 por localização; nomes exactos/63 bytes e colisões; ordem de chaves do index;
@@ -560,3 +558,17 @@ Não integrar uma dependência bloqueada só para desbloquear o PR seguinte.
 Actualizar este plano após cada entrega com evidências reais. Uma pendência
 administrativa não bloqueia trabalho offline independente; decisões novas de
 execução continuam a exigir aprovação. Não publicar releases nem operar produção.
+
+### Validação da F6-004B
+
+Projector integral/recusado implementado com diagnósticos SourcePosition
+destacados: SourceSpan retém source. api(schema) corresponde à exposição real.
+Oito testes unitários novos e dois PostgreSQL reais passaram, incluindo golden,
+round-trip, colisões, limites e 64 projecções concorrentes. Build raiz aprovada:
+401 testes nos relatórios, 397 aprovados, quatro skips Windows de symlinks,
+zero falhas/erros. Integração PostgreSQL reexecutada, restantes tasks inalteradas
+reutilizadas quando up-to-date. Playground build/checkConnection passou depois
+da raiz; sem run/bootstrap. Exemplo compilado com Java 21/Werror e executado
+offline; 150 links internos e 31 anchors preservados. JavaDoc/limite de nome na
+primeira compilação corrigidos sem enfraquecer gates. Checks remotos no HEAD
+do PR permanecem obrigatórios. Sem escrita fora das fixtures.
