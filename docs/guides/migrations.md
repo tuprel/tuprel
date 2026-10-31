@@ -6,6 +6,9 @@
 validate files through the library and compute exact SHA-256 checksums. The
 read-only `migrate status` command compares those files with PostgreSQL history.
 
+An offline Java API also parses and previews the limited PostgreSQL DDL subset
+described below. It does not add a migration preview command to the CLI.
+
 **Not available:** deploy, dev, diff, database bootstrap,
 deployment locks, drift detection or reset. Open PRs are not installed CLI features.
 
@@ -101,6 +104,53 @@ schema, table, draft or history row, applies SQL, takes a deployment lock, or
 repairs discrepancies. Avoid concurrent local catalog edits while inspecting
 status; the filesystem and database are not one atomic snapshot. Coordinate
 administrative DDL separately. See [Troubleshooting](../help/troubleshooting.md#migration-status).
+
+## Preview the supported DDL subset in Java
+
+The `tuprel-migrate-postgresql` library includes `PostgresqlDdlParser`, an offline
+parser for a deliberately small whole-script grammar. It accepts qualified,
+quoted identifiers and these operations:
+
+- CREATE TABLE with built-in types and optional inline primary key / NOT NULL.
+- ALTER TABLE ADD COLUMN with a nullable built-in type and no default.
+- Ordinary CREATE INDEX on a nonempty list of plain columns.
+
+Supported types are UUID, BOOLEAN, SMALLINT, INTEGER, BIGINT, TEXT, DATE and
+TIMESTAMPTZ (also TIMESTAMP WITH TIME ZONE). The parser reuses format-v1
+MigrationFile snapshots and the portable ASCII identifier contract. Defaults,
+foreign keys, expressions, DML, explicit transaction control, concurrent indexes
+and other SQL are rejected. It is not a general PostgreSQL parser.
+
+```java
+import dev.tuprel.migrate.MigrationDirectory;
+import dev.tuprel.migrate.MigrationFile;
+import dev.tuprel.migrate.postgresql.ddl.DdlParseResult;
+import dev.tuprel.migrate.postgresql.ddl.PostgresqlDdlParser;
+import java.nio.file.Path;
+import java.util.List;
+
+List<MigrationFile> files = MigrationDirectory.discover(Path.of("tuprel/migrations"));
+DdlParseResult result = new PostgresqlDdlParser().parse(files.getFirst());
+if (result.isSupported()) {
+    String sqlPreview = result.preview();
+    // Present this text for review; nothing is executed.
+} else {
+    DdlParseResult.Diagnostic diagnostic = result.diagnostic().orElseThrow();
+    // Report the category and location; the diagnostic contains no source SQL.
+}
+```
+
+This fragment requires a nonempty validated catalog; a comment-only create
+draft produces EMPTY_SCRIPT. A failed script returns no partial AST or SQL
+preview. Preview normalises supported syntax to LF and explicitly qualified
+pg_catalog types; it never rewrites the original migration bytes or checksum.
+Parsing consumes the complete input, including comments and terminators, with
+bounded statements, tokens and comment nesting.
+
+Syntax recognition is not a safety verdict, execution approval or physical
+drift check. Even an ordinary index can block writes. Review the exact subset
+and limits in [ADR-0015](../adr/ADR-0015-postgresql-ddl-subset.md) and the
+[Java API reference](../reference/java-api.md#offline-ddl-preview).
 
 [ADR-0012](../adr/ADR-0012-offline-cli-and-migration-files.md) defines the exact
 format. The playground still uses

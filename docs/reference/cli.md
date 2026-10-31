@@ -96,5 +96,6 @@ snapshot exits 2 and reports `DRIFT_NOT_CHECKED`; no partial result is confirmed
 
 See [Troubleshooting](../help/troubleshooting.md) and
 [Migrations](../guides/migrations.md). Future migration commands are not presented
-as usable commands. The internal [CLI contract](../product/CLI_EXPERIENCE.md)
+as usable commands. Limited DDL parsing/preview is an offline Java library API,
+not an additional CLI command. The internal [CLI contract](../product/CLI_EXPERIENCE.md)
 also documents design decisions and the separate roadmap.

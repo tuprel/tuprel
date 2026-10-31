@@ -1,7 +1,8 @@
 # ADR-0015 — Gramática DDL offline e preview determinístico
 
-Estado: **proposta para aprovação específica**. Implementação offline autorizada
-pelo plano contínuo; não aprova contrato nem autoriza executor. F6-003A1.
+Estado: **aceite** em 2026-10-31 por aprovação explícita do utilizador.
+Contrato de gramática/AST/preview da F6-003A1. Não implementa nem disponibiliza
+executor; a tarefa actual limita-se à integração das entregas offline.
 
 ## Contexto, problema e restrições
 
@@ -17,7 +18,7 @@ O adapter exporta a dependência de SqlIdentifier porque o AST público a utiliz
 O PR é empilhado sobre #28 para evitar duplicar o seu módulo/modelos; só poderá
 integrar depois da dependência e da aprovação específica deste contrato.
 
-## Decisão proposta
+## Decisão
 
 Gramática fechada, aplicada à totalidade do MigrationFile v1 (UTF-8/LF e limites
 de bytes já validados). Keywords ASCII case-insensitive; nomes **sempre entre
@@ -70,7 +71,9 @@ o preview canónico aprovado, não reabrir/executar o source raw com outra
 resolução de tipos. Isso aplica o artefacto analisado; não gera DDL de schema.
 Gramática `postgresql-ddl-v1-proposal` e renderer `postgresql-ddl-preview-v1-proposal`
 devem ser vinculados pelo digest da A2. A semântica e a escolha de execução
-continuam sujeitas à aprovação específica antes de existir runner.
+seguem o ADR-0017 aprovado antes de existir runner. Os identificadores de versão
+com sufixo `-proposal` são preservados como bytes normativos deste contrato;
+a aceitação não muda a gramática, renderer ou futuros digests.
 
 ## Opções, consequências e riscos
 
@@ -91,7 +94,7 @@ continuam sujeitas à aprovação específica antes de existir runner.
 
 Não modifica v1/bytes/checksums, comandos existentes ou histórico. Nenhum comando
 novo exposto na CLI. Sem mudanças de Java/dependências/boundaries. Classes novas
-são propostas até aprovação; não existe método de execução.
+são APIs de preview do subconjunto aceite; não existe método de execução.
 
 Testes golden e round-trip de AST/preview, todos os tipos, comentários aninhados,
 input adversarial/trailing SQL, nomes inválidos, duplicações, PKs, limites e

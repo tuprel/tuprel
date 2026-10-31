@@ -59,7 +59,7 @@ A relação N:N implícita espera pelas migrations.
 
 Execução contínua, dependências e gates em [PHASE_6_EXECUTION](PHASE_6_EXECUTION.md).
 
-**F6-001/F6-002A integradas; F6-002B em revisão.** Fundação CLI,
+**F6-001/F6-002A/F6-002B integradas.** Fundação CLI,
 ficheiros puros e criação offline de drafts, conforme RFC-006 e ADR-0012.
 Ver [contrato F6-002A](F6-002A_MIGRATION_CREATE.md) e
 [status F6-002B](F6-002B_MIGRATION_STATUS.md). ADRs 0012/0013/0014 aceites;

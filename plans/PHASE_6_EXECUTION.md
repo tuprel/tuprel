@@ -15,9 +15,9 @@ testes locais de permissões passaram depois dessa confirmação (2 testes,
 obrigatórios na CI Linux. Integrações seguem #28 → #30 → #31, com nova CI no
 HEAD de cada PR e da main. Não implementar executor nesta tarefa de integração.
 
-Main observada em `141f1914e1366bf3d7d16c2941b5b122e14aa2e0` após #36
-(política de documentação e transcrição do GIF aprovado); CI pós-merge em
-verificação. #35 e o roadmap #34 foram integrados pelo proprietário durante
+Main observada em `894b408ddee6bfd98ad158c656f3909cf045d5b3` após #28;
+CI pós-merge em verificação. CI/CodeQL pós-#36 passaram sem resultados CodeQL.
+#35 e o roadmap #34 foram integrados pelo proprietário durante
 a preparação. A apresentação, exemplos, navegação e política são preservados.
 
 Estados: TODO, IN_PROGRESS, BLOCKED, TESTING, MERGED. TESTING inclui revisão e
@@ -30,8 +30,8 @@ não substituem nova consulta antes de cada integração.
 |---|---|---|---|---|---|
 | F6-001 CLI e formato v1 | MERGED | ADR-0012 aceite | feat/f6-001-cli-migration-foundation / #26 | bf057d50c086811ae0602d46aa8db6d8d1026868 | — |
 | F6-002A create offline | MERGED | F6-001 | feat/f6-002a-migration-create / #27 | 9a6b4f872bc020634d9b8dee4ad6f56c2b5db938 | — |
-| F6-002B histórico/status | TESTING | ADRs 0013/0014 aceites; role confirmada | feat/f6-002b-migration-status / [#28](https://github.com/tuprel/tuprel/pull/28) | — | Documentação pública, revisão final e CI actualizadas antes de ready/merge |
-| F6-003A1 gramática/AST/preview offline | BLOCKED | #28 integrado; ADR-0015 aprovado | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | — | Sincronizar após #28, registar aprovação e repetir testes/revisão/CI |
+| F6-002B histórico/status | MERGED | ADRs 0013/0014 aceites; role/testes confirmados | feat/f6-002b-migration-status / [#28](https://github.com/tuprel/tuprel/pull/28) | 894b408ddee6bfd98ad158c656f3909cf045d5b3 | CI pós-merge por confirmar antes da integração seguinte |
+| F6-003A1 gramática/AST/preview offline | TESTING | #28 integrado; ADR-0015 aprovado | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | — | Sincronização e aprovação registadas; repetir testes/revisão/CI |
 | F6-003A2 plano, riscos e digest offline | BLOCKED | A1 integrado; ADRs 0016/0017 aprovados | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | — | Sincronizar após #30, registar aprovação e repetir testes/vetores/revisão/CI |
 | F6-003B runner transaccional | BLOCKED | #28 e A1/A2 integrados; ADRs 0015/0016/0017 aprovados | — | — | Dependências por integrar; executor fora desta tarefa |
 | F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
@@ -88,7 +88,7 @@ A1 implementada no adapter existente: 32 testes novos aprovados (0 skips),
 suite unitária da raiz aprovada, JavaDoc Werror/Spotless aprovados e build do
 playground aprovada depois da raiz. Tarefas sem mudanças reutilizadas pelo
 Gradle. Não se executou SQL novo nem testes locais dependentes da role.
-Contrato proposto em [ADR-0015](https://github.com/tuprel/tuprel/blob/feat/f6-003a-sql-grammar/docs/adr/ADR-0015-postgresql-ddl-subset.md):
+Contrato aceite em [ADR-0015](../docs/adr/ADR-0015-postgresql-ddl-subset.md):
 nomes quoted, built-ins qualificados, três operações e parser whole-input.
 Preview não significa aprovação de execução. ADR-0015 aprovado explicitamente
 em 2026-10-31; integração depende de #28, sincronização e nova validação.
