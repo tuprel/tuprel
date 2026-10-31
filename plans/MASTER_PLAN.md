@@ -65,7 +65,9 @@ Ver [contrato F6-002A](F6-002A_MIGRATION_CREATE.md) e
 [status F6-002B](F6-002B_MIGRATION_STATUS.md). ADRs 0012/0013/0014 aceites;
 histórico/status read-only disponíveis. F6-003A1 integrada no #30: gramática,
 AST e preview DDL offline. F6-003A2 integrada no #31: planos/riscos/digests
-offline. Executor, locking, diff/drift e dev/deploy continuam planeados. Reset fora do MVP.
+offline. F6-003B1–B4 e F6-003C integradas nos PRs #38–#42: runner transaccional,
+locks, outcomes incertos e CLI deploy com aprovação contextual. Diff/drift/dev
+continuam incrementais; reset fica fora do MVP.
 
 A aprovação arquitectural dos ADRs 0013/0014 está registada no trabalho do
 [PR #28](https://github.com/tuprel/tuprel/pull/28), mas não autoriza o executor.
@@ -73,7 +75,10 @@ Histórico/status integrado no #28 após os testes locais de permissões e build
 completa. Resultados/CI e estado corrente seguem PHASE_6_EXECUTION.
 ADRs 0015/0016/0017 aprovados em 2026-10-31; #28/#30/#31 integrados após
 testes/revisão e CI dos HEADs actuais, com CI/CodeQL main aprovados após cada merge.
-O executor não foi iniciado nesta tarefa; F6-003B continua uma entrega futura.
+O executor do subconjunto aceite está implementado. F6-004A propõe comparação
+lógica offline do AST existente, sem escrita, conforme
+[ADR-0018](../docs/adr/ADR-0018-logical-schema-diff.md). Projecção de schema.tuprel,
+CLI diff e catálogo/drift/dev seguem em fatias posteriores com contratos próprios.
 
 **Objectivo planeado — TUPREL Safe Migration Engine MVP (P0):** artefactos
 existentes e revistos, plano/preview determinístico, integridade, riscos,

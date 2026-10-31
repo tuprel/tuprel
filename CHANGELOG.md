@@ -20,6 +20,11 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Comparação lógica offline de estados completamente conhecidos do AST DDL:
+  tabelas, colunas, tipos e índices, com riscos explícitos e preview integral
+  apenas para adições na gramática aceite. Remoções/alterações bloqueiam o SQL;
+  sem inferir renames, ler catálogo, ligar à base ou publicar comandos diff/dev.
+
 - `migrate deploy --target-schema`: preview read-only com `--dry-run` e aplicação
   de migrations existentes com `--approve-digest`. Aprovação revalidada sob lock;
   diagnósticos sem SQL/driver cru, prefixos confirmados e OUTCOME_UNKNOWN visíveis.
