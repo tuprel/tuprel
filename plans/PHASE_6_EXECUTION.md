@@ -7,9 +7,9 @@ ainda pendentes. Java 21, PostgreSQL primeiro, CONTRIBUTING.md obrigatório.
 
 ## Estado observado
 
-Verificado em 2026-10-31: main em `9a6b4f872bc020634d9b8dee4ad6f56c2b5db938`,
+Verificado em 2026-10-31: main em `618756da423099ad77878a5891c863dc52a6311e`,
 CI/CodeQL aprovados. PR #28 aberto em draft, HEAD
-`1cb315c9ef6b36ba83bcf106c006efe45a14fcf3`, quatro checks remotos aprovados.
+`9448e0dd36cc77021d541747f1b747618abc0735`, quatro checks remotos aprovados.
 Isso não aprova as duas validações locais de permissões ainda pendentes.
 
 Estados: TODO, IN_PROGRESS, BLOCKED, TESTING, MERGED. TESTING inclui revisão e
