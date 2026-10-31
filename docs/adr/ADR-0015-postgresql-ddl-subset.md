@@ -12,6 +12,8 @@ como se compreendesse SQL. Reutilizam-se SqlIdentifier e MigrationFile.
 
 Java 21, sem dependências externas novas, sem ficheiros/connections/SQL em DB.
 Código PostgreSQL permanece no adapter existente do #28, não no domínio puro.
+O adapter exporta a dependência de SqlIdentifier porque o AST público a utiliza;
+é uma mudança de scope da aresta existente, sem módulo/dependência externa nova.
 O PR é empilhado sobre #28 para evitar duplicar o seu módulo/modelos; só poderá
 integrar depois da dependência e da aprovação específica deste contrato.
 

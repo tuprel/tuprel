@@ -6,7 +6,7 @@ plugins {
 
 dependencies {
     api(project(":tuprel-migrate"))
-    implementation(project(":tuprel-sql"))
+    api(project(":tuprel-sql"))
     integrationTestImplementation("org.postgresql:postgresql:42.7.14")
     integrationTestImplementation("org.testcontainers:testcontainers-postgresql:2.0.5")
 }
