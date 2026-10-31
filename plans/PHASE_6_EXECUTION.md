@@ -155,7 +155,10 @@ no servidor, sem retry; falha de cleanup preserva evidência confirmada.
 Event trigger é observado por fault injection sobre
 uma ligação real, sem criar objectos globais administrativos. Localmente a role
 preexistente só detém um schema temporário; grants limitam-se a esse schema.
-Na CI a role sem login existe apenas na base/container descartável da fixture.
+Na CI uma role LOGIN restrita, com password aleatória só em memória, existe
+apenas na base/container descartável da fixture. Usa uma autenticação real;
+não simula um login com SET SESSION AUTHORIZATION. O teste confirma que a
+ligação corresponde ao contexto esperado e que CREATE está ausente.
 
 Primeiros treze testes passaram e a build raiz inicial passou no checkout isolado, com
 o caminho da fixture local explicitamente fornecido por init script ignorado,
@@ -166,7 +169,11 @@ na raiz passou: 344 testes aprovados, quatro skips Windows justificados;
 em seguida (dois testes inalterados reutilizados), sem bootstrap. JavaDoc Werror,
 dependências estritas, 121 links internos e 31 anchors passaram; os dois exemplos
 Java do guia compilaram/executaram offline. Revisão técnica/segurança e checks
-do HEAD continuam obrigatórios. B4 cobrirá sequências, matriz de perdas de ack, concorrência,
+do HEAD continuam obrigatórios. A primeira CI Linux do #40 falhou na fixture
+de permissões que simulava a sessão de outra role; corrigida para autenticação
+real com role restrita exclusivamente no container. Nenhum gate do runner,
+assert de permissão, teste ou configuração local foi enfraquecido/retirado.
+B4 cobrirá sequências, matriz de perdas de ack, concorrência,
 timeouts e reconciliação numa sessão nova antes de qualquer API/CLI de deploy.
 
 ### F6-002B

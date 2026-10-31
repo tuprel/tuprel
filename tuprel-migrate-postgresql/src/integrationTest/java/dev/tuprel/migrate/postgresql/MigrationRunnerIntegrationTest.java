@@ -44,9 +44,6 @@ class MigrationRunnerIntegrationTest {
         settings = MigrationDatabaseSettings.fromEnvironment(Map.of("TUPREL_DATABASE_URL",
                 "jdbc:postgresql://" + source.getServerNames()[0] + ":" + source.getPortNumbers()[0] + "/" + source.getDatabaseName(),
                 "TUPREL_DATABASE_USER", source.getUser(), "TUPREL_DATABASE_PASSWORD", source.getPassword()));
-        if (System.getProperty("tuprel.test.database", "local").equals("container")) {
-            execute("CREATE ROLE tuprel_status_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS");
-        }
     }
     @AfterAll static void close() throws Exception { if (database != null) { database.close(); } }
     @BeforeEach void fixture() throws Exception {
@@ -220,11 +217,20 @@ class MigrationRunnerIntegrationTest {
         boolean container = System.getProperty("tuprel.test.database", "local").equals("container");
         String original = schema;
         String restricted = new dev.tuprel.sql.SqlIdentifier(schema + "_ro").name();
-        String principal = new dev.tuprel.sql.SqlIdentifier(container ? "tuprel_status_reader" : source.getUser()).name();
+        String principal = new dev.tuprel.sql.SqlIdentifier(container ? "tuprel_runner_restricted" : source.getUser()).name();
         boolean created = false;
+        boolean roleCreated = false;
         try (Connection setup = source.getConnection(); Statement statement = setup.createStatement()) {
             statement.setQueryTimeout(20);
             try {
+                // Only the disposable CI database creates a login; local mode uses the existing user/NOLOGIN owner.
+                String password = container ? java.util.UUID.randomUUID().toString() : source.getPassword();
+                if (container) {
+                    // Generated UUID is trusted fixture data, never user input, persisted or logged.
+                    statement.execute("CREATE ROLE tuprel_runner_restricted LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD '"
+                            + password + "'");
+                    roleCreated = true;
+                }
                 statement.execute("CREATE SCHEMA \"" + restricted + "\"" + (container ? "" : " AUTHORIZATION tuprel_status_reader"));
                 created = true;
                 if (!container) { statement.execute("SET ROLE tuprel_status_reader"); }
@@ -233,15 +239,11 @@ class MigrationRunnerIntegrationTest {
                 schema = restricted;
                 MigrationDatabaseSettings restrictedSettings = MigrationDatabaseSettings.fromEnvironment(Map.of("TUPREL_DATABASE_URL",
                         "jdbc:postgresql://" + source.getServerNames()[0] + ":" + source.getPortNumbers()[0] + "/" + source.getDatabaseName(),
-                        "TUPREL_DATABASE_USER", principal, "TUPREL_DATABASE_PASSWORD", source.getPassword()));
-                DataSource restrictedSource = wrapped(connection -> {
-                    if (container) {
-                        try (Statement context = connection.createStatement()) { context.execute("SET SESSION AUTHORIZATION tuprel_status_reader"); }
-                    }
-                    return connection;
-                }, new AtomicInteger());
+                        "TUPREL_DATABASE_USER", principal, "TUPREL_DATABASE_PASSWORD", password));
+                DataSource restrictedSource = restrictedSettings.dataSource();
                 try (Connection connection = restrictedSource.getConnection(); PreparedStatement query = connection.prepareStatement(
                         "SELECT pg_catalog.has_schema_privilege(?, 'CREATE')")) {
+                    assertTrue(restrictedSettings.matches(connection, new dev.tuprel.sql.SqlIdentifier(restricted)));
                     query.setString(1, restricted);
                     try (ResultSet rows = query.executeQuery()) { assertTrue(rows.next()); assertFalse(rows.getBoolean(1)); }
                 }
@@ -249,8 +251,8 @@ class MigrationRunnerIntegrationTest {
                 MigrationPlan plan = new PostgresqlMigrationPlanCompiler().compile(restrictedSettings.planTarget(schema),
                         MigrationDirectory.discover(directory), history());
                 MigrationRunResult result = MigrationRunner.applyOne(restrictedSource, restrictedSettings, schema, directory, plan.digest());
-                assertEquals(MigrationRunResult.Outcome.FAILED, result.outcome());
-                assertEquals(MigrationRunResult.Failure.PERMISSION, result.failure());
+                assertEquals(MigrationRunResult.Outcome.FAILED, result.outcome(), result::toString);
+                assertEquals(MigrationRunResult.Failure.PERMISSION, result.failure(), result::toString);
                 assertTrue(result.confirmed().isEmpty()); assertFalse(exists("items")); assertFalse(history().initialised());
             } finally {
                 schema = original;
@@ -259,6 +261,7 @@ class MigrationRunnerIntegrationTest {
                     statement.execute("DROP SCHEMA \"" + restricted + "\" CASCADE");
                     statement.execute("RESET ROLE");
                 }
+                if (roleCreated) { statement.execute("DROP ROLE tuprel_runner_restricted"); }
             }
         }
     }
