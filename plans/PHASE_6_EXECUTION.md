@@ -42,7 +42,7 @@ não substituem nova consulta antes de cada integração.
 | F6-003A1 gramática/AST/preview offline | MERGED | #28 integrado; ADR-0015 aprovado | feat/f6-003a-sql-grammar / [#30](https://github.com/tuprel/tuprel/pull/30) | fa9ebbfac408b18a5da046cd447cc9d1bfe6a6a8 | — |
 | F6-003A2 plano, riscos e digest offline | MERGED | A1 integrado; ADRs 0016/0017 aprovados | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | 1f36f2c55883711389b030dd87dd06fb95f36fab | — |
 | F6-003B1 definição/bootstrap | MERGED | ADRs 0014–0017; #28/#30/#31 integrados | feat/f6-003b-history-bootstrap / [#38](https://github.com/tuprel/tuprel/pull/38) | 3457c1ad519a6f4c7de2ec712145bad72c6c9fd7 | — |
-| F6-003B2 sessão/locks/lifecycle | TESTING | B1 integrada e main validada | feat/f6-003b-session-locks | — | Revisão, build completa e checks do HEAD |
+| F6-003B2 sessão/locks/lifecycle | TESTING | B1 integrada e main validada | feat/f6-003b-session-locks / [#39](https://github.com/tuprel/tuprel/pull/39) | — | Build local aprovada; revisão e checks do HEAD |
 | F6-003B3 uma migration atómica | TODO | B2 integrada; aprovação revalidada sob lock | — | — | Gates de catálogo/DDL e histórico na mesma transacção |
 | F6-003B4 sequência/falhas/reconciliação | TODO | B3 integrada | — | — | Prefixo confirmado, OUTCOME_UNKNOWN e recuperação sem retries |
 | F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
