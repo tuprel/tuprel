@@ -147,10 +147,10 @@ TLS/configuração e ACLs operacionais continuam necessários. Aprovação antig
 nunca pode ser reutilizada após sucesso parcial, mudança de artefacto/estado,
 troca de target/principal/TLS ou mudança de gramática/renderer/policy.
 
-Semântica de confirmação e precondições reais do executor propostas separadamente
+Semântica de confirmação e precondições reais do executor aceites separadamente
 no [ADR-0017](ADR-0017-transactional-runner-gates.md). Aprovar este formato offline
 não implementa nem executa DDL. Não usar simples aprovação CI para ultrapassar
-estes gates ou os testes locais de role pendentes no #28.
+estes gates. Os testes locais de role do #28 foram concluídos antes da sua integração.
 
 Testes de golden, mutação de cada campo do histórico/target, bytes e nomes,
 ordenação, imutabilidade, concorrência da facade, conflitos, unknown/destructive,
