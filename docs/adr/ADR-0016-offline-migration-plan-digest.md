@@ -52,7 +52,7 @@ Estados: NO_CHANGES, REVIEW_REQUIRED ou BLOCKED. Nunca SAFE. Riscos independente
 | INDEX_WRITE_BLOCKING, INDEX_BUILD_COST | Revisão de impacto de index normal |
 | UNKNOWN_SQL, DESTRUCTIVE_SQL, EMPTY_DRAFT | Bloqueiam todo o plano |
 | HISTORY_DIVERGENCE | Bloqueia por alterações/remoções/renames/gaps/ordem |
-| TARGET_MISMATCH, TARGET_UNSUPPORTED | Bloqueiam schema diferente ou sistema pg_*/information_schema |
+| TARGET_MISMATCH, TARGET_UNSUPPORTED | Bloqueiam schema diferente, sistema pg_*/information_schema ou relação/index _tuprel_* reservado |
 | PLAN_CONFLICT | Bloqueia contradições conhecidas na sequência de objetos/colunas |
 | RESOURCE_LIMIT | Bloqueia por limites de ficheiro/programa/plano |
 
@@ -61,6 +61,10 @@ tabelas criadas no próprio plano. Uma relação exigida como existente antes de
 um CREATE TABLE posterior é uma contradição. Não assumir que uma tabela externa
 tem apenas as colunas acabadas de adicionar. Existência/tipos/partições etc.
 de relações externas continuam desconhecidos; não há catálogo físico simulado.
+Basenames de relações e índices `_tuprel_*` são reservados, case-insensitive:
+artefactos do utilizador não podem criar/alterar/indexar o próprio histórico
+nem colidir com os seus índices. O bootstrap interno é um caminho confiável
+separado, não uma escape hatch de SQL raw para migrations do utilizador.
 
 Limites adicionais: 4096 statements e 16 MiB de preview no plano completo.
 Resultado imutável; scripts contêm apenas metadados/riscos/diagnóstico/checksums.

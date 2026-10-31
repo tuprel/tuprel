@@ -27,7 +27,7 @@ public final class MigrationPlan {
         /** Comment-only draft. */ EMPTY_DRAFT,
         /** Local and applied history do not form an unchanged ordered prefix. */ HISTORY_DIVERGENCE,
         /** SQL references a schema other than the explicit target. */ TARGET_MISMATCH,
-        /** Reserved system target is outside this proposal. */ TARGET_UNSUPPORTED,
+        /** Reserved schema or engine metadata object is outside this proposal. */ TARGET_UNSUPPORTED,
         /** A known object/reference conflicts within the pending plan. */ PLAN_CONFLICT,
         /** Whole-plan budget exceeded. */ RESOURCE_LIMIT
     }

@@ -104,6 +104,10 @@ public final class PostgresqlMigrationPlanCompiler {
                     for (DdlStatement statement : result.statements()) {
                         scriptRisks.add(Risk.DDL_LOCKS);
                         if (!statement.table().schema().equals(target.schema())) { scriptRisks.add(Risk.TARGET_MISMATCH); }
+                        if (reserved(statement.table().name())
+                                || (statement instanceof DdlStatement.CreateIndex index && reserved(index.name()))) {
+                            scriptRisks.add(Risk.TARGET_UNSUPPORTED);
+                        }
                         switch (statement) {
                             case DdlStatement.CreateTable create -> {
                                 if (!relations.add(create.table())) { scriptRisks.add(Risk.PLAN_CONFLICT); }
@@ -149,6 +153,10 @@ public final class PostgresqlMigrationPlanCompiler {
             case PHYSICAL_DRIFT_NOT_CHECKED, DDL_LOCKS, INDEX_WRITE_BLOCKING, INDEX_BUILD_COST -> false;
             default -> true;
         };
+    }
+
+    private static boolean reserved(SqlIdentifier name) {
+        return name.name().toLowerCase(java.util.Locale.ROOT).startsWith("_tuprel_");
     }
 
     private static MigrationPlanDigest digest(MigrationPlanTarget target, List<MigrationFile> files, MigrationHistory history,

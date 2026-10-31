@@ -111,6 +111,16 @@ class PostgresqlMigrationPlanCompilerTest {
         assertTrue(mismatch.risks().contains(Risk.TARGET_MISMATCH)); assertEquals(MigrationPlan.State.BLOCKED, mismatch.state());
         MigrationPlan system = compiler.compile(settings("jdbc:postgresql://localhost:5432/demo", "reviewer", "p").planTarget("pg_catalog"), List.of(), EMPTY);
         assertTrue(system.risks().contains(Risk.TARGET_UNSUPPORTED)); assertEquals(MigrationPlan.State.BLOCKED, system.state());
+        for (String sql : List.of(
+                "ALTER TABLE \"app\".\"_tuprel_migrations\" ADD COLUMN \"bad\" TEXT;",
+                "CREATE TABLE \"app\".\"_tuprel_migrations\" (\"bad\" TEXT);",
+                "CREATE INDEX \"_tuprel_migrations_pkey\" ON \"app\".\"Thing\" (\"id\");",
+                "CREATE TABLE \"app\".\"_TUPREL_any\" (\"bad\" TEXT);")) {
+            MigrationPlan metadata = compile(List.of(file(1, "metadata", sql)), EMPTY);
+            assertEquals(MigrationPlan.State.BLOCKED, metadata.state());
+            assertTrue(metadata.risks().contains(Risk.TARGET_UNSUPPORTED));
+            assertThrows(IllegalStateException.class, metadata::preview);
+        }
     }
 
     @Test void knownCrossStatementConflictsAreRejectedWithoutInventingCatalogState() throws Exception {

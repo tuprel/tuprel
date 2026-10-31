@@ -18,6 +18,9 @@ completo permaneça na F6-005. Preservar dados, Java 21 e schemas isolados locai
    Verificar database/user/schema reais contra a configuração aprovada. Target
    fingerprint inclui URL validado, schema, principal e TLS; password excluída.
    Nunca usar target/snapshot fornecido pelo chamador como prova do estado vivo.
+   Recusar sessão que já detenha advisory locks; a aquisição é reentrante e
+   não se pode assumir que um try-lock bem-sucedido criou o único hold. Não
+   usar unlock-all para limpar locks alheios. Preferir connection física nova.
 2. Advisory lock **de sessão** do ADR-0014 antes de observar/criar histórico.
    Concretizar chave: primeiros 8 bytes de SHA-256, interpretados int64 big-endian,
    de S("TUPREL-PG-MIGRATION-LOCK"), I32(1), S(schema), com encoding ADR-0016.
@@ -33,6 +36,8 @@ completo permaneça na F6-005. Preservar dados, Java 21 e schemas isolados locai
    snapshot consistente e compilar novamente todo o plano. Comparar o digest
    explicitamente aprovado com o novo. BLOCKED, NO_CHANGES e divergência nunca
    desencadeiam DDL. Não existe --yes que aprove unknown/destructive.
+   Ler/validar histórico na própria sessão, reutilizando validação conn-scoped;
+   não consultar por outra connection que possa apontar para réplica/target diferente.
 5. Antes de DDL em relações existentes, adquirir lock de relação que impeça
    alteração da sua definição e validar metadados **na mesma transacção**.
    ACCESS EXCLUSIVE para ADD COLUMN e SHARE para index normal, em ordem
@@ -53,6 +58,8 @@ completo permaneça na F6-005. Preservar dados, Java 21 e schemas isolados locai
    reparação automática. Uma corrida com ferramenta externa falha/rollback,
    sem retry. Novos objetos devem permanecer no target, com tipos explícitos
    pg_catalog e SQL canónico já vinculado ao digest, sem reler source raw.
+   Rejeitar relações/índices `_tuprel_*` nos scripts do utilizador, protegendo
+   histórico e metadados do motor independentemente da sintaxe ser conhecida.
 
 ## Histórico e unidade transaccional
 
@@ -62,6 +69,11 @@ canónica partilhada entre validador e bootstrap para evitar divergências.
 Criação interna do histórico é SQL confiável da biblioteca, separado dos scripts
 do utilizador (a gramática destes não admite CHECKs). Schema tem de preexistir;
 nunca criar schemas ou adoptar uma tabela desconhecida automaticamente.
+Cada transacção de escrita usa READ COMMITTED, adquire ROW EXCLUSIVE em
+ONLY _tuprel_migrations e revalida a estrutura antes do DDL/INSERT. Catálogo
+das relações alvo é lido depois dos locks nessa transacção, sem reutilizar
+uma snapshot REPEATABLE READ antiga da fase de preview. O lock de sessão
+mantém exclusão dos executores cooperantes entre estas transacções.
 
 Verificar plano/aprovação antes de bootstrap. Se necessário, criar histórico
 numa transacção própria sob lock; cada migration subsequente tem uma transacção
