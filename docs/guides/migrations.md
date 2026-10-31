@@ -268,7 +268,7 @@ state and recompiles under the approved session-lock and transaction contract;
 caller-supplied snapshots are not execution authority. See
 [ADR-0016](../adr/ADR-0016-offline-migration-plan-digest.md) for the exact encoding
 and limits, and [ADR-0017](../adr/ADR-0017-transactional-runner-gates.md) for the
-accepted execution gates. Dev, diff and physical drift remain
+accepted execution gates. CLI dev/diff and physical drift remain
 unavailable.
 
 ## Deploy reviewed files from the CLI
@@ -406,3 +406,22 @@ excluded from normal diagnostics; preview is an explicit inspection operation.
 format. The playground still uses
 [manual bootstrap SQL](../../examples/tuprel-playground/src/main/resources/bootstrap.sql).
 Draft creation neither replaces that bootstrap nor migrates existing data.
+
+## Project schema.tuprel for comparison
+
+PostgresqlSchemaProjector.project(target, validatedSchema) consumes the existing
+SchemaCompiler result and returns SchemaProjection. snapshot() is present only
+when the entire schema is representable; otherwise diagnostics() contains safe
+categories and detached start/end positions, without source or configuration.
+
+The eight mappings are UUID→uuid, Boolean→bool, Short→int2, Int→int4, Long→int8,
+String→text, LocalDate→date and Instant→timestamptz. Exact physical names,
+required/optional columns, inline primary keys and plain @@index keys are retained.
+Index names use `<Model>_<fields>_idx`, with an explicit 63-character limit;
+collisions and long names fail instead of receiving truncation or suffixes.
+Defaults, unique, enums, relations, lists and other types refuse the whole schema.
+@version does not invent a default. No datasource variables are evaluated.
+
+See the [runnable example](../../examples/migration-diff/SchemaProjectionExample.java)
+and [accepted contract](../adr/ADR-0019-schema-projection-and-offline-diff.md).
+This API does not connect or execute SQL. CLI diff is delivered separately.

@@ -24,7 +24,7 @@ Agora:       cli -> schema, codegen, migrate
              codegen -> schema
              migrate -> java.base
 F6-002B+:    cli -> migrate-postgresql -> migrate, sql
-F6-004+:     migrate -> schema (modelo validado, sem I/O)
+F6-004B+:    migrate-postgresql -> schema (ADR-0019 aceite; projecção física)
 Sem aresta:  postgresql -> migrate; migrate -> qualquer adapter/CLI
 ```
 
@@ -65,3 +65,9 @@ Módulo separado, configuração de produção e port MigrationHistoryReader
 implementados na F6-002B, com SELECTs de histórico e testes reais. A CLI compõe
 o driver PG 42.7.14 já usado no projecto; o adapter recebe DataSource e não
 obriga consumidores a essa implementação. Executor e locks continuam fora.
+
+## Revisão da aresta futura — ADR-0019
+
+A aprovação da F6-004B mantém migrate puro (java.base). A projecção física
+consome ValidatedSchema no adapter PostgreSQL, com api(schema) por exposição
+real nas assinaturas públicas. Sem alteração de runtime CRUD ou ciclos.

@@ -20,6 +20,10 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Projecção física offline de schema.tuprel validado para o subconjunto DDL
+  PostgreSQL: oito scalars, nullability, PK e índices simples; recusas integrais
+  e diagnósticos destacados sem source. Sem escrita ou novo comando nesta fatia.
+
 - Comparação lógica offline de estados completamente conhecidos do AST DDL:
   tabelas, colunas, tipos e índices, com riscos explícitos e preview integral
   apenas para adições na gramática aceite. Remoções/alterações bloqueiam o SQL;

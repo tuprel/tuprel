@@ -174,3 +174,12 @@ Compile the [playground](../../examples/tuprel-playground/README.md) to inspect
 real generated sources under its build/generated/sources/tuprel/main. Do not
 link to ignored files as committed GitHub documentation. Working fragments and
 imports are in the [client guide](../guides/java-client.md).
+
+## PostgreSQL schema projection
+
+PostgresqlSchemaProjector.project(SqlIdentifier, ValidatedSchema) returns an
+immutable SchemaProjection: either a complete snapshot() or diagnostics(), never
+both. Diagnostic exposes Kind and detached SourcePosition start/end; it retains
+no SourceSpan, source, identifiers or configuration. Public frontend types
+are supplied through the adapter's api dependency on tuprel-schema; the pure
+migration module has no new dependency. See the [guide](../guides/migrations.md#project-schematuprel-for-comparison).

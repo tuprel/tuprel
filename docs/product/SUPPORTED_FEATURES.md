@@ -138,3 +138,7 @@ Candidatos, não promessas:
 - cloud features.
 
 Nenhum item desta secção deve contaminar a arquitectura 1.0 sem necessidade comprovada.
+
+F6-004B: projecção Java de ValidatedSchema no adapter PostgreSQL, integral ou
+recusada, para oito scalars/PK/indexes simples. Sem defaults/relações/unique/enums;
+sem novo comando CLI nesta fatia, ligação DB ou drift físico.
