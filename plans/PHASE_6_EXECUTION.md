@@ -7,11 +7,21 @@ ainda pendentes. Java 21, PostgreSQL primeiro, CONTRIBUTING.md obrigatório.
 
 ## Estado observado
 
-Execução actual: F6-003B1–B4 e F6-003C autorizadas pelo utilizador após a
-integração abaixo. Base observada `addc7275ec85fbb7c2634e3494b45688a0848401`,
-CI/CodeQL aprovados. A restrição a integração nos registos históricos seguintes
-não impede a nova tarefa. PRs pequenos, testes e revisão antes de cada merge;
-CI/CodeQL da main têm de passar antes da integração seguinte.
+F6-003B1–B4 e F6-003C integradas sequencialmente nos PRs #38–#42.
+Último HEAD funcional desta entrega: `afd606859c026d88c0e6d2ad094e6d86f48fa396`.
+CI/CodeQL desse commit aprovados antes de integrar este registo final
+(runs 41234745072/41234745078; análise 2069266862 sem erro/resultados).
+Base inicial `addc7275ec85fbb7c2634e3494b45688a0848401` preservada no histórico.
+Runner Java e CLI deploy disponíveis no subconjunto aceite; diff/dev/drift
+completo e adopção do playground continuam nas tarefas seguintes, sem antecipação.
+
+Cada PR foi revisto e integrado apenas com os quatro checks do HEAD aprovados,
+CodeQL sem resultados e testes locais obrigatórios aprovados. Main validada
+entre entregas. Sem force push, alteração directa da main ou enfraquecimento
+de quality gates. Auto-merge nativo indisponível; merges explícitos condicionados
+ao SHA revisto e às protecções existentes.
+
+### Histórico dos pré-requisitos
 
 Em 2026-10-31 o utilizador confirmou a execução de STATUS_TEST_ROLE.sql na
 tuprel_devtest e aprovou explicitamente os ADRs 0015, 0016 e 0017. Os dois
@@ -27,6 +37,8 @@ verificado em 2026-10-31. CI e CodeQL aprovados após cada merge de #28, #30 e
 revisto antes de ready/merge; nenhuma protecção foi contornada.
 #35 e o roadmap #34 foram integrados pelo proprietário durante
 a preparação. A apresentação, exemplos, navegação e política são preservados.
+
+### Estado das entregas
 
 Estados: TODO, IN_PROGRESS, BLOCKED, TESTING, MERGED. TESTING inclui revisão e
 checks em curso; BLOCKED identifica o gate externo que impede a integração.
@@ -45,7 +57,7 @@ não substituem nova consulta antes de cada integração.
 | F6-003B2 sessão/locks/lifecycle | MERGED | B1 integrada e main validada | feat/f6-003b-session-locks / [#39](https://github.com/tuprel/tuprel/pull/39) | fe00a8364dcda077d5657080585ab1b33b3c2f4c | — |
 | F6-003B3 uma migration atómica | MERGED | B2 integrada; main validada antes do PR | feat/f6-003b-atomic-migration / [#40](https://github.com/tuprel/tuprel/pull/40) | 6d8f979123525ab4b3aa1beb0696fd8d5600bafa | — |
 | F6-003B4 sequência/falhas/reconciliação | MERGED | B3 integrada e main validada | feat/f6-003b-sequence-recovery / [#41](https://github.com/tuprel/tuprel/pull/41) | 2abf673b6f269f7984f91aca854e52be2120c231 | — |
-| F6-003C CLI deploy | TESTING | B4 integrada e main validada | feat/f6-003c-migrate-deploy / [#42](https://github.com/tuprel/tuprel/pull/42) | — | Build local aprovada; revisão e checks do HEAD |
+| F6-003C CLI deploy | MERGED | B4 integrada e main validada | feat/f6-003c-migrate-deploy / [#42](https://github.com/tuprel/tuprel/pull/42) | afd606859c026d88c0e6d2ad094e6d86f48fa396 | — |
 | F6-004 diff/preview | TODO | Deploy seguro; contrato de comparação | — | — | Modelo de diferenças/desconhecidos |
 | F6-005 drift/dev | TODO | Diff e catálogo físico conhecido | — | — | Catálogo parcial, drift e confirmação revalidada |
 | F6-006 consolidação | TODO | Subconjuntos anteriores integrados | — | — | Matriz, segurança, documentação e desempenho medido |
@@ -257,7 +269,17 @@ Build final na raiz passou: 371 aprovados, quatro skips Windows justificados;
 playground build/checkConnection passou em seguida, com dois testes inalterados
 reutilizados e sem bootstrap/run. Três exemplos Java compilaram (dois executados
 offline; runner exercitado nos testes PG); 197 links internos e 31 anchors
-passaram. Revisão/checks no HEAD continuam obrigatórios antes do merge.
+passaram. Os quatro checks do HEAD 7186b30 passaram; análise CodeQL 2069248221
+sem erro/resultados e revisão sem bloqueadores/threads pendentes. #42 integrado
+normalmente em afd6068. CI/CodeQL desse HEAD funcional aprovados (runs
+41234745072/41234745078, análise 2069266862 sem erro/resultados).
+
+Verificação read-only local após os testes confirmou as contagens anteriores
+dos dados persistidos do playground e zero schemas de teste restantes, sem
+expor valores ou credenciais. Bootstrap manual preservado. O GIF aprovado
+permanece byte a byte igual. Nenhum teste novo foi ignorado; os quatro skips
+Windows existentes passaram obrigatoriamente na CI Linux. macOS não executado,
+por ausência de runner nessa matriz. Sem operações em produção nem publicação.
 
 ### F6-002B
 
