@@ -2,6 +2,14 @@
 
 > Nota de documentação: os exemplos Java usam tipos explícitos por omissão. Nomes de tipos em funcionalidades ainda não implementadas são contratos propostos e devem ser confirmados na fase/ADR correspondente.
 
+> Planeamento avançado (proposta): as janelas de entrega são consolidadas no
+> [Master Plan](../../plans/MASTER_PLAN.md) e no
+> [plano de developer experience](../../plans/ADVANCED_DEVELOPER_EXPERIENCE.md).
+> Studio, IntelliJ e Index Advisor ficam no pós-1.0 do toolkit. Milestones
+> conceptuais anteriores deste documento, incluindo Studio antes/na 1.0, são
+> substituídos nessa calendarização; não representam funcionalidades entregues.
+> A visão não autoriza antecipar implementações nem alterar os gates da Fase 6.
+
 ## Documento de Visão, Produto, Arquitectura e Especificação Técnica
 
 **Estado:** proposta de arquitectura para desenvolvimento  
