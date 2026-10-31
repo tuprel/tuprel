@@ -10,8 +10,45 @@ Offline Java APIs also parse/preview the limited PostgreSQL DDL subset and
 compile contextual risk/digest plans. `migrate deploy --dry-run` inspects the
 same limited subset; applying it requires an explicitly reviewed digest.
 
-**Not available:** dev, diff or reset.
+The Java API also compares fully known logical schemas reconstructed from the
+accepted DDL AST. See [offline comparison](#compare-logical-schemas-offline).
+
+**Not available as CLI commands:** dev, diff or reset.
 Physical drift detection remains unavailable. Open PRs are not installed CLI features.
+
+## Compare logical schemas offline
+
+`SchemaSnapshot.fromParsed(SqlIdentifier, List<DdlParseResult>)` reconstructs a
+complete logical state from an empty schema, in statement order. Every script
+must parse completely. Unknown SQL and comment-only drafts refuse the entire
+state; missing tables/columns, collisions and reserved relations are rejected.
+An empty list explicitly means an empty logical schema, not an empty database.
+
+`SchemaDiff.compare(before, after)` compares tables, columns, built-in types,
+nullability, inline primary keys and explicit plain indexes by exact names.
+It reports removals/additions separately and never infers renames. Declaration
+order of tables/columns is ignored; index key order is significant. Snapshots
+are bounded, immutable logical representations, not PostgreSQL catalog reads.
+
+Only additions expressible in the existing grammar receive canonical preview:
+tables, nullable columns without defaults/PKs, and plain indexes. Required new
+columns on existing tables, removals and property changes block the **whole**
+preview. Type changes remain potentially destructive even for numeric widening.
+Lock warnings distinguish ADD COLUMN's ACCESS EXCLUSIVE from normal index
+construction's write blocking/cost. Unsupported strategies have unmodeled lock impact.
+
+NO_CHANGES means logical equality. REVIEW_REQUIRED means a complete proposal
+can be shown, not permission to execute. BLOCKED refuses preview(). Every result
+retains PHYSICAL_STATE_NOT_CHECKED; defaults, foreign keys, physical column
+ordinals, implicit index names and other catalog properties are not modeled.
+Do not use this API to discard unknown properties when constructing a state.
+The comparison creates no files, approval digest or database connection.
+
+Run the [complete Java example](../../examples/migration-diff/README.md) without
+a database. The [F6-004A contract](../adr/ADR-0018-logical-schema-diff.md)
+records the limits and next slices. schema.tuprel projection, CLI diff, physical
+drift and migrate dev remain separate work; the existing reviewed-file deploy
+protocol is unchanged.
 
 The Java `PostgresqlMigrationRunner` can inspect and apply reviewed migration
 files transactionally. It rediscovers files and observes

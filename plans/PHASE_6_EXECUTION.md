@@ -7,6 +7,13 @@ ainda pendentes. Java 21, PostgreSQL primeiro, CONTRIBUTING.md obrigatório.
 
 ## Estado observado
 
+Continuação F6-004 iniciada a partir da main
+`9fff107ff75afb2db95c16a44807ce98cd445191`, limpa e sincronizada.
+CI/CodeQL reconsultados em 2026-10-31: runs 41236212986/41236212987 aprovados,
+análise 2069309676 sem erro/resultados. Nenhum PR anterior é alterado.
+ADR-0018 aprovado explicitamente em 2026-10-31 para comparação lógica offline.
+F6-004A aguarda os gates normais de integração; não considerar F6-004 completa.
+
 F6-003B1–B4 e F6-003C integradas sequencialmente nos PRs #38–#42.
 Último HEAD funcional desta entrega: `afd606859c026d88c0e6d2ad094e6d86f48fa396`.
 CI/CodeQL desse commit aprovados antes de integrar este registo final
@@ -58,13 +65,66 @@ não substituem nova consulta antes de cada integração.
 | F6-003B3 uma migration atómica | MERGED | B2 integrada; main validada antes do PR | feat/f6-003b-atomic-migration / [#40](https://github.com/tuprel/tuprel/pull/40) | 6d8f979123525ab4b3aa1beb0696fd8d5600bafa | — |
 | F6-003B4 sequência/falhas/reconciliação | MERGED | B3 integrada e main validada | feat/f6-003b-sequence-recovery / [#41](https://github.com/tuprel/tuprel/pull/41) | 2abf673b6f269f7984f91aca854e52be2120c231 | — |
 | F6-003C CLI deploy | MERGED | B4 integrada e main validada | feat/f6-003c-migrate-deploy / [#42](https://github.com/tuprel/tuprel/pull/42) | afd606859c026d88c0e6d2ad094e6d86f48fa396 | — |
-| F6-004 diff/preview | TODO | Deploy seguro; contrato de comparação | — | — | Modelo de diferenças/desconhecidos |
-| F6-005 drift/dev | TODO | Diff e catálogo físico conhecido | — | — | Catálogo parcial, drift e confirmação revalidada |
+| F6-004A estados lógicos/diff Java | TESTING | ADRs 0015–0018 aceites | feat/f6-004a-schema-diff / [#44](https://github.com/tuprel/tuprel/pull/44) | — | Checks/revisão do HEAD antes de integrar |
+| F6-004B projecção de schema.tuprel | TODO | 004A; mapping físico explícito, recusas completas | — | — | Reutilizar compiler/codegen; não omitir atributos desconhecidos |
+| F6-004C CLI diff | TODO | 004B; fontes/opções/exit codes definidos | — | — | CLI apenas com comportamento completo e launchers testados |
+| F6-005A contrato/leitura de catálogo | TODO | 004 consolidada; ADR de catálogo | — | — | Snapshot read-only, completude, permissões e desconhecidos |
+| F6-005B comparação de drift | TODO | 005A | — | — | Distinguir drift confirmado de observação desconhecida |
+| F6-005C propostas/dev | TODO | Diff/drift; aprovação de novos contratos de escrita | — | — | Artefactos, aprovação contextual e revalidação; sem reset |
 | F6-006 consolidação | TODO | Subconjuntos anteriores integrados | — | — | Matriz, segurança, documentação e desempenho medido |
 | F6-006 playground baseline | TODO | Motor estável; tarefa isolada com plano de preservação | — | — | Inventário read-only e consentimento antes de adoptar migrations |
 | F6-006 ignore de create.lock | TODO | Contrato de init/ownership | — | — | Evitar inclusão acidental sem sobrescrever .gitignore |
 
 ## Critérios e testes por entrega
+
+### F6-004A — Comparação lógica offline
+
+API no adapter existente: SchemaSnapshot reconstitui o estado lógico totalmente
+conhecido por replay do AST aceite; SchemaDiff compara nomes exactos, tipos,
+nullability, PK inline e indexes simples. Reutiliza parser/identificadores e
+renderer; sem dependências/módulos novos, I/O, JDBC ou alterações aos digests.
+Projecção de schema.tuprel e catálogo não são antecipadas.
+
+Aceitação: determinismo independente de declaração de tabelas/colunas,
+ordem de chaves do index significativa; sem inferência de rename; input SQL
+desconhecido/draft recusa todo o estado. Referências incompletas, colisões,
+targets/reservados e budgets recusados. Remoções/alterações bloqueiam todo o
+preview. Adições conhecidas são propostas com riscos explícitos, nunca SAFE;
+PHYSICAL_STATE_NOT_CHECKED existe mesmo em NO_CHANGES. Estado imutável e
+comparações concorrentes sem resultado dependente da ordem de threads.
+
+Validação focada: 14 testes unitários novos, JavaDoc com Werror e dois testes
+novos PostgreSQL reais aprovados. Estes aplicam explicitamente o preview apenas
+na fixture isolada para confirmar tipos/nullability/chaves e verificam que
+comparar não altera catálogo/dados/histórico. Build completa da raiz aprovada:
+391 testes nos relatórios, 387 aprovados, zero falhas/erros, quatro skips Windows
+de symlinks já justificados e obrigatórios na CI Linux. Suites de integração
+reexecutadas; tasks inalteradas reutilizadas quando up-to-date. Playground
+build/checkConnection aprovado depois da raiz (PostgreSQL 17.11, sem Docker),
+com dois testes inalterados reutilizados. Sem run/bootstrap.
+
+Exemplo LogicalDiffExample compilado com Java 21, -Xlint:all/-Werror e executado
+offline. Os três exemplos anteriores do guia compilam; os dois offline executam.
+Links/anchors e identidade do README preservados; GIF com SHA-256 original
+a157d3934c5b6b8999180a4831543644e1545130b7d239e1c2b6e53242347e5b.
+Branch publicada sem force push; aprovação explícita do ADR-0018 recebida.
+Gates remotos e HEAD actual podem ser consultados nos checks do PR;
+integração só após testes/revisão e quatro checks aprovados nesse HEAD.
+Revisão de arquitectura/segurança: sem novas dependências ou ciclos, sem SQL
+raw de execução, mutabilidade partilhada, ligação JDBC ou escrita no diff.
+Metadados/SQL só são expostos por acesso explícito; logging incidental e erros
+novos omitem input. Auditoria pré-push: um commit/18 blobs/575 relatórios,
+zero segredos encontrados. A primeira compilação
+detectou JavaDoc sem resumo e dois avisos Error Prone nos testes; corrigidos
+no código, mantendo Werror e todos os gates activos.
+
+Permissões, snapshots concorrentes e perda de ligação do futuro leitor de
+catálogo continuam critérios de F6-005A, que ainda não foi implementada.
+Os testes existentes de status/runner permanecem obrigatórios na build completa.
+Sem escrita do produto nova, sem CLI fictícia, sem adopção do playground.
+ADR-0018 aceite por aprovação explícita, não por inferência de CI verde.
+As fatias seguintes só integram com os contratos
+necessários aprovados. Sem reset ou execução nova autorizada por este diff.
 
 ### F6-003B1 — Definição canónica e bootstrap interno
 

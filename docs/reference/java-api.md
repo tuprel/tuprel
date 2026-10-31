@@ -124,6 +124,28 @@ Grammar/preview version strings retain their original `-proposal` suffix as
 normative protocol identifiers after contract acceptance. Renaming those bytes
 would change the future approval context; it is not part of this integration.
 
+## Offline logical schema comparison
+
+The adapter package `dev.tuprel.migrate.postgresql.diff` provides:
+
+- `SchemaSnapshot.fromParsed(SqlIdentifier, List<DdlParseResult>)`: replay complete
+  parser results from an empty logical schema; any unknown/failed result refuses
+  the whole state. `replay(SqlIdentifier, List<DdlStatement>)` accepts recognized
+  AST nodes directly. Both validate prerequisites, names, collisions and budgets.
+- `schema()` and immutable `tables()` with exact-name ordered columns/indexes.
+  These are logical metadata, not database observations or schema.tuprel mappings.
+- `SchemaDiff.compare(before, after)`: immutable `state()`, `changes()`, `risks()`
+  and all-or-nothing canonical `preview()`. Same-schema snapshots are required.
+  NO_CHANGES is logical equality; REVIEW_REQUIRED still requires review;
+  BLOCKED makes preview() throw. Every result retains PHYSICAL_STATE_NOT_CHECKED.
+
+4096 statements and 16384 objects bound reconstruction; the existing plan's
+statement/byte budgets bound preview. Identifiers and SQL are omitted from
+incidental toString output. Explicit metadata access/preview are for deliberate
+inspection. No JDBC, filesystem, new dependency or deployment approval is involved.
+See [the runnable example](../../examples/migration-diff/README.md) and
+[guide](../guides/migrations.md#compare-logical-schemas-offline) for semantics and limits.
+
 ## Offline migration plan and digest
 
 `MigrationDatabaseSettings.planTarget(String schema)` derives a redacted

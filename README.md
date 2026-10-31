@@ -351,6 +351,8 @@ history or applies SQL. See the [status contract](docs/reference/cli.md#migratio
 for configuration and integrity states. Physical drift is not checked.
 For tooling, the [Java migration API](docs/guides/migrations.md#run-reviewed-migrations-in-java)
 also offers limited DDL preview, contextual risk/digest plans and the same runner.
+An [offline Java comparison](docs/guides/migrations.md#compare-logical-schemas-offline)
+reports changes between fully known DDL states; it does not inspect physical drift.
 For an existing target, `tuprel migrate deploy --target-schema app --dry-run`
 shows SQL, risks and the approval digest. Applying existing files requires
 `--approve-digest`; changed or unsupported plans are refused before DDL.

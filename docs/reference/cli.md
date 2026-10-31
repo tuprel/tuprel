@@ -2,6 +2,10 @@
 
 # CLI reference
 
+The offline logical schema comparison is currently a
+[Java API](java-api.md#offline-logical-schema-comparison). There is no
+`migrate diff` or `migrate dev` command yet; neither appears as available in help.
+
 These commands are available in main. Build the local tuprel / tuprel.bat
 launcher following [Installation](../getting-started/installation.md).
 
