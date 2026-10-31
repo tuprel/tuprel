@@ -52,6 +52,7 @@ jobs:
           "$tuprel_cli" init
           "$tuprel_cli" migrate --help
           "$tuprel_cli" migrate create --help
+          "$tuprel_cli" migrate status --help
           "$tuprel_cli" migrate create --name initial --dry-run
           test ! -e tuprel/.migrations.create.lock
           test "$(find tuprel/migrations -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 0

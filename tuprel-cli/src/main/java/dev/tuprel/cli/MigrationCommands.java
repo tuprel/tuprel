@@ -17,6 +17,9 @@ final class MigrationCommands {
     MigrationCommands(MigrationCreator creator) { this.creator = creator; }
 
     int run(String[] arguments, PrintWriter out, PrintWriter err, Path projectRoot) {
+        if (arguments.length >= 2 && arguments[1].equals("status")) {
+            return new MigrationStatusCommand().run(arguments, out, err, projectRoot);
+        }
         if (arguments.length == 2 && isHelp(arguments[1])) {
             help(out);
             return 0;
@@ -62,8 +65,8 @@ final class MigrationCommands {
 
     static void help(PrintWriter out) {
         out.println("Usage: tuprel migrate <command> [options]");
-        out.println("Commands: create (offline draft creation)");
-        out.println("Run tuprel migrate create --help. No database connection is made.");
+        out.println("Commands: create (offline draft creation), status (read-only PostgreSQL history)");
+        out.println("Run tuprel migrate <command> --help. Help never connects to a database.");
     }
 
     private static void createHelp(PrintWriter out) {
