@@ -43,7 +43,7 @@ não substituem nova consulta antes de cada integração.
 | F6-003A2 plano, riscos e digest offline | MERGED | A1 integrado; ADRs 0016/0017 aprovados | feat/f6-003a-plan-digest / [#31](https://github.com/tuprel/tuprel/pull/31) | 1f36f2c55883711389b030dd87dd06fb95f36fab | — |
 | F6-003B1 definição/bootstrap | MERGED | ADRs 0014–0017; #28/#30/#31 integrados | feat/f6-003b-history-bootstrap / [#38](https://github.com/tuprel/tuprel/pull/38) | 3457c1ad519a6f4c7de2ec712145bad72c6c9fd7 | — |
 | F6-003B2 sessão/locks/lifecycle | MERGED | B1 integrada e main validada | feat/f6-003b-session-locks / [#39](https://github.com/tuprel/tuprel/pull/39) | fe00a8364dcda077d5657080585ab1b33b3c2f4c | — |
-| F6-003B3 uma migration atómica | TESTING | B2 integrada; main validada antes do PR | feat/f6-003b-atomic-migration | — | Gates de catálogo/DDL, testes e revisão antes do PR |
+| F6-003B3 uma migration atómica | TESTING | B2 integrada; main validada antes do PR | feat/f6-003b-atomic-migration / [#40](https://github.com/tuprel/tuprel/pull/40) | — | Build local aprovada; revisão e checks do HEAD |
 | F6-003B4 sequência/falhas/reconciliação | TODO | B3 integrada | — | — | Prefixo confirmado, OUTCOME_UNKNOWN e recuperação sem retries |
 | F6-003C CLI deploy | TODO | Runner aprovado/testado | — | — | Aprovação vinculada ao estado sob lock |
 | F6-004 diff/preview | TODO | Deploy seguro; contrato de comparação | — | — | Modelo de diferenças/desconhecidos |
