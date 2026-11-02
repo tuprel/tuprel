@@ -77,7 +77,7 @@ dependencies {
      * >= 2.46.0 em JDK 21, e em JDK 16+ activa fork e os `--add-exports` /
      * `--add-opens` necessários ao compilador.
      */
-    implementation("net.ltgt.gradle:gradle-errorprone-plugin:5.1.1")
+    implementation("net.ltgt.gradle:gradle-errorprone-plugin:5.2.0")
 
     /*
      * Testes desta build. A versão do JUnit aparece deliberadamente em dois
