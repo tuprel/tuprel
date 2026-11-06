@@ -20,6 +20,10 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- API Java de observação read-only do catálogo PostgreSQL 17 com cobertura
+  explícita e resultado completo, incompleto ou desconhecido. A observação
+  cobre um schema e um snapshot temporal. Ainda não compara o histórico aplicado.
+
 - CLI migrate diff offline: migrations locais versus schema.tuprel, com fontes,
   riscos e SQL apenas para diferenças integralmente suportadas. Sem ligação DB,
   histórico, escrita de ficheiros ou aplicação; recusas e exit codes explícitos.

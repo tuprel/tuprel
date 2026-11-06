@@ -131,6 +131,10 @@ de status permanece inalterado. Resultados preservam prefixos confirmados e
 OUTCOME_UNKNOWN, sem retries. O JDBC e estes gates continuam no adapter,
 sem arestas novas nem reutilização do lifecycle CRUD.
 
+F6-005A acrescenta observação PostgreSQL 17 em transacção read-only dedicada
+no mesmo adapter. Reutiliza configuração de alvo, AST e SchemaSnapshot,
+com consultas fixas de catálogo. Nenhuma dependência do runtime CRUD.
+
 ### `tuprel-introspection-postgresql`
 
 Leitura de catálogos PostgreSQL e transformação no modelo de schema.

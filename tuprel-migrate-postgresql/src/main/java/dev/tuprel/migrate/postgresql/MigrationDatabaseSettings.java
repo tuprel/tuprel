@@ -70,8 +70,7 @@ public final class MigrationDatabaseSettings {
 
     /** Checks the owned session against configured context without logging it. */
     boolean matches(Connection connection, dev.tuprel.sql.SqlIdentifier schema) throws SQLException {
-        String actual = connection.getMetaData().getURL();
-        if (actual == null || !url.equals(actual.split("\\?", 2)[0])) { return false; }
+        if (!matchesEndpoint(connection)) { return false; }
         try (java.sql.PreparedStatement statement = connection.prepareStatement("""
                 SELECT pg_catalog.current_database(), CURRENT_USER, SESSION_USER,
                        pg_catalog.has_schema_privilege(n.oid, 'USAGE'),
@@ -84,14 +83,23 @@ public final class MigrationDatabaseSettings {
             statement.setString(1, schema.name());
             try (java.sql.ResultSet result = statement.executeQuery()) {
                 if (!result.next()) { return false; }
-                boolean matches = URI.create(url.substring(5)).getPath().substring(1).equals(result.getString(1))
-                        && user.equals(result.getString(2)) && user.equals(result.getString(3))
-                        && result.getBoolean(4) && "off".equals(result.getString(5))
-                        && result.getObject(6) != null
-                        && result.getBoolean(6) == !sslMode.equals("disable");
+                boolean matches = matchesIdentity(result.getString(1), result.getString(2), result.getString(3),
+                        result.getObject(6, Boolean.class))
+                        && result.getBoolean(4) && "off".equals(result.getString(5));
                 return matches && !result.next();
             }
         }
+    }
+
+    boolean matchesEndpoint(Connection connection) throws SQLException {
+        String actual = connection.getMetaData().getURL();
+        return actual != null && url.equals(actual.split("\\?", 2)[0]);
+    }
+
+    boolean matchesIdentity(String database, String currentUser, String sessionUser, Boolean ssl) {
+        return URI.create(url.substring(5)).getPath().substring(1).equals(database)
+                && user.equals(currentUser) && user.equals(sessionUser)
+                && ssl != null && ssl == !sslMode.equals("disable");
     }
 
     /**

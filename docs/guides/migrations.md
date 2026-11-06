@@ -463,3 +463,32 @@ history checksums, observe physical drift or connect to PostgreSQL. It cannot
 approve deployment. Existing deploy still revalidates artifacts/history/digest
 under lock. Use [status](../reference/cli.md#migration-status) for history and
 the [diff reference](../reference/cli.md#offline-migration-diff) for limits/codes.
+
+## Observe the PostgreSQL catalog
+
+The Java observer inventories a single, explicitly named schema on a PostgreSQL
+17 primary. Use the migration connection settings with a login that has
+`CONNECT`, schema `USAGE` and read access to the queried system catalogs.
+Access to application or migration history rows is unnecessary. For remote
+connections use the existing verify-full TLS configuration.
+
+```java
+import dev.tuprel.migrate.postgresql.CatalogObservation;
+import dev.tuprel.migrate.postgresql.MigrationDatabaseSettings;
+import dev.tuprel.migrate.postgresql.PostgresqlCatalogObserver;
+import dev.tuprel.sql.SqlIdentifier;
+
+MigrationDatabaseSettings settings = MigrationDatabaseSettings.fromEnvironment(System.getenv());
+PostgresqlCatalogObserver observer = new PostgresqlCatalogObserver(settings);
+CatalogObservation result = observer.observe(new SqlIdentifier("my_schema"));
+System.out.println(result);
+```
+
+`COMPLETE` provides a point-in-time view of the supported tables, columns,
+primary keys and plain indexes. Objects outside the profile yield
+`INCOMPLETE`. Permission, identity, reading or cleanup failures can yield
+`UNKNOWN`. Both outcomes omit the snapshot. Review the diagnostic category
+and check the target and privileges before trying again. The profile and
+limits are specified in [ADR-0020](../adr/ADR-0020-postgresql-catalog-observation.md).
+This API does not establish equivalence with applied migrations or change
+the CLI, approval digest or deploy process.
