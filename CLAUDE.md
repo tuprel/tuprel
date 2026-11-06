@@ -101,6 +101,10 @@ Construir um ORM Java robusto, explícito, type-safe, seguro e simples de utiliz
 - Código, nomes de API, mensagens técnicas e JavaDoc podem usar inglês quando for a convenção pública escolhida.
 - Exemplos Java devem compilar ou estar claramente marcados como pseudocódigo.
 - Actualiza documentação e plano quando uma decisão muda o contrato.
+- Aplica o fluxo documental de `CONTRIBUTING.md`. A documentação da
+  funcionalidade e os registos pendentes acompanham PRs técnicos quando a
+  protecção da main exigir PR. Decisões de arquitectura e segurança
+  continuam a exigir aprovação explícita antes da implementação.
 
 ## Definition of Done
 

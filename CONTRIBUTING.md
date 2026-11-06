@@ -51,6 +51,14 @@ Public documentation is part of development. A user-facing change is complete
 when its implementation, tests and applicable documentation are delivered in
 the same pull request. Passing tests alone is not sufficient.
 
+Use direct documentation updates on main only where branch protection permits
+them. On protected branches, carry documentation, roadmap and integration
+records in the corresponding functional PR or the next appropriate technical
+PR. Record post-merge evidence in the source PR until that next update.
+Standalone documentation and integration-record PRs are out of scope.
+Obtain explicit approval for architecture and security decisions before
+implementation, and record that approval in the functional PR.
+
 Update the pages affected by the change:
 
 | Change | Documentation |

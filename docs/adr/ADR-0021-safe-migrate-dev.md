@@ -1,8 +1,10 @@
 # ADR-0021 — Propostas e publicação segura com migrate dev
 
-Estado **parcialmente aceite**, exclusivamente para o preview read-only da
-F6-005C1. Aprovisionamento inicial, publicação e revisão do deploy permanecem
-propostos. Depende do
+Estado **aceite para implementação incremental**. A F6-005C1 está integrada.
+A direcção de aprovisionamento, publicação e aprovação física foi aceite
+na revisão do [PR #56](https://github.com/tuprel/tuprel/pull/56).
+A [revisão C2/C3](ADR-0021-c2-c3-review.md) regista a decisão e os gates
+que ainda condicionam a disponibilidade de escrita. Depende do
 [ADR-0020](ADR-0020-postgresql-catalog-observation.md). A revisão do protocolo
 de escrita e a criação de artefactos exigem aceitação deste contrato.
 

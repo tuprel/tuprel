@@ -87,9 +87,14 @@ public final class PostgresqlCatalogObserver {
     }
 
     static void configureTransaction(Connection connection) throws SQLException {
+        configureTransaction(connection, true);
+    }
+
+    static void configureTransaction(Connection connection, boolean readOnly) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.setQueryTimeout(5);
-            statement.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
+            statement.execute(readOnly ? "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
+                    : "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ WRITE");
             statement.execute("SET LOCAL search_path = pg_catalog");
             statement.execute("SET LOCAL lock_timeout = '2s'");
             statement.execute("SET LOCAL statement_timeout = '5s'");
@@ -98,6 +103,10 @@ public final class PostgresqlCatalogObserver {
     }
 
     private Target verifyTarget(Connection connection, SqlIdentifier schema) throws SQLException, ObservationFailure {
+        return verifyTarget(connection, schema, true);
+    }
+
+    Target verifyTarget(Connection connection, SqlIdentifier schema, boolean readOnly) throws SQLException, ObservationFailure {
         if (!settings.matchesEndpoint(connection)) { throw new ObservationFailure(Diagnostic.TARGET); }
         try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT d.oid, n.oid, d.datname, n.nspname, CURRENT_USER, SESSION_USER, s.ssl,
@@ -129,7 +138,7 @@ public final class PostgresqlCatalogObserver {
                 }
                 if (!row.getBoolean(8)) { throw new ObservationFailure(Diagnostic.PERMISSION); }
                 if (row.getInt(9) != 17 || row.getBoolean(10) || !"repeatable read".equals(row.getString(11))
-                        || !"on".equals(row.getString(12))) {
+                        || !(readOnly ? "on" : "off").equals(row.getString(12))) {
                     throw new ObservationFailure(Diagnostic.SESSION);
                 }
                 boolean extensionNamespace = row.getBoolean(13);
