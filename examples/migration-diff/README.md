@@ -36,3 +36,21 @@ the same commands with tuprel-schema/build/classes/java/main added to the
 classpath, then run SchemaProjectionExample. It prints a proposal for a table
 and plain index without connecting or writing files. Unsupported attributes
 refuse the entire projection; see the [projection guide](../../docs/guides/migrations.md#project-schematuprel-for-comparison).
+
+## Compare a local catalog with the CLI
+
+Use the minimal Product schema and empty catalog in the
+[migration guide](../../docs/guides/migrations.md#compare-migrations-with-schematuprel).
+Run the packaged launcher from that project directory.
+
+```powershell
+tuprel.bat migrate diff --target-schema app --schema tuprel/schema.tuprel
+$LASTEXITCODE
+```
+
+```bash
+tuprel migrate diff --target-schema app --schema tuprel/schema.tuprel
+```
+
+The proposed table and index return exit code 1. The proposal is displayed
+for review. The command reads the schema and catalog and leaves both untouched.

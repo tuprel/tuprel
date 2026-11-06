@@ -170,6 +170,10 @@ class CliExperienceTest {
         Path alias = project.resolve("alias.tuprel");
         Files.createSymbolicLink(alias, schema);
         assertEquals(2, run("format", alias.toString()).code());
+        assertEquals(2, run("migrate", "diff", "--target-schema", "app", "--schema", alias.toString()).code());
+        assertEquals(2, run("migrate", "diff", "--target-schema", "app", "--schema", "external/../alias.tuprel").code());
+        Files.createSymbolicLink(project.resolve("linked-directory"), external);
+        assertEquals(2, run("migrate", "diff", "--target-schema", "app", "--schema", "linked-directory/schema.tuprel").code());
         assertEquals("model User{ id Int @id }\n", Files.readString(schema));
     }
 

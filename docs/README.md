@@ -42,7 +42,8 @@ Tuprel is a development preview; there is no stable release or published artifac
 | Migration risk plans and contextual SHA-256 digest | Java API and CLI, with explicit review before execution |
 | Transactional migration execution | Java runner and CLI deploy for the approved DDL subset |
 | Logical comparison of completely known DDL states | Offline Java API; no schema.tuprel/catalog projection |
-| CLI migration diff, dev and physical drift detection | Future work |
+| Offline migrate diff | Known migration artifacts versus schema.tuprel; no physical observation |
+| CLI dev and physical drift detection | Future work |
 | Automatic build plugins, Spring Boot starter and introspection | Future work |
 
 The playground uses temporary manual bootstrap SQL. It is not a migration engine.

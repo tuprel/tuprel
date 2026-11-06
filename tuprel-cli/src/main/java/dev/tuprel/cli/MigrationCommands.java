@@ -17,6 +17,9 @@ final class MigrationCommands {
     MigrationCommands(MigrationCreator creator) { this.creator = creator; }
 
     int run(String[] arguments, PrintWriter out, PrintWriter err, Path projectRoot) {
+        if (arguments.length >= 2 && arguments[1].equals("diff")) {
+            return new MigrationDiffCommand().run(arguments, out, err, projectRoot);
+        }
         if (arguments.length >= 2 && arguments[1].equals("status")) {
             return new MigrationStatusCommand().run(arguments, out, err, projectRoot);
         }
@@ -68,7 +71,7 @@ final class MigrationCommands {
 
     static void help(PrintWriter out) {
         out.println("Usage: tuprel migrate <command> [options]");
-        out.println("Commands: create (offline drafts), status (read-only history), deploy (reviewed transactional migrations)");
+        out.println("Commands: create (offline drafts), status (read-only history), deploy (reviewed transactional migrations), diff (offline schema comparison)");
         out.println("Run tuprel migrate <command> --help. Help never connects to a database.");
     }
 

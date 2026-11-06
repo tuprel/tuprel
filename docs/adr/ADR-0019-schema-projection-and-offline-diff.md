@@ -66,7 +66,7 @@ URLs ou mensagens cruas de exceptions. Qualquer diagnóstico impede snapshot.
 Limites existentes de tabelas/colunas/chaves/objects/statements continuam activos.
 Nomes reservados e targets de sistema são recusados conservadoramente.
 
-## CLI planeada para F6-004C, ainda não implementada na F6-004B
+## Contrato CLI da F6-004C
 
 `tuprel migrate diff --target-schema <name> [--schema <path>]` compara o replay
 de **todos** os ficheiros do catálogo local tuprel/migrations com o schema

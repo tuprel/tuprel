@@ -37,8 +37,8 @@ atómica e sequências/falhas/reconciliação, com testes do contrato aceite.
 - `tuprel migrate status`
 - `tuprel migrate diff`
 
-`migrate create`, `migrate status` e `migrate deploy` são os comandos implementados.
-`migrate diff` e `migrate dev` são alvos futuros, não comandos disponíveis.
+`migrate create`, `migrate status`, `migrate deploy` e `migrate diff` estão implementados.
+Diff é estritamente offline. `migrate dev` continua futuro, sem comando disponível.
 Reset/resolve e migrations
 não transaccionais ficam fora do MVP. O help actual só anuncia código funcional.
 

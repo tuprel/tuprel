@@ -68,8 +68,8 @@ não substituem nova consulta antes de cada integração.
 | F6-003B4 sequência/falhas/reconciliação | MERGED | B3 integrada e main validada | feat/f6-003b-sequence-recovery / [#41](https://github.com/tuprel/tuprel/pull/41) | 2abf673b6f269f7984f91aca854e52be2120c231 | — |
 | F6-003C CLI deploy | MERGED | B4 integrada e main validada | feat/f6-003c-migrate-deploy / [#42](https://github.com/tuprel/tuprel/pull/42) | afd606859c026d88c0e6d2ad094e6d86f48fa396 | — |
 | F6-004A estados lógicos/diff Java | MERGED | ADRs 0015–0018 aceites | feat/f6-004a-schema-diff / [#44](https://github.com/tuprel/tuprel/pull/44) | 5e2bd1909dd695755e40e83ad522bfa289e20962 | — |
-| F6-004B projecção de schema.tuprel | TESTING | 004A; ADR-0019 aceite | feat/f6-004b-schema-projection / [#45](https://github.com/tuprel/tuprel/pull/45) (draft) | — | Testes/revisão/checks do HEAD final |
-| F6-004C CLI diff | TODO | 004B; fontes/opções/exit codes definidos | — | — | CLI apenas com comportamento completo e launchers testados |
+| F6-004B projecção de schema.tuprel | MERGED | 004A; ADR-0019 aceite | feat/f6-004b-schema-projection / [#45](https://github.com/tuprel/tuprel/pull/45) | c16d23590a03115f90c0b3b81d67c4bbe81e4a66 | — |
+| F6-004C CLI diff | TESTING | 004B; ADR-0019 aceite | feat/f6-004c-migrate-diff | — | Validar Bash e checks remotos do PR |
 | F6-005A contrato/leitura de catálogo | TODO | 004 consolidada; ADR de catálogo | — | — | Snapshot read-only, completude, permissões e desconhecidos |
 | F6-005B comparação de drift | TODO | 005A | — | — | Distinguir drift confirmado de observação desconhecida |
 | F6-005C propostas/dev | TODO | Diff/drift; aprovação de novos contratos de escrita | — | — | Artefactos, aprovação contextual e revalidação; sem reset |
@@ -572,3 +572,21 @@ da raiz; sem run/bootstrap. Exemplo compilado com Java 21/Werror e executado
 offline; 150 links internos e 31 anchors preservados. JavaDoc/limite de nome na
 primeira compilação corrigidos sem enfraquecer gates. Checks remotos no HEAD
 do PR permanecem obrigatórios. Sem escrita fora das fixtures.
+
+### F6-004C — CLI offline
+
+Implementa o contrato ADR-0019 por orquestração dos componentes existentes;
+sem nova lógica de comparação/SQL na CLI, JDBC, env ou escrita de ficheiros.
+Leitura de schema limitada/UTF-8/NOFOLLOW, com recusa de links/aliases/traversal
+e alterações ordinárias detectáveis. Filesystem controlado sem writers concorrentes
+continua requisito; sem alegar sandbox. Fonte inclui todos os artefactos, não
+apenas aplicados. Build local aprovada com 405 testes, quatro skips Windows
+de symlinks e zero falhas. Sete testes novos de CLI e um teste de launcher
+PowerShell/BAT passaram. O teste de launcher detectou perda de SQL no buffer
+ao sair com código 1. A CLI passou a fazer flush explícito do preview.
+Playground build/checkConnection passou depois da raiz em PostgreSQL 17.11.
+Validação documental cobriu 200 links internos e os 31 anchors do README.
+
+#45 integrado em c16d235, HEAD revisto 320c827; quatro checks aprovados, análise
+2069805202 sem erro/resultados. Main pós-merge aprovada nos runs CI 41252482447
+e CodeQL 41252482464. Análise do commit sem erros ou resultados.

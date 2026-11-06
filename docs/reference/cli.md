@@ -2,9 +2,8 @@
 
 # CLI reference
 
-The offline logical schema comparison is currently a
-[Java API](java-api.md#offline-logical-schema-comparison). There is no
-`migrate diff` or `migrate dev` command yet; neither appears as available in help.
+Offline logical comparison is available through migrate diff and the
+[Java API](java-api.md#offline-logical-schema-comparison). migrate dev remains unavailable.
 
 These commands are available in main. Build the local tuprel / tuprel.bat
 launcher following [Installation](../getting-started/installation.md).
@@ -20,6 +19,7 @@ tuprel format [--check | --dry-run] [--schema <file> | schema.tuprel]
 tuprel generate [--check | --dry-run] [--schema <file> | schema.tuprel]
 tuprel migrate create --name <name> [--dry-run]
 tuprel migrate status --target-schema <name>
+tuprel migrate diff --target-schema <name> [--schema <path>]
 tuprel migrate deploy --target-schema <name> --dry-run
 tuprel migrate deploy --target-schema <name> --approve-digest <sha256>
 ```
@@ -40,6 +40,7 @@ available for embedding; the CLI delegates execution and safety rules to it.
 | migrate create | Writes a comment-only draft; never contacts a database |
 | migrate status | Reads local files and existing PostgreSQL history; no application writes |
 | migrate deploy | Inspects a plan or applies existing explicitly approved migration files |
+| migrate diff | Compares all local migration artifacts with the supported schema subset, offline |
 
 `--dry-run` previews init/format/generate/create without writing or reserving
 files/IDs. Ownership, edited-file and path checks still apply. Do not combine
@@ -134,7 +135,7 @@ needs `../`. Prefer the packaged launcher when working in another Java project.
 | Code | Meaning |
 |---|---|
 | 0 | Success, valid dry-run, or check with no differences |
-| 1 | Invalid schema, unsupported generation, differences in `--check`, or status integrity/order divergence |
+| 1 | Invalid schema, unsupported generation, differences in `--check`, status integrity/order divergence, or previewable migration diff |
 | 2 | Invalid usage, I/O, unsafe path/ownership, database failure, blocked/stale deployment approval or OUTCOME_UNKNOWN |
 
 Help/version/success go to stdout; diagnostics to stderr. Errors use stable
@@ -150,3 +151,28 @@ See [Troubleshooting](../help/troubleshooting.md) and
 as usable commands. Deploy dry-run uses the same limited DDL preview and
 contextual risk/digest contracts as the Java library. The internal [CLI contract](../product/CLI_EXPERIENCE.md)
 also documents design decisions and the separate roadmap.
+
+## Offline migration diff
+
+`tuprel migrate diff --target-schema app [--schema tuprel/schema.tuprel]`
+compares the replay of **all** local tuprel/migrations files with the declared
+schema. Files already recorded as applied and pending files are both included;
+no database or history is consulted. Use status for history integrity. Logical
+equality says nothing about the current physical database or physical drift.
+
+Output identifies both sources, known exact-name changes and risks. Only fully
+supported additions receive canonical SQL. Removals, type/constraint/index
+changes and unknown input block the whole preview, including independent adds.
+No rename inference, approval digest, generated artifact or SQL execution.
+
+Exit 0: logical equality. Exit 1: previewable differences, or invalid schema
+with safe compiler diagnostic codes/positions. Exit 2: invalid options, I/O,
+incomplete/unsupported states or blocked preview. No --dry-run is necessary;
+the command always reads only. --help/-h never read files or environment.
+
+Schema input is strict UTF-8, at most 1 MiB; CRLF is accepted. Links, aliases,
+traversal and ordinary detected concurrent changes are refused. Work in a
+developer-controlled workspace with concurrent writers excluded; this is not
+an OS sandbox or filesystem reservation. Catalog v1 checks and budgets remain
+those of MigrationDirectory. No .env or TUPREL_DATABASE_* configuration is read.
+See the [guide](../guides/migrations.md#compare-migrations-with-schematuprel).
