@@ -100,9 +100,47 @@ class DeployLauncherIntegrationTest {
         assertEquals(2, missing.exit()); assertTrue(missing.output().contains("CONFIGURATION")); assertFalse(missing.output().contains("private_marker"));
         assertEquals(2, launch(true, false, "migrate", "deploy", "--target-schema", "../private_marker", "--dry-run").exit());
         assertEquals(0, launch(true, false, "migrate", "diff", "--help").exit());
-        for (String command : List.of("dev", "reset", "history")) { assertEquals(2, launch(true, false, "migrate", command, "--help").exit()); }
+        assertEquals(0, launch(false, true, "migrate", "dev", "--help").exit());
+        for (String command : List.of("reset", "history")) { assertEquals(2, launch(true, false, "migrate", command, "--help").exit()); }
         assertFalse(history().initialised());
         assertEquals("TUPREL_DATABASE_URL=private_marker\nTUPREL_DATABASE_PASSWORD=private_marker\n", Files.readString(project.resolve(".env")));
+    }
+
+    @Test void developmentPreviewUsesManagedHistoryWithoutWritingFilesOrSql() throws Exception {
+        Path sql = migration("20261031_120000_initial",
+                "-- private_marker\nCREATE TABLE " + table("Item") + " (\"id\" INTEGER PRIMARY KEY);\n");
+        byte[] original = Files.readAllBytes(sql);
+        Path desired = project.resolve("tuprel/custom schema.tuprel");
+        byte[] schemaBytes = "model Item { id Int @id label String? }\n".getBytes(StandardCharsets.UTF_8);
+        Files.write(desired, schemaBytes);
+        String[] previewArgs = {"migrate", "dev", "--name", "add_label", "--target-schema", schema,
+                "--schema", "tuprel/custom schema.tuprel", "--confirm-managed-history"};
+        Result missing = launch(true, true, previewArgs);
+        assertEquals(2, missing.exit(), missing::output);
+        assertTrue(missing.output().contains("REFERENCE_MISSING"));
+        assertFalse(history().initialised());
+        Result deployed = launch(true, false, "migrate", "deploy", "--target-schema", schema, "--approve-digest",
+                digest(launch(true, false, "migrate", "deploy", "--target-schema", schema, "--dry-run")));
+        assertEquals(0, deployed.exit(), deployed::output);
+        MigrationHistory applied = history();
+
+        Result preview = launch(true, true, previewArgs);
+        assertEquals(0, preview.exit(), preview::output);
+        assertTrue(preview.output().contains("REVIEW_REQUIRED"));
+        assertTrue(preview.output().contains("ACCESS_EXCLUSIVE_LOCK"));
+        assertTrue(preview.output().contains("ALTER TABLE " + table("Item") + " ADD COLUMN \"label\" \"pg_catalog\".\"text\";"), preview::output);
+        assertFalse(preview.output().contains("Approval digest:"));
+        assertFalse(preview.output().contains("private_marker"));
+        assertEquals(preview.output(), launch(true, true, previewArgs).output());
+        assertEquals(applied, history());
+        assertArrayEquals(original, Files.readAllBytes(sql));
+        assertArrayEquals(schemaBytes, Files.readAllBytes(desired));
+        assertEquals(1, MigrationDirectory.discover(project.resolve("tuprel/migrations")).size());
+        assertFalse(Files.exists(project.resolve("tuprel/.migrations.create.lock")));
+        try (Connection connection = source.getConnection(); Statement query = connection.createStatement();
+                ResultSet rows = query.executeQuery("SELECT * FROM " + table("Item") + " LIMIT 0")) {
+            assertEquals(1, rows.getMetaData().getColumnCount());
+        }
     }
 
     @Test void aLaterFailureReportsTheConfirmedPrefixAndDoesNotExposeDriverSql() throws Exception {

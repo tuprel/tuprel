@@ -153,4 +153,7 @@ perfil é válida.
 
 F6-005B: API Java de drift físico no perfil do ADR-0020. Compara o catálogo
 com o prefixo aplicado verificado, em leitura consistente e sob uma janela de
-controlo de DDL confirmada pelo operador. Ainda sem integração na CLI ou no deploy.
+controlo de DDL confirmada pelo operador.
+
+F6-005C1: `migrate dev` em modo preview, com referência verificada e
+comparação aditiva. Publicação e aprovação física permanecem propostas.

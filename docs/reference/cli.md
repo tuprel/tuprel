@@ -3,7 +3,7 @@
 # CLI reference
 
 Offline logical comparison is available through migrate diff and the
-[Java API](java-api.md#offline-logical-schema-comparison). migrate dev remains unavailable.
+[Java API](java-api.md#offline-logical-schema-comparison).
 
 These commands are available in main. Build the local tuprel / tuprel.bat
 launcher following [Installation](../getting-started/installation.md).
@@ -20,6 +20,7 @@ tuprel generate [--check | --dry-run] [--schema <file> | schema.tuprel]
 tuprel migrate create --name <name> [--dry-run]
 tuprel migrate status --target-schema <name>
 tuprel migrate diff --target-schema <name> [--schema <path>]
+tuprel migrate dev --name <name> --target-schema <name> --confirm-managed-history [--schema <path>]
 tuprel migrate deploy --target-schema <name> --dry-run
 tuprel migrate deploy --target-schema <name> --approve-digest <sha256>
 ```
@@ -41,6 +42,7 @@ available for embedding; the CLI delegates execution and safety rules to it.
 | migrate status | Reads local files and existing PostgreSQL history; no application writes |
 | migrate deploy | Inspects a plan or applies existing explicitly approved migration files |
 | migrate diff | Compares all local migration artifacts with the supported schema subset, offline |
+| migrate dev | Previews supported additions against a verified applied prefix |
 
 `--dry-run` previews init/format/generate/create without writing or reserving
 files/IDs. Ownership, edited-file and path checks still apply. Do not combine
@@ -118,6 +120,21 @@ Timeouts are separate: connect/login 5s, session-lock polling 30s, DDL lock 10s,
 statement 20s, socket 30s. These do not impose one wall-clock deadline on the
 entire sequence. See [Migrations](../guides/migrations.md#deploy-reviewed-files-from-the-cli)
 for shell examples, physical catalog restrictions and recovery limits.
+
+## Read-only migration development preview
+
+`migrate dev` reads the desired schema and compares it with a verified applied
+prefix from `tuprel/migrations`. It requires `--confirm-managed-history` for
+each invocation. Use the flag only when history provenance is trusted and
+an administrative window excludes external DDL. Configure the migration
+database environment as for `migrate status`.
+
+Missing history, drift, incomplete evidence, pending artifacts or unsupported
+changes block the complete proposal. The command prints canonical SQL and
+risks only after successful validation and replay. It emits no artifact or
+approval digest. Exit codes are 0 for a preview or no changes, 1 for invalid
+schema syntax or semantics, and 2 for usage, I/O or a safety refusal. See
+[the migration guide](../guides/migrations.md#preview-a-development-migration).
 
 ## Paths and output
 

@@ -8,6 +8,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import dev.tuprel.migrate.MigrationDirectory;
 import dev.tuprel.migrate.MigrationFile;
 import dev.tuprel.migrate.postgresql.diff.SchemaDiff;
+import dev.tuprel.schema.SchemaCompiler;
+import dev.tuprel.schema.SourceText;
+import dev.tuprel.schema.model.ValidatedSchema;
 import dev.tuprel.sql.SqlIdentifier;
 import dev.tuprel.testsupport.TestPostgresql;
 import java.lang.reflect.InvocationTargetException;
@@ -282,6 +285,47 @@ class PhysicalDriftIntegrationTest {
     }
 
     private PhysicalDriftReport managed() { return inspector.inspect(schema, directory, ReferenceControl.MANAGED_HISTORY); }
+
+    @Test void devRefusesPendingDriftAndUnsupportedDifferencesWithoutPartialSql() throws Exception {
+        createHistory();
+        String ddl = "CREATE TABLE " + table("Item") + " (\"id\" INTEGER PRIMARY KEY);";
+        execute(ddl);
+        applied(migration(1, "initial", ddl), 1);
+        PostgresqlMigrationDevPlanner planner = new PostgresqlMigrationDevPlanner(settings);
+        ValidatedSchema same = desired("model Item { id Int @id }");
+        ValidatedSchema addition = desired("model Item { id Int @id label String? }");
+        assertEquals(MigrationDevPlan.State.NO_CHANGES,
+                planner.preview(schema, directory, same, "no_changes", ReferenceControl.MANAGED_HISTORY).state());
+        assertRefusal(planner.preview(schema, directory, addition, "unverified", ReferenceControl.UNVERIFIED),
+                MigrationDevPlan.Diagnostic.REFERENCE);
+        assertRefusal(planner.preview(schema, directory,
+                desired("model Item { id Long @id label String? }"), "blocked_type", ReferenceControl.MANAGED_HISTORY),
+                MigrationDevPlan.Diagnostic.DIFF);
+        assertRefusal(planner.preview(schema, directory,
+                desired("model Item { id Int @id label String @default(\"private_value\") }"),
+                "blocked_default", ReferenceControl.MANAGED_HISTORY), MigrationDevPlan.Diagnostic.PROJECTION);
+        MigrationFile pending = migration(2, "pending", "-- private_marker");
+        assertRefusal(planner.preview(schema, directory, addition, "blocked_pending", ReferenceControl.MANAGED_HISTORY),
+                MigrationDevPlan.Diagnostic.PENDING);
+        Path pendingDirectory = directory.resolve(pending.directoryName());
+        Files.delete(pendingDirectory.resolve("migration.sql"));
+        Files.delete(pendingDirectory);
+        execute("ALTER TABLE " + table("Item") + " ADD COLUMN unexpected text");
+        MigrationDevPlan drift = planner.preview(schema, directory, addition, "blocked_drift", ReferenceControl.MANAGED_HISTORY);
+        assertRefusal(drift, MigrationDevPlan.Diagnostic.REFERENCE);
+        assertEquals(State.DRIFT_DETECTED, drift.observation().orElseThrow().state());
+    }
+
+    private static ValidatedSchema desired(String text) {
+        return new SchemaCompiler().compile(SourceText.of("schema.tuprel", text)).validatedSchema().orElseThrow();
+    }
+
+    private static void assertRefusal(MigrationDevPlan plan, MigrationDevPlan.Diagnostic reason) {
+        assertEquals(MigrationDevPlan.State.BLOCKED, plan.state(), plan::toString);
+        assertEquals(reason, plan.diagnostic().orElseThrow(), plan::toString);
+        assertTrue(plan.sql().isEmpty());
+        assertFalse(plan.toString().contains("private"));
+    }
 
     private static void assertUnknown(PhysicalDriftReport result, Diagnostic reason) {
         assertEquals(State.UNKNOWN, result.state(), result::toString);

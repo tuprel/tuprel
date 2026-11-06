@@ -15,22 +15,13 @@ import dev.tuprel.schema.SchemaDiagnostic;
 import dev.tuprel.schema.SourceText;
 import dev.tuprel.sql.SqlIdentifier;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintWriter;
-import java.nio.ByteBuffer;
-import java.nio.charset.CodingErrorAction;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 
 /** Offline orchestration only; schema interpretation and comparison stay in their modules. */
 final class MigrationDiffCommand {
-    private static final int MAX_SCHEMA_BYTES = 1024 * 1024;
-
     int run(String[] arguments, PrintWriter out, PrintWriter err, Path projectRoot) {
         if (arguments.length == 3 && (arguments[2].equals("--help") || arguments[2].equals("-h"))) { help(out); return 0; }
         String target = null;
@@ -47,7 +38,7 @@ final class MigrationDiffCommand {
             SqlIdentifier schema = new SqlIdentifier(target);
             if (schemaFile.chars().anyMatch(character -> character < 32 || character == 127)) { return usage(err); }
             Path root = projectRoot.toRealPath();
-            SourceText source = SourceText.of("schema.tuprel", readSchema(root, Path.of(schemaFile)));
+            SourceText source = SourceText.of("schema.tuprel", MigrationSchemaInput.read(root, Path.of(schemaFile)));
             out.println("Source: all local migration files in tuprel/migrations (execution order).");
             out.println("Target: " + schemaFile);
             out.println("Offline comparison only: no database/history observed; physical drift not checked.");
@@ -109,26 +100,6 @@ final class MigrationDiffCommand {
             err.println("TUPREL-DIFF-INPUT: Check --target-schema, --schema, UTF-8, permissions and the 1 MiB schema limit. Links, aliases and traversal are refused.");
             return 2;
         }
-    }
-
-    private static String readSchema(Path root, Path requested) throws IOException {
-        for (Path component : requested) { if (component.toString().equals("..")) { throw new IOException("Traversal"); } }
-        Path path = root.resolve(requested).toAbsolutePath().normalize();
-        Path current = path.getRoot();
-        for (Path component : path) {
-            current = current.resolve(component);
-            BasicFileAttributes attributes = Files.readAttributes(current, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-            if (attributes.isSymbolicLink() || attributes.isOther()) { throw new IOException("Linked input"); }
-        }
-        BasicFileAttributes before = Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-        if (!before.isRegularFile() || before.size() > MAX_SCHEMA_BYTES || !path.toRealPath().equals(path)) { throw new IOException("Invalid input"); }
-        byte[] bytes;
-        try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) { bytes = input.readNBytes(MAX_SCHEMA_BYTES + 1); }
-        BasicFileAttributes after = Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-        if (bytes.length > MAX_SCHEMA_BYTES || bytes.length != before.size() || !after.isRegularFile() || !java.util.Objects.equals(before.fileKey(), after.fileKey())
-                || before.size() != after.size() || !before.lastModifiedTime().equals(after.lastModifiedTime())) { throw new IOException("Input changed"); }
-        return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(bytes)).toString();
     }
 
     private static void help(PrintWriter out) {

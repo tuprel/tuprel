@@ -79,8 +79,11 @@ O executor do subconjunto aceite está implementado. F6-004A integrada no #44:
 comparação lógica offline do AST existente, sem escrita, conforme
 [ADR-0018 aceite](../docs/adr/ADR-0018-logical-schema-diff.md).
 [ADR-0019 aceite](../docs/adr/ADR-0019-schema-projection-and-offline-diff.md)
-define a projecção de schema.tuprel e a CLI diff offline da F6-004C. Catálogo/drift/dev seguem
-em fatias posteriores com contratos próprios; não são funcionalidades disponíveis.
+define a projecção de schema.tuprel e a CLI diff offline da F6-004C. O
+[ADR-0020](../docs/adr/ADR-0020-postgresql-catalog-observation.md) cobre as
+APIs read-only de catálogo e drift. O
+[ADR-0021](../docs/adr/ADR-0021-safe-migrate-dev.md) abrange o preview de
+`migrate dev` na C1. Publicação e revisão do deploy aguardam aprovação.
 
 **Objectivo planeado — TUPREL Safe Migration Engine MVP (P0):** artefactos
 existentes e revistos, plano/preview determinístico, integridade, riscos,
