@@ -490,5 +490,41 @@ primary keys and plain indexes. Objects outside the profile yield
 `UNKNOWN`. Both outcomes omit the snapshot. Review the diagnostic category
 and check the target and privileges before trying again. The profile and
 limits are specified in [ADR-0020](../adr/ADR-0020-postgresql-catalog-observation.md).
-This API does not establish equivalence with applied migrations or change
-the CLI, approval digest or deploy process.
+Use the separate drift inspector when you also have a verified reference.
+
+## Check for physical drift
+
+The Java drift inspector compares supported physical properties with a replay
+of the applied migration prefix. It validates names, exact checksums and
+order. Pending migration SQL is excluded from the expected state.
+
+Call the managed-history overload only while an administrative window excludes
+external DDL on the target and you have verified the history table's
+provenance. The login needs catalog permissions and `SELECT` on the history
+table. The inspector holds an `ACCESS SHARE` lock on the verified history
+table for the read transaction.
+
+```java
+import dev.tuprel.migrate.postgresql.MigrationDatabaseSettings;
+import dev.tuprel.migrate.postgresql.PhysicalDriftReport;
+import dev.tuprel.migrate.postgresql.PostgresqlDriftInspector;
+import dev.tuprel.sql.SqlIdentifier;
+import java.nio.file.Path;
+
+MigrationDatabaseSettings settings = MigrationDatabaseSettings.fromEnvironment(System.getenv());
+PostgresqlDriftInspector inspector = new PostgresqlDriftInspector(settings);
+// Invoke inside a controlled DDL window with trusted history provenance.
+PhysicalDriftReport result = inspector.inspect(new SqlIdentifier("my_schema"),
+        Path.of("tuprel/migrations"), PostgresqlDriftInspector.ReferenceControl.MANAGED_HISTORY);
+System.out.println(result);
+```
+
+Without that administrative evidence use the two-argument overload, which
+returns `UNKNOWN`. Missing history also returns `UNKNOWN`, including for an
+empty catalog. An existing, verified history table can establish a prefix
+of length zero.
+
+`NO_DRIFT` means equivalence within the reported coverage profile at the
+observed instant. `DRIFT_DETECTED` identifies confirmed differences.
+`UNKNOWN` withholds differences if either side cannot be validated. This
+inspection neither repairs drift nor authorizes a later write.

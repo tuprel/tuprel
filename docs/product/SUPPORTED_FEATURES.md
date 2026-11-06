@@ -149,4 +149,8 @@ exit codes 0/1/2. Não consulta histórico/base nem verifica drift físico.
 
 F6-005A: API Java de observação read-only do catálogo PostgreSQL 17 num
 schema explícito. Devolve um snapshot apenas quando toda a evidência no
-perfil é válida. O histórico aplicado e a avaliação de drift pertencem à F6-005B.
+perfil é válida.
+
+F6-005B: API Java de drift físico no perfil do ADR-0020. Compara o catálogo
+com o prefixo aplicado verificado, em leitura consistente e sob uma janela de
+controlo de DDL confirmada pelo operador. Ainda sem integração na CLI ou no deploy.

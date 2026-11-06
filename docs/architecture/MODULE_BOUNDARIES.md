@@ -134,6 +134,8 @@ sem arestas novas nem reutilização do lifecycle CRUD.
 F6-005A acrescenta observação PostgreSQL 17 em transacção read-only dedicada
 no mesmo adapter. Reutiliza configuração de alvo, AST e SchemaSnapshot,
 com consultas fixas de catálogo. Nenhuma dependência do runtime CRUD.
+F6-005B partilha a sessão read-only com a leitura de histórico verificado
+e usa apenas a comparação estrutural do diff. O deploy conserva o protocolo actual.
 
 ### `tuprel-introspection-postgresql`
 

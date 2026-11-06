@@ -128,14 +128,19 @@ que misturem instantes ou escondam uma perda de ligação.
 
 ### API e Physical Drift Detection
 
-Contrato proposto, com nomes indicativos para revisão. `PostgresqlCatalogObserver`
-usa a configuração validada. `observe(SqlIdentifier)` devolve um
+O `PostgresqlCatalogObserver` usa a configuração validada.
+`observe(SqlIdentifier)` devolve um
 `CatalogObservation` imutável com estado, versão de cobertura,
 `Optional<SchemaSnapshot>` e diagnósticos tipados. A identidade observada fica
-encapsulada no adapter. `PostgresqlDriftInspector.inspect(SqlIdentifier, Path)`
-obtém evidência do catálogo local, história e alvo vivo e devolve
-`PhysicalDriftReport`. O chamador indica o schema e a raiz do catálogo v1.
-Nenhuma destas APIs recebe uma leitura fornecida pelo chamador como prova do alvo.
+encapsulada no adapter. `PostgresqlDriftInspector.inspect(SqlIdentifier, Path,
+ReferenceControl)` obtém evidência do catálogo local, história e alvo vivo e
+devolve `PhysicalDriftReport`. O chamador indica o schema, a raiz do catálogo
+v1 e confirma o controlo administrativo para a invocação. A forma de dois
+argumentos devolve `UNKNOWN` por ausência dessa confirmação. Uma invocação
+gerida verifica a ligação do nome aos OIDs antes do lock, confirma o lock
+no OID esperado e verifica de novo os nomes antes de ler o histórico. Esta
+defesa em profundidade depende da janela de exclusão externa. Nenhuma API
+aceita uma leitura fornecida pelo chamador como prova do alvo.
 
 | Estado de observação | Resultado |
 |---|---|
@@ -154,12 +159,11 @@ coincidem com o prefixo `APPLIED` observado no mesmo alvo. Usar
 `MigrationDirectory`, `MigrationStatus`, parser e replay existentes. Ficheiros
 pendentes ficam fora da referência. Historial incompatível, divergente ou
 indisponível, SQL aplicado fora da gramática e replay impossível dão `UNKNOWN`.
-Com histórico ausente, aceitar referência inicial vazia apenas se o inventário
-completo estiver vazio e o alvo tiver proveniência de aprovisionamento inicial
-confirmada pelo operador. Os ficheiros locais são todos pendentes neste caso.
-Isto permite o primeiro deploy após publicar o primeiro candidato. O vazio
-observado sozinho não comprova essa proveniência. Histórico ausente sem esta
-evidência produz `UNKNOWN` e impede adopção ou reparação implícita.
+Histórico ausente produz `UNKNOWN`, incluindo num schema com inventário
+vazio. A aprovação da F6-005B exige um prefixo aplicado verificável para
+`NO_DRIFT`. Um histórico canónico existente e vazio pode comprovar um
+prefixo de comprimento zero. A proposta de referência para o primeiro deploy
+num alvo comprovadamente novo fica na revisão separada do ADR-0021.
 
 | Drift | Evidência exigida |
 |---|---|

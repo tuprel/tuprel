@@ -20,6 +20,10 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- API Java de drift físico para o perfil de catálogo PostgreSQL 17. Compara
+  uma leitura completa com o prefixo aplicado validado, sem gerar SQL ou
+  alterar o protocolo de deploy.
+
 - API Java de observação read-only do catálogo PostgreSQL 17 com cobertura
   explícita e resultado completo, incompleto ou desconhecido. A observação
   cobre um schema e um snapshot temporal. Ainda não compara o histórico aplicado.

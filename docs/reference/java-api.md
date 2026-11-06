@@ -203,3 +203,20 @@ snapshot describes one transaction's view. External DDL can commit after
 that view was established. This call reads catalog metadata and checks the
 shape of any reserved history table. It does not read the applied history or
 determine drift. See [catalog observation](../guides/migrations.md#observe-the-postgresql-catalog).
+
+## Physical drift inspection
+
+`PostgresqlDriftInspector(MigrationDatabaseSettings).inspect(SqlIdentifier, Path, ReferenceControl)`
+compares a complete catalog observation with the supported DDL replay of the
+verified applied prefix. The two-argument overload requires no database access
+and reports `UNKNOWN` because it has no confirmed reference control.
+
+`PhysicalDriftReport` exposes the profile, `NO_DRIFT`, `DRIFT_DETECTED` or
+`UNKNOWN`, and redacted diagnostic categories. Confirmed differences list
+exact names and property changes without SQL or execution risks.
+`SchemaDiff.structuralChanges(before, after)` uses the same comparison as the
+offline diff with preview generation disabled.
+
+The observer and history reader share one transaction. To opt in, confirm the
+operational controls for the exact target and invocation. See
+[physical drift inspection](../guides/migrations.md#check-for-physical-drift).

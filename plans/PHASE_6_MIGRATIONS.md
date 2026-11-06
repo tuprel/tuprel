@@ -5,7 +5,9 @@ read-only. F6-003A1 integrada no #30, com gramática/AST/preview offline.
 F6-003A2 (plano/digest) integrada no #31. ADRs 0012–0017 aceites.
 A entrega F6-003B disponibiliza o runner Java transaccional, com gates,
 prefixos confirmados e inspecção para reconciliação explícita. A F6-003C expõe
-deploy CLI com dry-run e digest revisto; drift completo permanece na F6-005.
+deploy CLI com dry-run e digest revisto. F6-005A/B disponibilizam as APIs Java
+read-only de catálogo e drift para o perfil PostgreSQL 17. O protocolo de deploy
+continua regido pelos ADRs 0014–0017.
 Ver [contrato do status](F6-002B_MIGRATION_STATUS.md),
 [RFC-006](../docs/rfcs/RFC-006-migration-engine-proposal.md) e
 [contrato CLI](../docs/product/CLI_EXPERIENCE.md).
