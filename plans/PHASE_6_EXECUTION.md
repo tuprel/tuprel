@@ -74,8 +74,10 @@ não substituem nova consulta antes de cada integração.
 | F6-005A leitura de catálogo | MERGED | 004 consolidada; [ADR-0020](../docs/adr/ADR-0020-postgresql-catalog-observation.md) aceite e integrado | feat/f6-005a-catalog-observation / [#51](https://github.com/tuprel/tuprel/pull/51) | 7fee6e8c5bff031180c8ccdb3900fb03aff03116 | — |
 | F6-005B comparação de drift | MERGED | 005A integrada; contrato de drift do ADR-0020 aprovado | feat/f6-005b-physical-drift / [#52](https://github.com/tuprel/tuprel/pull/52) | d8c5fb3aa11dce8959b61f099b5f0a851acbd716 | — |
 | F6-005C1 preview de dev | MERGED | 005B integrada e [ADR-0021](../docs/adr/ADR-0021-safe-migrate-dev.md) parcialmente aceite | feat/f6-005c1-migrate-dev-preview / [#54](https://github.com/tuprel/tuprel/pull/54) | 6d6815b7a3c8c1f716111d833c8b29d338fea9a5 | — |
-| F6-005C2 publicação e aprovisionamento | BLOCKED | 005C1 e revisão do ADR-0021 | — | — | Aprovação explícita da política de escrita |
-| F6-005C3 deploy com aprovação física | BLOCKED | 005C1 e revisão do ADR-0021 | — | — | Aprovação explícita do protocolo e do controlo de executores |
+| F6-005C2.1 bootstrap inicial | TESTING | C1 integrada e direcção do ADR-0021 aceite | feat/f6-005c2-initial-bootstrap | — | Validação PostgreSQL e gates do PR funcional |
+| F6-005C2.2 publicação nativa | BLOCKED | C2.1 e contrato de publicação do ADR-0021 | — | — | Decidir distribuição e matriz nativa antes da implementação |
+| F6-005C3 deploy com aprovação física | TODO | C2.2 e contrato de cutover do ADR-0021 | — | — | Digest, testes de compatibilidade e controlo de executores |
+| F6-005C integração de escrita | BLOCKED | Bootstrap, publicação nativa e deploy físico validados | — | — | Disponibilidade por perfil após todos os gates |
 | F6-006 consolidação | TODO | Subconjuntos anteriores integrados | — | — | Matriz, segurança, documentação e desempenho medido |
 | F6-006 playground baseline | TODO | Motor estável; tarefa isolada com plano de preservação | — | — | Inventário read-only e consentimento antes de adoptar migrations |
 | F6-006 ignore de create.lock | TODO | Contrato de init/ownership | — | — | Evitar inclusão acidental sem sobrescrever .gitignore |
@@ -675,4 +677,16 @@ O [#54](https://github.com/tuprel/tuprel/pull/54) foi integrado em
 checks no HEAD `66b4659`. A análise CodeQL 2113400977 teve zero resultados.
 A main passou na [CI](https://github.com/tuprel/tuprel/actions/runs/42251376678)
 e no [CodeQL](https://github.com/tuprel/tuprel/actions/runs/42251376679)
-desse commit. C2 e C3 aguardam aprovação explícita da proposta.
+desse commit. A direcção de C2/C3 do #56 foi aprovada para implementação
+incremental. O bootstrap interno tem o primeiro PR funcional. O trabalho
+documental restante segue nos PRs funcionais ou técnicos apropriados.
+
+### Validação local da F6-005C2.1
+
+O bootstrap interno verificou autorização assinada, geração e identidade do
+alvo, unicidade do recibo e criação atómica do histórico vazio. Os sete testes
+em PostgreSQL cobrem recusa de adopção, permissões, concorrência, rollback e
+reconciliação após perda de confirmação de commit. A build Java 21 com
+verificação estrita registou 435 aprovações e quatro skips Windows de symlink.
+Playground e verificação read-only passaram, com zero schemas de teste
+remanescentes. Foram verificados 94 links e 31 anchors.
