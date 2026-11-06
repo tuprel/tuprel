@@ -72,7 +72,7 @@ não substituem nova consulta antes de cada integração.
 | F6-004B projecção de schema.tuprel | MERGED | 004A; ADR-0019 aceite | feat/f6-004b-schema-projection / [#45](https://github.com/tuprel/tuprel/pull/45) | c16d23590a03115f90c0b3b81d67c4bbe81e4a66 | — |
 | F6-004C CLI diff | MERGED | 004B; ADR-0019 aceite | feat/f6-004c-migrate-diff / [#48](https://github.com/tuprel/tuprel/pull/48) | 9d405f04616162d34a5af1240935e0bf7442c9ec | — |
 | F6-005A leitura de catálogo | MERGED | 004 consolidada; [ADR-0020](../docs/adr/ADR-0020-postgresql-catalog-observation.md) aceite e integrado | feat/f6-005a-catalog-observation / [#51](https://github.com/tuprel/tuprel/pull/51) | 7fee6e8c5bff031180c8ccdb3900fb03aff03116 | — |
-| F6-005B comparação de drift | TESTING | 005A integrada; contrato de drift do ADR-0020 aprovado | feat/f6-005b-physical-drift / [#52](https://github.com/tuprel/tuprel/pull/52) | — | Confirmar checks remotos, revisão e CI da main após integração |
+| F6-005B comparação de drift | MERGED | 005A integrada; contrato de drift do ADR-0020 aprovado | feat/f6-005b-physical-drift / [#52](https://github.com/tuprel/tuprel/pull/52) | d8c5fb3aa11dce8959b61f099b5f0a851acbd716 | — |
 | F6-005C propostas/dev | BLOCKED | 005B e [ADR-0021](../docs/adr/ADR-0021-safe-migrate-dev.md) proposto | — | — | Publicação e alteração ao deploy exigem aprovação separada do ADR-0021 |
 | F6-006 consolidação | TODO | Subconjuntos anteriores integrados | — | — | Matriz, segurança, documentação e desempenho medido |
 | F6-006 playground baseline | TODO | Motor estável; tarefa isolada com plano de preservação | — | — | Inventário read-only e consentimento antes de adoptar migrations |
@@ -643,3 +643,16 @@ são lidos no mesmo snapshot. A build do playground passou depois da raiz e
 os dados persistidos foram confirmados por consulta read-only, com zero
 schemas de teste remanescentes. O exemplo Java compilou com Werror e foram
 verificados 156 links e 31 anchors do README.
+
+O [#52](https://github.com/tuprel/tuprel/pull/52) foi integrado em
+`d8c5fb3aa11dce8959b61f099b5f0a851acbd716` após revisão do HEAD `1eda379`.
+Os quatro checks do PR passaram e a análise CodeQL 2113075014 teve zero
+resultados. A evidência pós-merge está nos runs da
+[CI](https://github.com/tuprel/tuprel/actions/runs/42244736412) e do
+[CodeQL](https://github.com/tuprel/tuprel/actions/runs/42244736379)
+desse commit da main.
+
+O contrato integrado devolve `UNKNOWN` quando falta histórico, incluindo
+num schema vazio. O próximo gate é a revisão do ADR-0021 sobre
+aprovisionamento inicial, publicação sem sobrescrita e compatibilidade do
+protocolo de deploy com executores anteriores.
