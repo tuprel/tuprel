@@ -19,7 +19,7 @@ Ver [contrato do status](F6-002B_MIGRATION_STATUS.md),
 | F6-002B | Adapter/histórico aprovados; status read-only com testes PostgreSQL real |
 | F6-003 | Gramática SQL, aprovação, executor transaccional, locks e falhas; deploy só então |
 | F6-004 | Diff/preview conservador e classificação de riscos; sem auto-execução destrutiva |
-| F6-005 | Catálogo parcial/drift e experiência dev; desconhecidos exigem revisão |
+| F6-005 | [Catálogo e drift read-only](../docs/adr/ADR-0020-postgresql-catalog-observation.md) aceites para F6-005A e F6-005B. [Publicação segura com dev](../docs/adr/ADR-0021-safe-migrate-dev.md) proposta, com revisão pendente |
 | F6-006 | E2E, documentação, plataformas e tarefa separada de adopção do playground |
 
 Create e status são subtarefas separadas: escrita offline não deve depender de
