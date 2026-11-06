@@ -5,12 +5,16 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /** Java-to-native integration on the verified filesystem supplied by the runner. */
 public final class PublicationProof {
@@ -21,6 +25,10 @@ public final class PublicationProof {
     private static final UUID GENERATION = UUID.randomUUID();
 
     public static void main(String[] args) throws Exception {
+        if (args.length == 6 && args[0].equals("--halt")) {
+            haltDuringPublication(args);
+            return;
+        }
         Path binary = Path.of(args[0]).toRealPath();
         Path volume = Path.of(args[1]).toRealPath();
         byte[] manifest = manifest(binary);
@@ -74,6 +82,15 @@ public final class PublicationProof {
         expect("-- changed\n", Files.readString(interruptedAfter.resolve(CANDIDATE.directoryName()).resolve("migration.sql")));
         expect(true, Arrays.equals(receipt, Files.readAllBytes(NativePublicationReceipt.path(interruptedAfter))));
 
+        Path haltedBefore = fixture(volume);
+        runAbruptExit(distribution, key, haltedBefore, false);
+        expect(NativeMigrationPublisher.Outcome.NOT_PUBLISHED, reconcileAfterExit(publisher, haltedBefore));
+        expect(false, Files.exists(haltedBefore.resolve(CANDIDATE.directoryName())));
+        Path haltedAfter = fixture(volume);
+        runAbruptExit(distribution, key, haltedAfter, true);
+        expect(NativeMigrationPublisher.Outcome.PUBLISHED, reconcileAfterExit(publisher, haltedAfter));
+        intact(haltedAfter);
+
         Path replaced = fixture(volume);
         expect(NativeMigrationPublisher.Outcome.PUBLISHED, publisher.publish(replaced, CANDIDATE));
         Path destination = replaced.resolve(CANDIDATE.directoryName());
@@ -85,8 +102,8 @@ public final class PublicationProof {
         Path collision = fixture(volume);
         NativeMigrationPublisher raced = new NativeMigrationPublisher(installation, GENERATION, renamed -> {
             if (!renamed) {
-                Path destination = Files.createDirectory(collision.resolve(CANDIDATE.directoryName()));
-                Files.write(destination.resolve("migration.sql"), PRIOR);
+                Path competingDirectory = Files.createDirectory(collision.resolve(CANDIDATE.directoryName()));
+                Files.write(competingDirectory.resolve("migration.sql"), PRIOR);
             }
         });
         expect(NativeMigrationPublisher.Outcome.COLLISION, raced.publish(collision, CANDIDATE));
@@ -105,7 +122,44 @@ public final class PublicationProof {
         Path nested = Files.copy(binary, refused.getParent().getParent().resolve(binary.getFileName()),
                 StandardCopyOption.COPY_ATTRIBUTES);
         rejects(refused, new NativePublisherInstallation(nested, manifest, signed, key.getPublic()));
-        System.out.println("Java/native proof passed: exact bytes, receipt replay, collision, interruption before/after GO, tampering");
+        System.out.println("Java/native proof passed: exact bytes, receipt replay, collision, abrupt process exit, tampering");
+    }
+
+    private static void runAbruptExit(Path distribution, KeyPair key, Path root, boolean after) throws Exception {
+        boolean windows = System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows");
+        Path java = Path.of(System.getProperty("java.home"), "bin", windows ? "java.exe" : "java");
+        String pin = Base64.getEncoder().encodeToString(key.getPublic().getEncoded());
+        Process child = new ProcessBuilder(java.toString(), "-cp", System.getProperty("java.class.path"),
+                PublicationProof.class.getName(), "--halt", distribution.toString(), pin, root.toString(),
+                GENERATION.toString(), Boolean.toString(after)).inheritIO().start();
+        try {
+            expect(true, child.waitFor(30, TimeUnit.SECONDS));
+            expect(73, child.exitValue());
+        } finally {
+            if (child.isAlive()) { child.destroyForcibly(); }
+        }
+    }
+
+    private static void haltDuringPublication(String[] args) throws Exception {
+        byte[] pin = Base64.getDecoder().decode(args[2]);
+        NativePublisherInstallation installation = NativePublisherInstallation.load(Path.of(args[1]),
+                KeyFactory.getInstance("Ed25519").generatePublic(new X509EncodedKeySpec(pin)));
+        boolean after = Boolean.parseBoolean(args[5]);
+        NativeMigrationPublisher publisher = new NativeMigrationPublisher(installation, UUID.fromString(args[4]), renamed -> {
+            if (renamed == after) { Runtime.getRuntime().halt(73); }
+        });
+        throw new AssertionError("Interruption checkpoint was not reached: " + publisher.publish(Path.of(args[3]), CANDIDATE));
+    }
+
+    private static NativeMigrationPublisher.Outcome reconcileAfterExit(NativeMigrationPublisher publisher, Path root)
+            throws InterruptedException {
+        // The native child may still be releasing its handles after the JVM exits.
+        for (int attempt = 0; attempt < 20; attempt++) {
+            NativeMigrationPublisher.Outcome outcome = publisher.reconcile(root);
+            if (outcome != NativeMigrationPublisher.Outcome.PUBLICATION_UNKNOWN) { return outcome; }
+            Thread.sleep(50);
+        }
+        return NativeMigrationPublisher.Outcome.PUBLICATION_UNKNOWN;
     }
 
     private static void rejects(Path root, NativePublisherInstallation installation) throws IOException {
