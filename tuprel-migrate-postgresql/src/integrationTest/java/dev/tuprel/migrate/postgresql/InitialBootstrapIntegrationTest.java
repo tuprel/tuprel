@@ -4,10 +4,13 @@ import static dev.tuprel.migrate.postgresql.PostgresqlInitialBootstrap.Outcome;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.tuprel.migrate.MigrationHistory;
+import dev.tuprel.migrate.MigrationDirectory;
 import dev.tuprel.sql.SqlIdentifier;
 import dev.tuprel.testsupport.TestPostgresql;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Signature;
@@ -30,6 +33,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.postgresql.ds.PGSimpleDataSource;
 
 class InitialBootstrapIntegrationTest {
@@ -177,6 +181,48 @@ class InitialBootstrapIntegrationTest {
         execute("DROP TABLE " + quote(target) + ".\"_tuprel_migrations\"");
         execute(MigrationHistoryTable.createSql(target));
         assertEquals(Outcome.REFUSED, bootstrap(settings.dataSource()).reconcile(target, authorization));
+    }
+
+    @Test void physicalPreviewRequiresConsumedProvenanceAndRefusesDrift(@TempDir Path directory) throws Exception {
+        Path root = directory.toRealPath();
+        Files.writeString(root.resolve(MigrationDirectory.FORMAT_FILE), MigrationDirectory.FORMAT_HEADER);
+        Path migration = Files.createDirectory(root.resolve("20261031_120000_first")).resolve("migration.sql");
+        String ddl = "CREATE TABLE " + quote(target) + ".\"example\" (\"id\" INTEGER);\n";
+        Files.writeString(migration, ddl);
+        InitialBootstrapAuthorization authorization = sign(claims);
+        PostgresqlInitialBootstrap provisioner = bootstrap(settings.dataSource());
+        PostgresqlPhysicalApproval preview = new PostgresqlPhysicalApproval(settings, settings.dataSource(), provisioner);
+        assertCatalogRefused(preview, root, authorization);
+        assertFalse(historyInitialised());
+        assertEquals(Outcome.BOOTSTRAPPED, provisioner.bootstrap(target, authorization));
+
+        PostgresqlPhysicalApproval.Inspection inspection = preview.inspect(target.name(), root, authorization);
+        assertEquals(MigrationPlan.State.REVIEW_REQUIRED, inspection.plan().state());
+        assertTrue(inspection.history().applied().isEmpty());
+        assertEquals(claims.generation(), inspection.approval().generation());
+        assertNotEquals(inspection.plan().digest().value(), inspection.approval().digest().value());
+        assertEquals(inspection.approval(), preview.inspect(target.name(), root, authorization).approval());
+        PostgresqlPhysicalApproval failedCleanup = new PostgresqlPhysicalApproval(settings, fault("rollback", true), provisioner);
+        assertEquals(MigrationExecutionResult.Failure.ROLLBACK, assertThrows(MigrationInspectionException.class,
+                () -> failedCleanup.inspect(target.name(), root, authorization)).reason());
+        assertCatalogRefused(preview, root, new InitialBootstrapAuthorization(claims, new byte[64]));
+        Files.writeString(migration, ddl + "-- change to reviewed bytes\n");
+        assertNotEquals(inspection.approval(), preview.inspect(target.name(), root, authorization).approval());
+
+        execute("CREATE TABLE " + quote(target) + ".external (id integer)");
+        assertCatalogRefused(preview, root, authorization);
+        execute("DROP TABLE " + quote(target) + ".external");
+        assertTrue(historyInitialised());
+        execute("DROP TABLE " + quote(target) + ".\"_tuprel_migrations\"");
+        execute(MigrationHistoryTable.createSql(target));
+        assertCatalogRefused(preview, root, authorization);
+    }
+
+    private void assertCatalogRefused(PostgresqlPhysicalApproval preview, Path directory,
+            InitialBootstrapAuthorization authorization) {
+        MigrationInspectionException failure = assertThrows(MigrationInspectionException.class,
+                () -> preview.inspect(target.name(), directory, authorization));
+        assertEquals(MigrationExecutionResult.Failure.CATALOG, failure.reason());
     }
 
     @Test void concurrentExecutorsConfirmExactlyOneBootstrap() throws Exception {
