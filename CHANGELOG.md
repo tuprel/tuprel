@@ -20,6 +20,10 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- CLI migrate diff offline: migrations locais versus schema.tuprel, com fontes,
+  riscos e SQL apenas para diferenças integralmente suportadas. Sem ligação DB,
+  histórico, escrita de ficheiros ou aplicação; recusas e exit codes explícitos.
+
 - Projecção física offline de schema.tuprel validado para o subconjunto DDL
   PostgreSQL: oito scalars, nullability, PK e índices simples; recusas integrais
   e diagnósticos destacados sem source. Sem escrita ou novo comando nesta fatia.

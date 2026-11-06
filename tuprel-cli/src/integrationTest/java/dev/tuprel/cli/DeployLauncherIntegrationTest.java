@@ -99,7 +99,8 @@ class DeployLauncherIntegrationTest {
         Result missing = launch(false, false, "migrate", "deploy", "--target-schema", schema, "--dry-run");
         assertEquals(2, missing.exit()); assertTrue(missing.output().contains("CONFIGURATION")); assertFalse(missing.output().contains("private_marker"));
         assertEquals(2, launch(true, false, "migrate", "deploy", "--target-schema", "../private_marker", "--dry-run").exit());
-        for (String command : List.of("dev", "diff", "reset", "history")) { assertEquals(2, launch(true, false, "migrate", command, "--help").exit()); }
+        assertEquals(0, launch(true, false, "migrate", "diff", "--help").exit());
+        for (String command : List.of("dev", "reset", "history")) { assertEquals(2, launch(true, false, "migrate", command, "--help").exit()); }
         assertFalse(history().initialised());
         assertEquals("TUPREL_DATABASE_URL=private_marker\nTUPREL_DATABASE_PASSWORD=private_marker\n", Files.readString(project.resolve(".env")));
     }

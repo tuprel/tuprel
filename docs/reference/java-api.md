@@ -183,3 +183,7 @@ both. Diagnostic exposes Kind and detached SourcePosition start/end; it retains
 no SourceSpan, source, identifiers or configuration. Public frontend types
 are supplied through the adapter's api dependency on tuprel-schema; the pure
 migration module has no new dependency. See the [guide](../guides/migrations.md#project-schematuprel-for-comparison).
+
+The [offline CLI diff](cli.md#offline-migration-diff) orchestrates discovery,
+parsing, projection and SchemaDiff without introducing another schema model
+or any database execution API. The same logical/physical limits apply.

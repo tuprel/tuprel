@@ -1,7 +1,8 @@
 # TUPREL CLI — Produto, arquitectura e contrato v1
 
 Estado: fundação/create/status integrados; runner Java F6-003B e CLI deploy
-F6-003C seguem os ADRs 0012–0017 aceites. Dev/diff/drift completo ficam futuros.
+F6-003C seguem os ADRs 0012–0017 aceites. A F6-004C entrega diff offline
+conforme o ADR-0019. Dev e drift físico ficam para F6-005.
 Entrada pública: [CLI reference](../reference/cli.md). Este documento mantém o
 desenho de produto e o roadmap interno, separados dos comandos disponíveis.
 A tabela distingue código entregue de roadmap. Java 21. Sem publicação, instalador ou integração automática
@@ -256,7 +257,6 @@ tuprel_demo="$(mktemp -d)"
 
 | Comando | Entrega/contrato proposto |
 |---|---|
-| `migrate diff` | F6-004 preview conhecido; F6-005 comparação ao catálogo, desconhecidos não são sucesso |
 | `migrate dev --name add_products` | F6-005; preview e confirmação vinculada ao plano antes de aplicação permitida; sem reset implícito |
 | `migrate history` | depois do histórico aprovado; apresentação read-only, sem lógica paralela a status |
 | `doctor` | Fase 7; checks úteis de Java/projecto/config e diagnóstico redigido; não corrigir configs automaticamente |
@@ -273,7 +273,8 @@ o help: exigem casos reais, contratos e gates próprios.
 
 Para DB: produção usa configuração própria (ADR-0013), sem reutilizar o loader
 de `.env` dos testes. Help por subcomando e flags só aparecem quando funcionais.
-Status e o diff futuro são observações read-only, sem bootstrap de histórico.
+Status consulta o histórico em modo read-only. Diff compara o catálogo local
+com schema.tuprel e mantém a observação física fora do resultado.
 Dry-run de deploy usa o advisory lock da inspecção e não escreve; informa que
 o estado pode mudar antes da aplicação e a aprovação será revalidada sob lock. Operações destrutivas ou
 desconhecidas não são desbloqueadas por um `--yes` genérico. Reset fica ausente.

@@ -13,7 +13,7 @@ same limited subset; applying it requires an explicitly reviewed digest.
 The Java API also compares fully known logical schemas reconstructed from the
 accepted DDL AST. See [offline comparison](#compare-logical-schemas-offline).
 
-**Not available as CLI commands:** dev, diff or reset.
+**Not available as CLI commands:** dev or reset.
 Physical drift detection remains unavailable. Open PRs are not installed CLI features.
 
 ## Compare logical schemas offline
@@ -268,7 +268,7 @@ state and recompiles under the approved session-lock and transaction contract;
 caller-supplied snapshots are not execution authority. See
 [ADR-0016](../adr/ADR-0016-offline-migration-plan-digest.md) for the exact encoding
 and limits, and [ADR-0017](../adr/ADR-0017-transactional-runner-gates.md) for the
-accepted execution gates. CLI dev/diff and physical drift remain
+accepted execution gates. CLI dev and physical drift remain
 unavailable.
 
 ## Deploy reviewed files from the CLI
@@ -424,4 +424,42 @@ Defaults, unique, enums, relations, lists and other types refuse the whole schem
 
 See the [runnable example](../../examples/migration-diff/SchemaProjectionExample.java)
 and [accepted contract](../adr/ADR-0019-schema-projection-and-offline-diff.md).
-This API does not connect or execute SQL. CLI diff is delivered separately.
+This API does not connect or execute SQL. The CLI diff command uses this same projection.
+
+## Compare migrations with schema.tuprel
+
+From an initialized project, with a complete supported schema and reviewed
+format-v1 migration catalog:
+
+```bash
+tuprel migrate diff --target-schema app
+tuprel migrate diff --target-schema app --schema tuprel/schema.tuprel
+```
+
+PowerShell uses tuprel.bat or the absolute packaged launcher path with the same
+arguments. Previewable differences return 1, equality 0 and blocked comparisons
+2. An invalid schema also returns 1 with validation diagnostics. No files change.
+
+For a minimal offline example, run init in an empty temporary project, then
+edit tuprel/schema.tuprel to contain only:
+
+```tuprel
+model Product {
+    id UUID @id
+    label String?
+    @@index([label])
+}
+```
+
+With the empty catalog from init, diff proposes a table/index and returns 1.
+Review this SQL; it is not an applied migration or approval. To compare an
+existing project, all source migrations must replay from an empty logical
+schema. Drafts, unknown SQL, missing prerequisites or unsupported target
+attributes refuse comparison. Defaults/relations/unique/enums are outside
+projection; no partial state or approximate SQL is produced.
+
+The command does not identify which artifacts are applied, verify their
+history checksums, observe physical drift or connect to PostgreSQL. It cannot
+approve deployment. Existing deploy still revalidates artifacts/history/digest
+under lock. Use [status](../reference/cli.md#migration-status) for history and
+the [diff reference](../reference/cli.md#offline-migration-diff) for limits/codes.

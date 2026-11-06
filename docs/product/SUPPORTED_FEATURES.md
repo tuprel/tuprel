@@ -142,3 +142,7 @@ Nenhum item desta secção deve contaminar a arquitectura 1.0 sem necessidade co
 F6-004B: projecção Java de ValidatedSchema no adapter PostgreSQL, integral ou
 recusada, para oito scalars/PK/indexes simples. Sem defaults/relações/unique/enums;
 sem novo comando CLI nesta fatia, ligação DB ou drift físico.
+
+F6-004C: CLI migrate diff offline compara todos os artefactos locais com
+schema.tuprel, com fontes/riscos explícitos, preview integral ou recusa e
+exit codes 0/1/2. Não consulta histórico/base nem verifica drift físico.
