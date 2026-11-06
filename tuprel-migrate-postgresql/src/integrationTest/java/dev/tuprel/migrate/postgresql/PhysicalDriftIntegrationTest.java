@@ -125,14 +125,15 @@ class PhysicalDriftIntegrationTest {
                 report.differences().stream().map(change -> change.kind() + ":" + change.member().orElseThrow().name()).toList());
     }
 
-    @Test void distinguishesUnknownReferenceFromVerifiedVirginProvisioning() throws Exception {
+    @Test void anEmptyCatalogWithoutHistoryDoesNotCertifyEquivalence() throws Exception {
         migration(1, "pending", createTable("items"));
         assertUnknown(inspector.inspect(schema, directory), Diagnostic.REFERENCE_CONTROL);
         assertUnknown(managed(), Diagnostic.REFERENCE_MISSING);
-        assertEquals(State.NO_DRIFT, inspector.inspect(schema, directory, ReferenceControl.VERIFIED_VIRGIN).state());
         assertEquals(0, count("SELECT count(*) FROM pg_catalog.pg_class WHERE relnamespace = '" + schema.name() + "'::regnamespace"));
+        createHistory();
+        assertEquals(State.NO_DRIFT, managed().state());
+        execute("DROP TABLE " + table(MigrationHistoryTable.NAME));
         execute("CREATE TABLE " + table("unexpected") + " (id int4)");
-        assertUnknown(inspector.inspect(schema, directory, ReferenceControl.VERIFIED_VIRGIN), Diagnostic.REFERENCE_MISSING);
         assertUnknown(managed(), Diagnostic.REFERENCE_MISSING);
     }
 

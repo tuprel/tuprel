@@ -17,7 +17,7 @@ public final class PhysicalDriftReport {
     public enum Diagnostic {
         /** Catalog or session evidence is unavailable or incomplete. */ CATALOG,
         /** Required administrative provenance and DDL control were not confirmed. */ REFERENCE_CONTROL,
-        /** Managed history is absent or the initial-target claim does not match the evidence. */ REFERENCE_MISSING,
+        /** Managed history is absent. */ REFERENCE_MISSING,
         /** Namespace or history identity could not be verified before reading. */ HISTORY_IDENTITY,
         /** History row or canonical structure validation failed. */ HISTORY_INCOMPATIBLE,
         /** The v1 file catalog could not be read and validated. */ LOCAL_CATALOG,

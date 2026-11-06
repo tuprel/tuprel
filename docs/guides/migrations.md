@@ -520,9 +520,9 @@ System.out.println(result);
 ```
 
 Without that administrative evidence use the two-argument overload, which
-returns `UNKNOWN`. The separate `VERIFIED_VIRGIN` mode requires independently
-verified initial provisioning and a controlled DDL window. The inspector
-also requires an empty, complete inventory and absent history in that mode.
+returns `UNKNOWN`. Missing history also returns `UNKNOWN`, including for an
+empty catalog. An existing, verified history table can establish a prefix
+of length zero.
 
 `NO_DRIFT` means equivalence within the reported coverage profile at the
 observed instant. `DRIFT_DETECTED` identifies confirmed differences.

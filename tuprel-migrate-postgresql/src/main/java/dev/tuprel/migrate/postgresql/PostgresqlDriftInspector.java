@@ -30,8 +30,7 @@ public final class PostgresqlDriftInspector {
     /** Administrative prerequisites confirmed by the caller for the exact target and invocation. */
     public enum ReferenceControl {
         /** Default without verified provenance and an external DDL exclusion window. */ UNVERIFIED,
-        /** Managed v1 history of trusted provenance, with external DDL excluded until the call returns. */ MANAGED_HISTORY,
-        /** Independently verified virgin provisioning, with external DDL excluded until the call returns. */ VERIFIED_VIRGIN
+        /** Managed v1 history of trusted provenance, with external DDL excluded until the call returns. */ MANAGED_HISTORY
     }
 
     private final PostgresqlCatalogObserver observer;
@@ -77,21 +76,17 @@ public final class PostgresqlDriftInspector {
             return PhysicalDriftReport.unknown(Diagnostic.LOCAL_CATALOG);
         }
         return observer.observe(schema, (connection, target, oid, catalog) ->
-                inspect(connection, target, schema, oid, catalog, files, control),
+                inspect(connection, target, schema, oid, catalog, files),
                 diagnostic -> PhysicalDriftReport.catalogUnknown(List.of(diagnostic)));
     }
 
     private static PhysicalDriftReport inspect(Connection connection, PostgresqlCatalogObserver.Target target,
-            SqlIdentifier schema, long oid, CatalogObservation catalog, List<MigrationFile> files, ReferenceControl control)
+            SqlIdentifier schema, long oid, CatalogObservation catalog, List<MigrationFile> files)
             throws SQLException {
         if (catalog.state() != CatalogObservation.State.COMPLETE) {
             return PhysicalDriftReport.catalogUnknown(catalog.diagnostics());
         }
         SchemaSnapshot observed = catalog.snapshot().orElseThrow();
-        if (control == ReferenceControl.VERIFIED_VIRGIN) {
-            return oid == 0 && observed.tables().isEmpty() && liveIdentity(connection, target, schema, 0)
-                    ? PhysicalDriftReport.compared(List.of()) : PhysicalDriftReport.unknown(Diagnostic.REFERENCE_MISSING);
-        }
         if (oid == 0) { return PhysicalDriftReport.unknown(Diagnostic.REFERENCE_MISSING); }
         if (!liveIdentity(connection, target, schema, oid)) {
             return PhysicalDriftReport.unknown(Diagnostic.HISTORY_IDENTITY);

@@ -17,8 +17,9 @@ aplicação pertencem ao `deploy` e usam a evidência revalidada do alvo vivo.
 1. Descobrir `tuprel/migrations` e validar `schema.tuprel` com os componentes
    existentes. Confirmar o alvo e obter o par catálogo/histórico do ADR-0020.
    Exigir `NO_DRIFT` entre observação e replay da história aplicada. Na primeira
-   versão, exigir catálogo local sem pendentes, inclusive drafts. O caso
-   inicial tem schema existente e vazio, história ausente e catálogo vazio.
+   versão, exigir catálogo local sem pendentes, inclusive drafts. Um
+   schema vazio sem histórico fica pendente da revisão de aprovisionamento
+   inicial descrita abaixo.
 2. Projectar a intenção por `PostgresqlSchemaProjector` e comparar a referência
    com a projecção usando `SchemaDiff`. Exigir `REVIEW_REQUIRED` com preview
    completo do subconjunto aditivo aceite. Reusar o parser e o compilador de
@@ -265,3 +266,8 @@ aprovações dos planos. Se essa restrição não puder ser estabelecida,
 avaliar uma alteração explícita do formato que executores antigos
 recusem, com análise de compatibilidade separada, ou manter a escrita
 desactivada. O contrato actual de deploy continua em vigor.
+
+**Aprovisionamento inicial.** A aprovação do ADR-0020 para a F6-005B exige
+histórico validado para `NO_DRIFT`, mesmo num schema vazio. A referência
+proposta para um alvo comprovadamente novo necessita de evidência própria
+de aprovisionamento e revisão neste ADR antes de autorizar escrita.
