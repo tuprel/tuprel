@@ -59,7 +59,11 @@ final class CatalogInventory {
             if (relation.kind.equals("i")) { require(relation.indexSeen); }
         }
         if (!diagnostics.isEmpty()) { return CatalogObservation.incomplete(List.copyOf(diagnostics)); }
-        return CatalogObservation.complete(snapshot());
+        Map<String, Long> identities = new HashMap<>();
+        for (Map.Entry<Long, Relation> entry : relations.entrySet()) {
+            require(identities.putIfAbsent(entry.getValue().name, entry.getKey()) == null);
+        }
+        return CatalogObservation.complete(snapshot(), identities);
     }
 
     long historyOid() { return historyOid; }

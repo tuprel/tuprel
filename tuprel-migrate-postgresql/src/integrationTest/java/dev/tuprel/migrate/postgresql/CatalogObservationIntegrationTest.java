@@ -60,6 +60,8 @@ class CatalogObservationIntegrationTest {
             CatalogObservation observation = observer.observe(schema);
             assertEquals(State.COMPLETE, observation.state(), observation::toString);
             assertEquals(CatalogObservation.PROFILE, observation.profile());
+            assertEquals(java.util.Set.of("ExactTable", "ExactTable_pkey", "TextDay", "OtherTypes",
+                    "_tuprel_migrations", "_tuprel_migrations_pkey"), observation.relationOids().keySet());
             assertEquals(List.of("ExactTable"), List.copyOf(observation.snapshot().orElseThrow().tables().keySet()));
             SchemaSnapshot.Table table = observation.snapshot().orElseThrow().tables().get("ExactTable");
             assertEquals(Map.of("id", DdlStatement.Type.UUID, "flag", DdlStatement.Type.BOOLEAN, "small_value", DdlStatement.Type.SMALLINT,

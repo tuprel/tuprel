@@ -2,6 +2,7 @@ package dev.tuprel.migrate.postgresql;
 
 import dev.tuprel.migrate.postgresql.diff.SchemaSnapshot;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /** Immutable result for a single point-in-time observation of the supported catalog profile. */
@@ -36,24 +37,26 @@ public final class CatalogObservation {
 
     private final State state;
     private final SchemaSnapshot snapshot;
+    private final Map<String, Long> relationOids;
     private final List<Diagnostic> diagnostics;
 
-    private CatalogObservation(State state, SchemaSnapshot snapshot, List<Diagnostic> diagnostics) {
+    private CatalogObservation(State state, SchemaSnapshot snapshot, Map<String, Long> relationOids, List<Diagnostic> diagnostics) {
         this.state = state;
         this.snapshot = snapshot;
+        this.relationOids = Map.copyOf(relationOids);
         this.diagnostics = List.copyOf(diagnostics);
     }
 
-    static CatalogObservation complete(SchemaSnapshot snapshot) {
-        return new CatalogObservation(State.COMPLETE, snapshot, List.of());
+    static CatalogObservation complete(SchemaSnapshot snapshot, Map<String, Long> relationOids) {
+        return new CatalogObservation(State.COMPLETE, snapshot, relationOids, List.of());
     }
 
     static CatalogObservation incomplete(List<Diagnostic> diagnostics) {
-        return new CatalogObservation(State.INCOMPLETE, null, diagnostics);
+        return new CatalogObservation(State.INCOMPLETE, null, Map.of(), diagnostics);
     }
 
     static CatalogObservation unknown(Diagnostic diagnostic) {
-        return new CatalogObservation(State.UNKNOWN, null, List.of(diagnostic));
+        return new CatalogObservation(State.UNKNOWN, null, Map.of(), List.of(diagnostic));
     }
 
     /** {@return reliability and coverage of the point-in-time observation} */
@@ -64,6 +67,9 @@ public final class CatalogObservation {
 
     /** {@return the comparable snapshot, available only for a complete observation} */
     public Optional<SchemaSnapshot> snapshot() { return Optional.ofNullable(snapshot); }
+
+    // Identity evidence stays internal and is available only on a complete observation.
+    Map<String, Long> relationOids() { return relationOids; }
 
     /** {@return immutable diagnostics in deterministic category order} */
     public List<Diagnostic> diagnostics() { return diagnostics; }

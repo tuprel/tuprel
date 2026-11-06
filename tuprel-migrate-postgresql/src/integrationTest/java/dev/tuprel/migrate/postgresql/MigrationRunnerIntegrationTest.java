@@ -6,6 +6,7 @@ import dev.tuprel.migrate.MigrationDirectory;
 import dev.tuprel.migrate.MigrationFile;
 import dev.tuprel.migrate.MigrationHistory;
 import dev.tuprel.migrate.postgresql.ddl.PostgresqlDdlParser;
+import dev.tuprel.migrate.postgresql.diff.SchemaSnapshot;
 import dev.tuprel.testsupport.TestPostgresql;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -20,6 +21,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -131,6 +133,32 @@ class MigrationRunnerIntegrationTest {
         execute(MigrationHistoryTable.createSql(new dev.tuprel.sql.SqlIdentifier(schema)));
         assertEquals(MigrationExecutionResult.Failure.APPROVAL, run(settings.dataSource(), approved).failure());
         assertFalse(exists("items")); assertTrue(history().applied().isEmpty());
+    }
+
+    @Test void physicalEvidenceChangesWhenAnIndexIsRecreatedWithoutLogicalDrift() throws Exception {
+        String index = "CREATE INDEX \"items_label\" ON " + table("items") + " (\"label\")";
+        migration("CREATE TABLE " + table("items") + " (\"id\" INTEGER PRIMARY KEY, \"label\" TEXT);\n" + index + ";\n");
+        assertEquals(MigrationExecutionResult.Outcome.APPLIED, run(settings.dataSource(), plan().digest()).outcome());
+        migration("20261031_120001_next", "ALTER TABLE " + table("items") + " ADD COLUMN \"details\" TEXT;\n");
+        MigrationPlan pending = plan();
+        MigrationPlanTarget target = settings.planTarget(schema);
+        SchemaSnapshot expected = SchemaSnapshot.fromParsed(target.schema(), List.of(
+                new PostgresqlDdlParser().parse(MigrationDirectory.discover(directory).getFirst())));
+        PhysicalDeployDigest first = physicalEvidence(target, pending, expected).orElseThrow();
+        assertEquals(first, physicalEvidence(target, pending, expected).orElseThrow());
+        execute("DROP INDEX " + table("items_label"));
+        execute(index);
+        assertEquals(pending.digest(), plan().digest());
+        assertNotEquals(first, physicalEvidence(target, pending, expected).orElseThrow());
+        execute("ALTER TABLE " + table("items") + " ADD COLUMN external text");
+        assertTrue(physicalEvidence(target, pending, expected).isEmpty());
+        assertEquals(1, history().applied().size());
+    }
+
+    private static Optional<PhysicalDeployDigest> physicalEvidence(MigrationPlanTarget target, MigrationPlan plan, SchemaSnapshot expected) {
+        PostgresqlCatalogObserver observer = new PostgresqlCatalogObserver(settings);
+        return observer.observe(target.schema(), (connection, live, historyOid, observation) ->
+                Optional.of(PhysicalDeployDigest.bind(target, live, plan, expected, observation)), ignored -> Optional.empty());
     }
 
     @Test void unknownSqlAndNoChangesNeverBootstrapHistory() throws Exception {
