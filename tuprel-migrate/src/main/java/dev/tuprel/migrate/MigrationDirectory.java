@@ -130,7 +130,7 @@ public final class MigrationDirectory {
         }
     }
 
-    private static byte[] readRegular(Path path, int limit) throws IOException {
+    static byte[] readRegular(Path path, int limit) throws IOException {
         BasicFileAttributes before = attributes(path);
         if (!before.isRegularFile() || before.isSymbolicLink() || before.isOther()
                 || !path.toRealPath().equals(path)) { throw failure(Reason.INVALID_ENTRY); }

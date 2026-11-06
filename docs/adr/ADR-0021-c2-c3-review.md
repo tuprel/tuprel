@@ -151,11 +151,16 @@ Executável pequeno em C por plataforma e arquitectura,
 distribuído opcionalmente com manifesto de SHA-256 autenticado e build
 reproduzível. Java 21 invoca por caminho absoluto fora do projecto, sem
 shell, resolução pelo PATH ou procura em directórios graváveis pelo projecto.
-O protocolo versionado admite apenas a operação no-replace e códigos de
-resultado limitados. O helper verifica volume, filesystem, handles dos
-directórios, identidade da origem e basename de destino. Java conserva
-descoberta v1, validação, locking, recibo e reconciliação. Qualquer erro
-ambíguo após o arranque do helper é tratado como `PUBLICATION_UNKNOWN`.
+O protocolo versionado admite uma operação de escrita no-replace e
+observação read-only da identidade no destino. O helper verifica volume,
+filesystem, handles dos directórios, identidade da origem e basename de
+destino. Java conserva descoberta v1, validação, locking, recibo e
+reconciliação. Depois de registar a tentativa, qualquer falha ambígua
+produz `PUBLICATION_UNKNOWN` e conserva a evidência. O recibo bloqueia
+escritas cooperantes até reconhecimento explícito de um resultado
+confirmado. O [contrato do pacote e protocolo](../../native/migration-publisher/README.md)
+regista o manifesto Ed25519, a separação de privilégios da instalação e os
+limites de confirmação após falhas de energia.
 
 Os testes do helper devem correr em executáveis reais e volumes locais
 verificados. Um runner Linux sobre overlay não conta como prova de ext4

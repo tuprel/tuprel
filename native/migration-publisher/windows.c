@@ -89,6 +89,20 @@ static void print_id(const FILE_ID_INFO *identity) {
     }
 }
 
+static int missing(const wchar_t *path) {
+    if (GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES) { return 0; }
+    DWORD error = GetLastError();
+    return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND;
+}
+
+static void print_identity(const char *frame, const FILE_ID_INFO *root, const FILE_ID_INFO *catalog,
+        const FILE_ID_INFO *source) {
+    printf("%s ntfs %" PRIx64 " ", frame, (uint64_t)root->VolumeSerialNumber);
+    print_id(root); putchar(' ');
+    print_id(catalog); putchar(' ');
+    print_id(source); putchar('\n');
+}
+
 static enum result rename_once(const wchar_t *path, const wchar_t *stage, const wchar_t *name) {
     wchar_t drive[] = {path[0], L':', L'\\', 0};
     if (GetDriveTypeW(drive) != DRIVE_FIXED) { return REFUSED; }
@@ -106,6 +120,8 @@ static enum result rename_once(const wchar_t *path, const wchar_t *stage, const 
     HANDLE parent = handles[count - 1];
     catalog = checked_directory(catalog_path, FILE_ADD_SUBDIRECTORY | FILE_TRAVERSE);
     source = checked_directory(source_path, DELETE);
+    int observing = source == INVALID_HANDLE_VALUE && missing(source_path);
+    if (observing) { source = checked_directory(final_path, 0); }
     FILE_ID_INFO root_id, catalog_id, source_id;
     wchar_t filesystem[16];
     if (catalog == INVALID_HANDLE_VALUE || source == INVALID_HANDLE_VALUE
@@ -116,6 +132,13 @@ static enum result rename_once(const wchar_t *path, const wchar_t *stage, const 
             || !GetFileInformationByHandleEx(source, FileIdInfo, &source_id, sizeof source_id)
             || root_id.VolumeSerialNumber != catalog_id.VolumeSerialNumber
             || root_id.VolumeSerialNumber != source_id.VolumeSerialNumber) { goto done; }
+
+    if (observing) {
+        if (!exact_path(source, final_path) || !missing(source_path)) { goto done; }
+        print_identity("PRESENT", &root_id, &catalog_id, &source_id);
+        result = OBSERVED;
+        goto done;
+    }
 
     wchar_t target[PATH_CAPACITY];
     DWORD target_length = GetFinalPathNameByHandleW(catalog, target, PATH_CAPACITY,
@@ -131,10 +154,7 @@ static enum result rename_once(const wchar_t *path, const wchar_t *stage, const 
     rename->FileNameLength = (DWORD)name_bytes;
     memcpy(rename->FileName, target, name_bytes);
 
-    printf("READY ntfs %" PRIx64 " ", (uint64_t)root_id.VolumeSerialNumber);
-    print_id(&root_id); putchar(' ');
-    print_id(&catalog_id); putchar(' ');
-    print_id(&source_id); putchar('\n');
+    print_identity("READY", &root_id, &catalog_id, &source_id);
     if (ferror(stdout) || !proceed() || !exact_path(parent, root)
             || !exact_path(catalog, catalog_path) || !exact_path(source, source_path)) { goto done; }
     if (GetFileAttributesW(final_path) != INVALID_FILE_ATTRIBUTES) { result = COLLISION; goto done; }
@@ -156,7 +176,7 @@ done:
 int wmain(int argc, wchar_t **argv) {
     char stage[64], name[81];
     if (_setmode(_fileno(stdin), _O_BINARY) == -1 || _setmode(_fileno(stdout), _O_BINARY) == -1) { return REFUSED; }
-    if (argc != 5 || wcscmp(argv[1], L"1") != 0 || !absolute_root(argv[2])
+    if (argc != 5 || wcscmp(argv[1], L"2") != 0 || !absolute_root(argv[2])
             || !ascii_name(argv[3], stage, sizeof stage) || !stage_name(stage, strlen(stage))
             || !ascii_name(argv[4], name, sizeof name) || !destination_name(name, strlen(name))) {
         return finish(REFUSED);

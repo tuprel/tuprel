@@ -100,7 +100,7 @@ jobs:
   native-linux:
     name: Native Linux ${{ matrix.filesystem }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -110,6 +110,16 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile Java publisher and proof
+        run: |
+          ./gradlew :tuprel-migrate:classes --no-daemon --dependency-verification strict
+          javac --release 21 -encoding UTF-8 -cp tuprel-migrate/build/classes/java/main \
+            -d "$RUNNER_TEMP/publication-proof" native/migration-publisher/PublicationProof.java
       - name: Build twice and prove native publication on a dedicated volume
         env:
           TEST_FILESYSTEM: ${{ matrix.filesystem }}
@@ -136,16 +146,31 @@ jobs:
           test "$(findmnt -n -o FSTYPE --mountpoint "$fixture/volume")" = "$TEST_FILESYSTEM"
           sudo chown "$(id -u):$(id -g)" "$fixture/volume"
           python3 native/migration-publisher/test_native.py "$fixture/publisher" "$fixture/volume" "$TEST_FILESYSTEM"
+          java -cp "tuprel-migrate/build/classes/java/main:$RUNNER_TEMP/publication-proof" \
+            dev.tuprel.migrate.PublicationProof "$fixture/publisher" "$fixture/volume"
 
   native-windows:
     name: Native Windows NTFS
     runs-on: windows-2025
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile Java publisher and proof
+        shell: pwsh
+        run: |
+          ./gradlew.bat :tuprel-migrate:classes --no-daemon --dependency-verification strict
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          javac --release 21 -encoding UTF-8 -cp tuprel-migrate/build/classes/java/main `
+            -d "$env:RUNNER_TEMP/publication-proof" native/migration-publisher/PublicationProof.java
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Build twice and prove native publication on NTFS
         shell: pwsh
         run: |
@@ -164,4 +189,7 @@ jobs:
           if ($digest -ne (Get-FileHash -LiteralPath $repeat -Algorithm SHA256).Hash) { throw 'Native builds differ' }
           Write-Output "SHA-256 $digest"
           python native/migration-publisher/test_native.py $binary $fixture ntfs
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          java -cp "tuprel-migrate/build/classes/java/main;$env:RUNNER_TEMP/publication-proof" `
+            dev.tuprel.migrate.PublicationProof $binary $fixture
           if ($LASTEXITCODE) { exit $LASTEXITCODE }

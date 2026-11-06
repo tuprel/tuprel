@@ -22,6 +22,8 @@ public final class MigrationCreationException extends IOException {
         UNSAFE_LOCK,
         /** Creation allocated a directory; inspect it before retrying. */
         PARTIAL_CREATION,
+        /** An internal publication receipt requires reconciliation before more writes. */
+        UNRESOLVED_PUBLICATION,
         /** An I/O or permissions failure prevented creation. */
         IO_ERROR
     }
@@ -56,6 +58,7 @@ public final class MigrationCreationException extends IOException {
             case CAPACITY -> "The catalog is at its format-v1 limit. Review migration count and byte budgets.";
             case UNSAFE_LOCK -> "The sibling coordination file must be empty, regular and unlinked. Inspect it before retrying.";
             case PARTIAL_CREATION -> "Inspect the new migration directory and any partial migration.sql before retrying; no files were removed.";
+            case UNRESOLVED_PUBLICATION -> "Reconcile the pending publication receipt before creating another migration.";
             case IO_ERROR -> "Check catalog and parent permissions. Inspect the catalog before retrying.";
         };
     }
