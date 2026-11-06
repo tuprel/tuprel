@@ -14,7 +14,8 @@ análise 2069309676 sem erro/resultados. Nenhum PR anterior é alterado.
 ADR-0018 aprovado explicitamente em 2026-10-31 para comparação lógica offline.
 F6-004A integrada no #44, commit 5e2bd1909dd695755e40e83ad522bfa289e20962.
 CI/CodeQL da main aprovados (runs 41250178654/41250178624; análise 2069746352
-sem erro/resultados). Não considerar F6-004 completa: projecção/CLI seguem.
+sem erros ou resultados). A F6-004 ficou completa com a projecção no #45 e a
+CLI offline no #48. Catálogo e drift físico pertencem à F6-005.
 
 F6-003B1–B4 e F6-003C integradas sequencialmente nos PRs #38–#42.
 Último HEAD funcional desta entrega: `afd606859c026d88c0e6d2ad094e6d86f48fa396`.
@@ -69,7 +70,7 @@ não substituem nova consulta antes de cada integração.
 | F6-003C CLI deploy | MERGED | B4 integrada e main validada | feat/f6-003c-migrate-deploy / [#42](https://github.com/tuprel/tuprel/pull/42) | afd606859c026d88c0e6d2ad094e6d86f48fa396 | — |
 | F6-004A estados lógicos/diff Java | MERGED | ADRs 0015–0018 aceites | feat/f6-004a-schema-diff / [#44](https://github.com/tuprel/tuprel/pull/44) | 5e2bd1909dd695755e40e83ad522bfa289e20962 | — |
 | F6-004B projecção de schema.tuprel | MERGED | 004A; ADR-0019 aceite | feat/f6-004b-schema-projection / [#45](https://github.com/tuprel/tuprel/pull/45) | c16d23590a03115f90c0b3b81d67c4bbe81e4a66 | — |
-| F6-004C CLI diff | TESTING | 004B; ADR-0019 aceite | feat/f6-004c-migrate-diff | — | Validar Bash e checks remotos do PR |
+| F6-004C CLI diff | MERGED | 004B; ADR-0019 aceite | feat/f6-004c-migrate-diff / [#48](https://github.com/tuprel/tuprel/pull/48) | 9d405f04616162d34a5af1240935e0bf7442c9ec | — |
 | F6-005A contrato/leitura de catálogo | TODO | 004 consolidada; ADR de catálogo | — | — | Snapshot read-only, completude, permissões e desconhecidos |
 | F6-005B comparação de drift | TODO | 005A | — | — | Distinguir drift confirmado de observação desconhecida |
 | F6-005C propostas/dev | TODO | Diff/drift; aprovação de novos contratos de escrita | — | — | Artefactos, aprovação contextual e revalidação; sem reset |
@@ -590,3 +591,13 @@ Validação documental cobriu 200 links internos e os 31 anchors do README.
 #45 integrado em c16d235, HEAD revisto 320c827; quatro checks aprovados, análise
 2069805202 sem erro/resultados. Main pós-merge aprovada nos runs CI 41252482447
 e CodeQL 41252482464. Análise do commit sem erros ou resultados.
+
+#48 integrado em 9d405f0 após quatro checks aprovados no HEAD 4ea9236.
+A análise CodeQL 2112079337 terminou sem erros ou resultados. A CI Linux
+validou o launcher Bash e os casos obrigatórios de symlinks. A main passou
+na [CI](https://github.com/tuprel/tuprel/actions/runs/42224301656) e no
+[CodeQL](https://github.com/tuprel/tuprel/actions/runs/42224301573).
+A análise 2112117027 do commit integrado terminou sem erros ou resultados.
+O exemplo da CLI produziu o preview completo com código 1. A verificação
+local confirmou os dados do playground e zero schemas de teste remanescentes.
+A F6-005 aguarda revisão dos contratos de catálogo e segurança.
