@@ -242,6 +242,11 @@ módulo ou segundo modelo de schema.
 
 ## Revisão pendente de publicação e compatibilidade
 
+A [proposta para decisão de C2/C3](ADR-0021-c2-c3-review.md) especifica
+o aprovisionamento inicial, a publicação por plataforma e o corte de
+executores. As decisões abaixo permanecem propostas. Em caso de aprovação,
+o contrato seleccionado nessa revisão substitui as alternativas desta secção.
+
 **Publicação sem sobrescrita.** O lock de migrations coordena processos
 Tuprel cooperantes. Outros processos com acesso de escrita podem criar o
 destino depois da verificação de ausência. Em Java 21, a semântica de
