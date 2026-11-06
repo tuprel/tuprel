@@ -73,7 +73,7 @@ não substituem nova consulta antes de cada integração.
 | F6-004C CLI diff | MERGED | 004B; ADR-0019 aceite | feat/f6-004c-migrate-diff / [#48](https://github.com/tuprel/tuprel/pull/48) | 9d405f04616162d34a5af1240935e0bf7442c9ec | — |
 | F6-005A leitura de catálogo | MERGED | 004 consolidada; [ADR-0020](../docs/adr/ADR-0020-postgresql-catalog-observation.md) aceite e integrado | feat/f6-005a-catalog-observation / [#51](https://github.com/tuprel/tuprel/pull/51) | 7fee6e8c5bff031180c8ccdb3900fb03aff03116 | — |
 | F6-005B comparação de drift | MERGED | 005A integrada; contrato de drift do ADR-0020 aprovado | feat/f6-005b-physical-drift / [#52](https://github.com/tuprel/tuprel/pull/52) | d8c5fb3aa11dce8959b61f099b5f0a851acbd716 | — |
-| F6-005C1 preview de dev | TESTING | 005B integrada e [ADR-0021](../docs/adr/ADR-0021-safe-migrate-dev.md) parcialmente aceite | feat/f6-005c1-migrate-dev-preview | — | Gates do preview read-only |
+| F6-005C1 preview de dev | MERGED | 005B integrada e [ADR-0021](../docs/adr/ADR-0021-safe-migrate-dev.md) parcialmente aceite | feat/f6-005c1-migrate-dev-preview / [#54](https://github.com/tuprel/tuprel/pull/54) | 6d6815b7a3c8c1f716111d833c8b29d338fea9a5 | — |
 | F6-005C2 publicação e aprovisionamento | BLOCKED | 005C1 e revisão do ADR-0021 | — | — | Aprovação explícita da política de escrita |
 | F6-005C3 deploy com aprovação física | BLOCKED | 005C1 e revisão do ADR-0021 | — | — | Aprovação explícita do protocolo e do controlo de executores |
 | F6-006 consolidação | TODO | Subconjuntos anteriores integrados | — | — | Matriz, segurança, documentação e desempenho medido |
@@ -669,3 +669,10 @@ confirma SQL canónico, riscos, estabilidade do preview e preservação de
 schema, histórico e bytes locais. O playground passou após a raiz e a
 verificação read-only confirmou os dados existentes e zero schemas de teste
 remanescentes. Foram verificados 185 links e 31 anchors do README.
+
+O [#54](https://github.com/tuprel/tuprel/pull/54) foi integrado em
+`6d6815b7a3c8c1f716111d833c8b29d338fea9a5` após aprovação dos quatro
+checks no HEAD `66b4659`. A análise CodeQL 2113400977 teve zero resultados.
+A main passou na [CI](https://github.com/tuprel/tuprel/actions/runs/42251376678)
+e no [CodeQL](https://github.com/tuprel/tuprel/actions/runs/42251376679)
+desse commit. C2 e C3 aguardam aprovação explícita da proposta.
