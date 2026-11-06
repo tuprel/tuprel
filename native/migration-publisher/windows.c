@@ -117,14 +117,19 @@ static enum result rename_once(const wchar_t *path, const wchar_t *stage, const 
             || root_id.VolumeSerialNumber != catalog_id.VolumeSerialNumber
             || root_id.VolumeSerialNumber != source_id.VolumeSerialNumber) { goto done; }
 
-    size_t name_bytes = wcslen(name) * sizeof *name;
+    wchar_t target[PATH_CAPACITY];
+    DWORD target_length = GetFinalPathNameByHandleW(catalog, target, PATH_CAPACITY,
+            FILE_NAME_NORMALIZED | VOLUME_NAME_GUID);
+    if (target_length == 0 || target_length >= PATH_CAPACITY
+            || swprintf(target + target_length, PATH_CAPACITY - target_length, L"\\%ls", name) < 0) { goto done; }
+    size_t name_bytes = wcslen(target) * sizeof *target;
     size_t rename_size = offsetof(FILE_RENAME_INFO, FileName) + name_bytes + sizeof *name;
     rename = calloc(1, rename_size);
     if (!rename) { goto done; }
     rename->ReplaceIfExists = FALSE;
-    rename->RootDirectory = catalog;
+    rename->RootDirectory = NULL;
     rename->FileNameLength = (DWORD)name_bytes;
-    memcpy(rename->FileName, name, name_bytes);
+    memcpy(rename->FileName, target, name_bytes);
 
     printf("READY ntfs %" PRIx64 " ", (uint64_t)root_id.VolumeSerialNumber);
     print_id(&root_id); putchar(' ');

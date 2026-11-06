@@ -37,8 +37,9 @@ Linux uses `openat2`, `statx` mount IDs and `renameat2(RENAME_NOREPLACE)`.
 It requires a kernel with those interfaces and a verified ext4 or XFS mount.
 The directories must belong to the current user, with group and other writes
 excluded. Windows retains canonical directory handles without delete sharing,
-rejects reparse points and uses `FileRenameInfo` relative to the catalog
-handle with replacement disabled. Windows volume validation requires local
+rejects reparse points and uses `FileRenameInfo` with replacement disabled.
+The destination uses the canonical volume GUID path derived from the held
+catalog handle. Windows volume validation requires local
 NTFS. The caller must reject unverified binaries and environments and clear
 the child environment of database credentials.
 

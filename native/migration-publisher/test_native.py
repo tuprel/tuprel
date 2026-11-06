@@ -221,17 +221,17 @@ class NativePublicationTest(unittest.TestCase):
         process = self.start()
         self.ready(process)
         if os.name == "nt":
-            # This file at the destination prevents creation of the requested directory.
-            self.final.write_bytes(b"external")
-            self.result(process, 11, b"COLLISION")
-            self.assertEqual(b"external", self.final.read_bytes())
+            # A child handle held without delete sharing blocks directory rename on NTFS.
+            with (self.stage / "migration.sql").open("rb") as held:
+                self.result(process, 12, b"UNKNOWN")
+                self.assertEqual(CONTENTS, held.read())
         else:
             self.catalog.chmod(0o500)
             try:
                 self.result(process, 12, b"UNKNOWN")
             finally:
                 self.catalog.chmod(0o700)
-            self.assertFalse(self.final.exists())
+        self.assertFalse(self.final.exists())
         self.assert_intact()
 
     def test_termination_racing_the_rename_has_no_partial_destination(self):
