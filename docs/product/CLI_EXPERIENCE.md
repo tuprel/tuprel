@@ -253,11 +253,16 @@ tuprel_demo="$(mktemp -d)"
 )
 ```
 
+## Preview de desenvolvimento
+
+`migrate dev` mostra SQL canónico depois de verificar histórico aplicado,
+catálogo e replay. A confirmação de histórico gerido é por invocação.
+[Contrato CLI](../reference/cli.md#read-only-migration-development-preview).
+
 ## Roadmap dos comandos (não disponíveis no help actual)
 
 | Comando | Entrega/contrato proposto |
 |---|---|
-| `migrate dev --name add_products` | F6-005; preview e confirmação vinculada ao plano antes de aplicação permitida; sem reset implícito |
 | `migrate history` | depois do histórico aprovado; apresentação read-only, sem lógica paralela a status |
 | `doctor` | Fase 7; checks úteis de Java/projecto/config e diagnóstico redigido; não corrigir configs automaticamente |
 | `db seed` | Fase 7; execução explícita de código da aplicação, sem seed automático em deploy |

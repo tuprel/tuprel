@@ -364,6 +364,10 @@ compares all local migration artifacts with schema.tuprel and shows supported
 SQL proposals and risks for the supported schema subset. Unsupported attributes
 block the preview. It never connects, writes files or checks physical drift.
 
+Use [migrate dev](docs/guides/migrations.md#preview-a-development-migration)
+to preview supported schema additions against a verified applied prefix and a
+read-only PostgreSQL catalog snapshot.
+
 <a id="learn-and-explore"></a>
 
 ## Documentation Navigation

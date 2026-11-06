@@ -40,7 +40,9 @@ atómica e sequências/falhas/reconciliação, com testes do contrato aceite.
 - `tuprel migrate diff`
 
 `migrate create`, `migrate status`, `migrate deploy` e `migrate diff` estão implementados.
-Diff é estritamente offline. `migrate dev` continua futuro, sem comando disponível.
+Diff é estritamente offline. `migrate dev` está disponível como preview read-only
+da F6-005C1, com histórico gerido confirmado e replay validado. Publicação e
+revisão do protocolo de deploy continuam pendentes.
 Reset/resolve e migrations
 não transaccionais ficam fora do MVP. O help actual só anuncia código funcional.
 

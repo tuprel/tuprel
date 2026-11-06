@@ -21,6 +21,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Assesses physical drift against a verified applied migration prefix in the ADR-0020 profile.
@@ -66,30 +67,34 @@ public final class PostgresqlDriftInspector {
      * @return an assessment limited to the versioned observation profile
      */
     public PhysicalDriftReport inspect(SqlIdentifier schema, Path directory, ReferenceControl control) {
+        return inspectReference(schema, directory, control).report();
+    }
+
+    Inspection inspectReference(SqlIdentifier schema, Path directory, ReferenceControl control) {
         Objects.requireNonNull(schema, "schema");
         Objects.requireNonNull(directory, "directory");
         Objects.requireNonNull(control, "control");
-        if (control == ReferenceControl.UNVERIFIED) { return PhysicalDriftReport.unknown(Diagnostic.REFERENCE_CONTROL); }
+        if (control == ReferenceControl.UNVERIFIED) { return unavailable(Diagnostic.REFERENCE_CONTROL); }
         List<MigrationFile> files;
         try { files = MigrationDirectory.discover(directory); }
         catch (MigrationValidationException | SecurityException failure) {
-            return PhysicalDriftReport.unknown(Diagnostic.LOCAL_CATALOG);
+            return unavailable(Diagnostic.LOCAL_CATALOG);
         }
         return observer.observe(schema, (connection, target, oid, catalog) ->
                 inspect(connection, target, schema, oid, catalog, files),
-                diagnostic -> PhysicalDriftReport.catalogUnknown(List.of(diagnostic)));
+                diagnostic -> Inspection.withoutReference(PhysicalDriftReport.catalogUnknown(List.of(diagnostic))));
     }
 
-    private static PhysicalDriftReport inspect(Connection connection, PostgresqlCatalogObserver.Target target,
+    private static Inspection inspect(Connection connection, PostgresqlCatalogObserver.Target target,
             SqlIdentifier schema, long oid, CatalogObservation catalog, List<MigrationFile> files)
             throws SQLException {
         if (catalog.state() != CatalogObservation.State.COMPLETE) {
-            return PhysicalDriftReport.catalogUnknown(catalog.diagnostics());
+            return Inspection.withoutReference(PhysicalDriftReport.catalogUnknown(catalog.diagnostics()));
         }
         SchemaSnapshot observed = catalog.snapshot().orElseThrow();
-        if (oid == 0) { return PhysicalDriftReport.unknown(Diagnostic.REFERENCE_MISSING); }
+        if (oid == 0) { return unavailable(Diagnostic.REFERENCE_MISSING); }
         if (!liveIdentity(connection, target, schema, oid)) {
-            return PhysicalDriftReport.unknown(Diagnostic.HISTORY_IDENTITY);
+            return unavailable(Diagnostic.HISTORY_IDENTITY);
         }
         try (Statement statement = connection.createStatement()) {
             statement.setQueryTimeout(5);
@@ -98,32 +103,49 @@ public final class PostgresqlDriftInspector {
             statement.execute("LOCK TABLE ONLY " + qualifiedHistory(schema) + " IN ACCESS SHARE MODE");
         }
         if (!lockHeld(connection, target.database(), oid) || !liveIdentity(connection, target, schema, oid)) {
-            return PhysicalDriftReport.unknown(Diagnostic.HISTORY_IDENTITY);
+            return unavailable(Diagnostic.HISTORY_IDENTITY);
         }
         MigrationHistory history;
         try { history = PostgresqlMigrationHistory.snapshot(connection, schema, 5); }
         catch (MigrationHistoryException failure) {
             if (failure.reason() == MigrationHistoryException.Reason.PERMISSION) {
-                return PhysicalDriftReport.catalogUnknown(List.of(CatalogObservation.Diagnostic.PERMISSION));
+                return Inspection.withoutReference(PhysicalDriftReport.catalogUnknown(List.of(CatalogObservation.Diagnostic.PERMISSION)));
             }
-            return PhysicalDriftReport.unknown(Diagnostic.HISTORY_INCOMPATIBLE);
+            return unavailable(Diagnostic.HISTORY_INCOMPATIBLE);
         } catch (IllegalArgumentException failure) {
-            return PhysicalDriftReport.unknown(Diagnostic.HISTORY_INCOMPATIBLE);
+            return unavailable(Diagnostic.HISTORY_INCOMPATIBLE);
         }
         if (!history.initialised() || !liveIdentity(connection, target, schema, oid)) {
-            return PhysicalDriftReport.unknown(Diagnostic.HISTORY_IDENTITY);
+            return unavailable(Diagnostic.HISTORY_IDENTITY);
         }
         if (MigrationStatus.compare(files, history).hasProblems()) {
-            return PhysicalDriftReport.unknown(Diagnostic.APPLIED_PREFIX);
+            return unavailable(Diagnostic.APPLIED_PREFIX);
         }
         try {
             PostgresqlDdlParser parser = new PostgresqlDdlParser();
             List<DdlParseResult> applied = files.subList(0, history.applied().size()).stream().map(parser::parse).toList();
             SchemaSnapshot expected = SchemaSnapshot.fromParsed(schema, applied);
-            return PhysicalDriftReport.compared(SchemaDiff.structuralChanges(expected, observed));
+            PhysicalDriftReport report = PhysicalDriftReport.compared(SchemaDiff.structuralChanges(expected, observed));
+            return report.state() == PhysicalDriftReport.State.NO_DRIFT
+                    ? new Inspection(report, Optional.of(new Reference(expected, history, files, applied)))
+                    : Inspection.withoutReference(report);
         } catch (IllegalArgumentException failure) {
-            return PhysicalDriftReport.unknown(Diagnostic.REPLAY);
+            return unavailable(Diagnostic.REPLAY);
         }
+    }
+
+    private static Inspection unavailable(Diagnostic diagnostic) {
+        return Inspection.withoutReference(PhysicalDriftReport.unknown(diagnostic));
+    }
+
+    record Inspection(PhysicalDriftReport report, Optional<Reference> reference) {
+        private static Inspection withoutReference(PhysicalDriftReport report) {
+            return new Inspection(report, Optional.empty());
+        }
+    }
+
+    record Reference(SchemaSnapshot expected, MigrationHistory history, List<MigrationFile> files, List<DdlParseResult> applied) {
+        @Override public String toString() { return "Reference[redacted]"; }
     }
 
     private static boolean liveIdentity(Connection connection, PostgresqlCatalogObserver.Target target,

@@ -32,11 +32,29 @@ class MigrationCommandsTest {
             assertEquals(0, result.code());
             assertTrue(result.out().contains("create"));
             assertEquals(arguments[1].equals("--help"), result.out().contains("deploy"));
-            assertFalse(result.out().contains("migrate dev")); assertFalse(result.out().contains("migrate diff"));
+            assertEquals(arguments[1].equals("--help"), result.out().contains("dev (read-only preview)"));
+            assertFalse(result.out().contains("--write")); assertFalse(result.out().contains("migrate diff"));
             assertEquals("", result.err());
         }
         assertTrue(cli(root, "--help").out().contains("migrate"));
+        assertTrue(cli(root.resolve("missing"), "migrate", "dev", "--help").out().contains("--confirm-managed-history"));
         assertFalse(Files.exists(root.resolve("missing")));
+    }
+
+    @Test
+    void devReportsInvalidSchemaWithoutReadingCredentialsOrEchoingSource() throws Exception {
+        Path schema = Files.createDirectories(root.resolve("tuprel")).resolve("schema.tuprel");
+        Files.writeString(schema, "model PrivateFixture { id MissingType @id }\n");
+        StringWriter out = new StringWriter();
+        StringWriter err = new StringWriter();
+        MigrationDevCommand dev = new MigrationDevCommand(() -> { throw new AssertionError("Environment read"); });
+        int code = dev.run(new String[]{"migrate", "dev", "--name", "candidate", "--target-schema", "app",
+                "--confirm-managed-history"}, new PrintWriter(out, true), new PrintWriter(err, true), root);
+        assertEquals(1, code);
+        assertEquals("", out.toString());
+        assertTrue(err.toString().contains("TUPREL-MIGRATE-DEV-SCHEMA"));
+        assertFalse(err.toString().contains("PrivateFixture"));
+        assertEquals("model PrivateFixture { id MissingType @id }\n", Files.readString(schema));
     }
 
     @Test
@@ -72,6 +90,8 @@ class MigrationCommandsTest {
     void invalidOptionsAndFutureCommandsReturnUsageTwo() {
         for (String[] arguments : List.of(new String[]{"migrate"}, new String[]{"migrate", "deploy"},
                 new String[]{"migrate", "dev"}, new String[]{"migrate", "diff"},
+                new String[]{"migrate", "dev", "--name", "valid", "--target-schema", "public"},
+                new String[]{"migrate", "dev", "--name", "valid", "--target-schema", "public", "--confirm-managed-history", "--write"},
                 new String[]{"migrate", "reset"}, new String[]{"migrate", "history"},
                 new String[]{"migrate", "status"}, new String[]{"migrate", "create"},
                 new String[]{"migrate", "create", "--name"}, new String[]{"migrate", "create", "--name", "--dry-run"},

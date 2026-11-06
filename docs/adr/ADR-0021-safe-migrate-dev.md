@@ -1,6 +1,8 @@
 # ADR-0021 — Propostas e publicação segura com migrate dev
 
-Estado **proposto**, com revisão de publicação e compatibilidade pendente. Depende do
+Estado **parcialmente aceite**, exclusivamente para o preview read-only da
+F6-005C1. Aprovisionamento inicial, publicação e revisão do deploy permanecem
+propostos. Depende do
 [ADR-0020](ADR-0020-postgresql-catalog-observation.md). A revisão do protocolo
 de escrita e a criação de artefactos exigem aceitação deste contrato.
 
@@ -8,8 +10,8 @@ de escrita e a criação de artefactos exigem aceitação deste contrato.
 
 `migrate diff` compara todos os ficheiros locais com a intenção declarada. Para
 preparar uma nova migration precisamos de uma referência com proveniência,
-separada do estado desejado. A primeira versão de `migrate dev` propõe SQL e,
-quando explicitamente pedido, publica um único artefacto v1. A revisão e a
+separada do estado desejado. A C1 de `migrate dev` propõe SQL. A publicação
+explícita de um único artefacto v1 pertence à proposta C2. A revisão e a
 aplicação pertencem ao `deploy` e usam a evidência revalidada do alvo vivo.
 
 ### Referência, proposta e interface
@@ -27,22 +29,24 @@ aplicação pertencem ao `deploy` e usam a evidência revalidada do alvo vivo.
    Reaplicar a proposta ao estado lógico de referência e confirmar igualdade
    com o estado desejado antes de a mostrar ou publicar. É admissível um único
    ficheiro por invocação. Exceder o orçamento de um ficheiro recusa a proposta.
-3. O modo padrão apresenta o preview, as fontes e os riscos. `--write`
-   recalcula a proposta e publica os bytes concretos que apresenta nessa
+3. A C1 apresenta o preview, as fontes e os riscos. Na proposta C2, `--write`
+   recalcula o plano e publica os bytes concretos que apresenta nessa
    invocação. Esta flag autoriza a criação local. A aprovação para aplicar
    só pode ser dada no fluxo de `deploy`, após rever os bytes publicados e o
    novo plano contextual. Uma alteração humana a um candidato ainda pendente
    exige nova validação e revisão. Ficheiros aplicados ficam imutáveis.
 
-Contrato CLI proposto.
+Contrato CLI aceite para C1.
 
 ```text
-tuprel migrate dev --name <nome> --target-schema <schema> [--schema <path>] [--write]
+tuprel migrate dev --name <nome> --target-schema <schema> --confirm-managed-history [--schema <path>]
 ```
 
 Manter defaults `tuprel/schema.tuprel` e `tuprel/migrations`. Reutilizar a
-configuração explícita dos comandos DB, incluindo TLS e redacção. A ajuda é
-offline. Código 0 para preview, candidato publicado ou ausência de alterações.
+configuração explícita dos comandos DB, incluindo TLS e redacção. A confirmação
+é por invocação e atesta proveniência do histórico e exclusão administrativa
+de DDL externo, conforme ADR-0020. O estado continua sujeito à verificação
+do adaptador. A ajuda é offline. Código 0 para preview ou ausência de alterações.
 Código 1 para schema inválido. Código 2 para drift, referência desconhecida,
 pendentes, SQL fora da gramática, limites, colisões ou falha de operação.
 Sem alterações resulta em `NO_CHANGES` sem alocação de ID. Remoções, mudanças
@@ -50,7 +54,7 @@ de tipo, NOT NULL novo em tabela existente, renames e diferenças desconhecidas
 bloqueiam a proposta inteira. Reset, reparação e DDL destrutivo ficam fora
 desta versão.
 
-API proposta. Um `MigrationDevPlan` no adapter contém resultado tipado
+API de C1. Um `MigrationDevPlan` no adapter contém resultado tipado
 `NO_CHANGES`, `REVIEW_REQUIRED` ou `BLOCKED`, diagnósticos seguros e, apenas no
 estado revisto, a proposta canónica e os riscos existentes. A designação
 `REVIEW_REQUIRED` significa que a revisão é necessária. Um planeador recebe

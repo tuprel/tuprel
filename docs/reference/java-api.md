@@ -220,3 +220,13 @@ offline diff with preview generation disabled.
 The observer and history reader share one transaction. To opt in, confirm the
 operational controls for the exact target and invocation. See
 [physical drift inspection](../guides/migrations.md#check-for-physical-drift).
+
+## Development migration planner
+
+`PostgresqlMigrationDevPlanner.preview` takes an explicit target, format-v1
+catalog path, validated schema, proposed name and `ReferenceControl`. The
+planner obtains its own verified reference. `MigrationDevPlan.sql()` is
+present only for `REVIEW_REQUIRED`, after canonical SQL passes the existing
+plan compiler and reproduces the desired schema in replay. `NO_CHANGES`
+and `BLOCKED` have no SQL. The result provides no artifact ID or approval
+digest. See [development preview](../guides/migrations.md#preview-a-development-migration).

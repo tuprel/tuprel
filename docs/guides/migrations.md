@@ -46,9 +46,8 @@ The comparison creates no files, approval digest or database connection.
 
 Run the [complete Java example](../../examples/migration-diff/README.md) without
 a database. The [F6-004A contract](../adr/ADR-0018-logical-schema-diff.md)
-records the limits and next slices. schema.tuprel projection, CLI diff, physical
-drift and migrate dev remain separate work; the existing reviewed-file deploy
-protocol is unchanged.
+records the limits and next slices. The reviewed-file deploy protocol remains
+separate from schema projection, offline diff, physical drift and development previews.
 
 The Java `PostgresqlMigrationRunner` can inspect and apply reviewed migration
 files transactionally. It rediscovers files and observes
@@ -528,3 +527,22 @@ of length zero.
 observed instant. `DRIFT_DETECTED` identifies confirmed differences.
 `UNKNOWN` withholds differences if either side cannot be validated. This
 inspection neither repairs drift nor authorizes a later write.
+
+## Preview a development migration
+
+Use this in an existing managed project after all local migrations have been
+applied. Change `tuprel/schema.tuprel`, for example by adding a nullable
+`label String?` field to an existing model. From the project directory run
+the following during a controlled DDL window with trusted history provenance
+and the [migration database environment](../reference/cli.md#migration-status).
+
+```text
+tuprel migrate dev --name add_label --target-schema app --confirm-managed-history
+```
+
+A successful preview shows supported canonical SQL and lock risks for review.
+The command validates the proposal by replaying it on the verified applied
+prefix and comparing the result with the desired schema. It does not reserve
+an ID, create files or apply SQL. Unknown evidence, confirmed drift and
+unsupported differences each stop the whole preview. A new schema without
+managed history requires a separate provisioning flow.

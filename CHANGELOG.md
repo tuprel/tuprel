@@ -20,6 +20,9 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Preview read-only de `migrate dev` contra histórico aplicado verificado.
+  Mostra SQL aditivo canónico e riscos apenas após validar o replay.
+
 - API Java de drift físico para o perfil de catálogo PostgreSQL 17. Compara
   uma leitura completa com o prefixo aplicado validado, sem gerar SQL ou
   alterar o protocolo de deploy.

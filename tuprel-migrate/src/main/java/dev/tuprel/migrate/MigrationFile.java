@@ -69,7 +69,12 @@ public final class MigrationFile {
         validateName(directoryName.substring(16));
     }
 
-    static void validateName(String name) {
+    /**
+     * Validates a format-v1 migration name without reserving an identity.
+     * @param name candidate portable basename suffix
+     * @throws IllegalArgumentException when the name is not in the format-v1 subset
+     */
+    public static void validateName(String name) {
         if (name.length() > 64 || !name.matches("[a-z][a-z0-9]*(?:[_-][a-z0-9]+)*")) {
             throw new IllegalArgumentException("Migration name must be 1-64 portable lowercase ASCII characters");
         }
