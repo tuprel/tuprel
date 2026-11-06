@@ -1,6 +1,6 @@
 # ADR-0021 — Propostas e publicação segura com migrate dev
 
-Estado **proposto**, sujeito a aprovação explícita. Depende do
+Estado **proposto**, com revisão de publicação e compatibilidade pendente. Depende do
 [ADR-0020](ADR-0020-postgresql-catalog-observation.md). A revisão do protocolo
 de escrita e a criação de artefactos exigem aceitação deste contrato.
 
@@ -234,3 +234,34 @@ módulo ou segundo modelo de schema.
   e dados do playground. Registar evidência no plano e confirmar a main após
   cada integração. CI verde valida a entrega, ficando a aceitação do contrato
   dependente de decisão explícita.
+
+## Revisão pendente de publicação e compatibilidade
+
+**Publicação sem sobrescrita.** O lock de migrations coordena processos
+Tuprel cooperantes. Outros processos com acesso de escrita podem criar o
+destino depois da verificação de ausência. Em Java 21, a semântica de
+`ATOMIC_MOVE` com destino existente depende do provider. A revisão deve
+escolher entre limitar a garantia a um workspace de escrita controlada
+com recusa fora desse perfil, exigir uma primitiva atómica com no-replace
+comprovado por plataforma, ou conservar apenas preview. Uma primitiva
+específica exige decisão sobre distribuição, dependências e suporte.
+
+**Portabilidade e falhas.** Validar NTFS e os filesystems Linux declarados
+suportados. Incluir aliases case-insensitive, junctions, symlinks, staging
+e destino em volumes distintos, concorrência e destino criado entre a
+última validação e o move. Comparar a árvore e os bytes anteriores em cada
+falha. Distinguir falha antes do move, publicação verificada e resultado
+incerto. A recuperação de um resultado incerto exige redescoberta
+read-only do ID e checksum e confirmação manual. Atomicidade para leitores
+e durabilidade após perda de energia são garantias distintas. Definir
+a garantia de durabilidade por provider antes de a documentar.
+
+**Compatibilidade dos executores.** Testar um executor anterior contra o
+mesmo artefacto v1. Um binário antigo com credenciais de escrita pode
+aplicar o artefacto sem o gate físico do binário novo. A revisão deve
+definir a restrição das credenciais e canais de deploy a executores
+compatíveis, a sequência de rollout e rollback e a renovação das
+aprovações dos planos. Se essa restrição não puder ser estabelecida,
+avaliar uma alteração explícita do formato que executores antigos
+recusem, com análise de compatibilidade separada, ou manter a escrita
+desactivada. O contrato actual de deploy continua em vigor.

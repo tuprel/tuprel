@@ -1,6 +1,7 @@
 # ADR-0020 — PostgreSQL Catalog Observation
 
-Estado **proposto**, sujeito a aprovação explícita. Abrange F6-005A e F6-005B.
+Estado **aceite** para F6-005A e F6-005B. A aceitação abrange exclusivamente
+observação de catálogo e avaliação de drift em modo read-only.
 Base PostgreSQL 17 e Java 21. A publicação de artefactos e a eventual revisão
 do protocolo de deploy são tratadas no [ADR-0021](ADR-0021-safe-migrate-dev.md).
 
@@ -11,7 +12,7 @@ precondições das operações concretas. Para determinar drift é necessário
 observar as propriedades físicas admitidas, conhecer a cobertura da leitura e
 comparar o resultado com o replay da história aplicada.
 
-## Decisão proposta
+## Decisão
 
 ### Alvo, permissões e sessão
 
