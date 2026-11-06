@@ -1,6 +1,8 @@
 # Master Plan
 
-O desenvolvimento avança por gates. Não saltar fases porque uma funcionalidade futura parece interessante.
+O desenvolvimento avança por gates. O [plano de execução P0 → P1](P0_BETA_EXECUTION.md)
+ordena as entregas da Beta e identifica trabalho independente das migrations.
+Os planos de fase continuam a definir os contratos técnicos e os respectivos gates.
 
 O [plano de developer experience avançada](ADVANCED_DEVELOPER_EXPERIENCE.md)
 detalha objectivos, dependências, prioridades e critérios de aceitação das
@@ -83,7 +85,8 @@ define a projecção de schema.tuprel e a CLI diff offline da F6-004C. O
 [ADR-0020](../docs/adr/ADR-0020-postgresql-catalog-observation.md) cobre as
 APIs read-only de catálogo e drift. O
 [ADR-0021](../docs/adr/ADR-0021-safe-migrate-dev.md) abrange o preview de
-`migrate dev` na C1. Publicação e revisão do deploy aguardam aprovação.
+`migrate dev` na C1. O bootstrap e a publicação nativa internos estão
+integrados. A aprovação física e a transição de executores seguem na C3.
 
 **Objectivo planeado — TUPREL Safe Migration Engine MVP (P0):** artefactos
 existentes e revistos, plano/preview determinístico, integridade, riscos,

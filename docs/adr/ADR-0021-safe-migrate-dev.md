@@ -163,6 +163,14 @@ os gates na mesma sessão. OIDs de relação, tempos, texto de diagnóstico,
 passwords e estatísticas não fazem parte da igualdade estrutural. Esta
 proposta deve ter vectores golden antes de expor qualquer aprovação nova.
 
+Na C3.1a, os vectores cobrem o digest estrutural e o exterior e podem ser
+recalculados pelo [encoder independente](../../tuprel-migrate-postgresql/src/test/resources/physical-deploy-digest-v1-reference.py).
+O inventário interno usa nomes exactos e OIDs de tabelas e índices apenas
+quando a observação é completa. A prova com PostgreSQL recria um índice
+com a mesma estrutura e confirma a mudança do digest físico, mantendo o
+digest interior. A autorização continua dependente da verificação de
+proveniência e da integração no runner.
+
 Antes de bootstrap do histórico ou DDL, o runner deve adquirir o lock de
 sessão existente, validar identidade, redescobrir os ficheiros, ler história
 e catálogo em snapshot conjunto, exigir `NO_DRIFT`, recompilar e comparar

@@ -41,6 +41,8 @@ public sealed interface DdlStatement permits DdlStatement.CreateTable, DdlStatem
 
         private final String catalogName;
         Type(String catalogName) { this.catalogName = catalogName; }
+        /** {@return the canonical PostgreSQL base type name used by the accepted grammar} */
+        public String catalogName() { return catalogName; }
         String sql() { return "\"pg_catalog\".\"" + catalogName + "\""; }
         static Type fromCatalogName(String name) {
             for (Type type : values()) { if (type.catalogName.equals(name)) { return type; } }
