@@ -4,10 +4,10 @@
 #include <stdio.h>
 #include <stddef.h>
 
-enum result { MOVED = 0, REFUSED = 10, COLLISION = 11, UNKNOWN = 12 };
+enum result { MOVED = 0, REFUSED = 10, COLLISION = 11, UNKNOWN = 12, OBSERVED = 13 };
 
 static int finish(enum result result) {
-    const char *messages[] = {"MOVED", "REFUSED", "COLLISION", "UNKNOWN"};
+    const char *messages[] = {"MOVED", "REFUSED", "COLLISION", "UNKNOWN", "OBSERVED"};
     unsigned int index = result == MOVED ? 0U : (unsigned int)result - 9U;
     if (puts(messages[index]) == EOF || fflush(stdout) == EOF) {
         return result == MOVED ? UNKNOWN : result;

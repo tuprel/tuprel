@@ -86,24 +86,16 @@ public final class MigrationCreator {
         validateName(name);
         Path canonical = MigrationDirectory.validatedRoot(root);
         MigrationDirectory.verifyFormat(canonical);
-        if (!JVM_LOCK.tryLock()) { throw new MigrationCreationException(Reason.BUSY); }
         boolean allocated = false;
         try {
-            Path lockPath = lockPath(canonical);
-            checkLockPath(lockPath);
-            try (FileChannel channel = FileChannel.open(lockPath, StandardOpenOption.CREATE,
-                    StandardOpenOption.READ, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
-                    FileLock lock = channel.tryLock(0, 1, false)) {
-                if (lock == null) { throw new MigrationCreationException(Reason.BUSY); }
-                checkLockPath(lockPath);
-                checkWritable(canonical);
+            CatalogLock lock = acquire(canonical);
+            try (lock) {
                 MigrationFile draft = plan(canonical, name);
                 Path directory = canonical.resolve(draft.directoryName());
                 Files.createDirectory(directory);
                 allocated = true;
                 MigrationDirectory.validatedRoot(directory);
                 writer.write(directory.resolve("migration.sql"), draft.sql().getBytes(StandardCharsets.UTF_8));
-                // Reuse the bounded reader to verify exactly what is left on disk.
                 MigrationFile written = MigrationDirectory.discover(canonical).stream()
                         .filter(file -> file.id().equals(draft.id())).findFirst()
                         .orElseThrow(() -> new IOException("Draft missing after write"));
@@ -120,12 +112,35 @@ public final class MigrationCreator {
                 throw exception;
             }
             throw new MigrationCreationException(Reason.IO_ERROR, exception);
-        } finally {
-            JVM_LOCK.unlock();
+        }
+    }
+
+    static CatalogLock acquire(Path canonical) throws IOException {
+        if (JVM_LOCK.isHeldByCurrentThread() || !JVM_LOCK.tryLock()) { throw new MigrationCreationException(Reason.BUSY); }
+        FileChannel channel = null;
+        try {
+            Path path = lockPath(canonical);
+            checkLockPath(path);
+            channel = FileChannel.open(path, StandardOpenOption.CREATE,
+                    StandardOpenOption.READ, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+            FileLock lock = channel.tryLock(0, 1, false);
+            if (lock == null) { throw new MigrationCreationException(Reason.BUSY); }
+            checkLockPath(path);
+            checkWritable(canonical);
+            return new CatalogLock(channel, lock);
+        } catch (IOException | RuntimeException | Error failure) {
+            try { if (channel != null) { channel.close(); } }
+            catch (IOException closing) { failure.addSuppressed(closing); }
+            finally { JVM_LOCK.unlock(); }
+            throw failure;
         }
     }
 
     private MigrationFile plan(Path root, String name) throws IOException {
+        if (root.getFileName().toString().equals("migrations")
+                && !Files.notExists(NativePublicationReceipt.path(root), LinkOption.NOFOLLOW_LINKS)) {
+            throw new MigrationCreationException(Reason.UNRESOLVED_PUBLICATION);
+        }
         List<MigrationFile> existing = MigrationDirectory.discover(root);
         MigrationId id;
         try {
@@ -183,5 +198,13 @@ public final class MigrationCreator {
     @FunctionalInterface
     interface DraftWriter {
         void write(Path path, byte[] bytes) throws IOException;
+    }
+
+    record CatalogLock(FileChannel channel, FileLock lock) implements AutoCloseable {
+        @Override public void close() throws IOException {
+            try (channel; lock) {
+                // The resources close in reverse order.
+            } finally { JVM_LOCK.unlock(); }
+        }
     }
 }

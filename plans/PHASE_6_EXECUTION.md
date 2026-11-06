@@ -75,8 +75,8 @@ não substituem nova consulta antes de cada integração.
 | F6-005B comparação de drift | MERGED | 005A integrada; contrato de drift do ADR-0020 aprovado | feat/f6-005b-physical-drift / [#52](https://github.com/tuprel/tuprel/pull/52) | d8c5fb3aa11dce8959b61f099b5f0a851acbd716 | — |
 | F6-005C1 preview de dev | MERGED | 005B integrada e [ADR-0021](../docs/adr/ADR-0021-safe-migrate-dev.md) parcialmente aceite | feat/f6-005c1-migrate-dev-preview / [#54](https://github.com/tuprel/tuprel/pull/54) | 6d6815b7a3c8c1f716111d833c8b29d338fea9a5 | — |
 | F6-005C2.1 bootstrap inicial | MERGED | C1 integrada e direcção do ADR-0021 aceite | feat/f6-005c2-initial-bootstrap / [#57](https://github.com/tuprel/tuprel/pull/57) | d76fb78ffce695170b9b7f33b06ad12313561617 | — |
-| F6-005C2.2a rename no-replace nativo | TESTING | C2.1 integrada e distribuição aprovada | feat/f6-005c2-native-rename | — | Provas NTFS, ext4 e XFS e CodeQL nativo |
-| F6-005C2.2b verificação e publicação | TODO | C2.2a e ADR-0021 | — | — | Manifesto autenticado, staging, locking, recibo e recuperação |
+| F6-005C2.2a rename no-replace nativo | MERGED | C2.1 integrada e distribuição aprovada | feat/f6-005c2-native-rename / #58 | `88be9b6` | Provas reais em NTFS, ext4 e XFS, CodeQL C Windows/Linux sem resultados |
+| F6-005C2.2b verificação e publicação | TESTING | C2.2a e ADR-0021 | feat/f6-005c2-authenticated-publication / #59 | — | Manifesto autenticado, staging, locking, recibo e recuperação; exposição depende dos gates seguintes |
 | F6-005C3 deploy com aprovação física | TODO | C2.2 e contrato de cutover do ADR-0021 | — | — | Digest, testes de compatibilidade e controlo de executores |
 | F6-005C integração de escrita | BLOCKED | Bootstrap, publicação nativa e deploy físico validados | — | — | Disponibilidade por perfil após todos os gates |
 | F6-006 consolidação | TODO | Subconjuntos anteriores integrados | — | — | Matriz, segurança, documentação e desempenho medido |

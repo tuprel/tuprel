@@ -46,7 +46,7 @@ class NativePublicationTest(unittest.TestCase):
     def start(self, stage=STAGE, name=DEST, root=None):
         env = {"SystemRoot": os.environ["SystemRoot"]} if os.name == "nt" else {}
         process = subprocess.Popen(
-            [str(BINARY), "1", str(self.root if root is None else root), stage, name],
+            [str(BINARY), "2", str(self.root if root is None else root), stage, name],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             cwd=BINARY.parent, env=env,
         )
@@ -67,6 +67,7 @@ class NativePublicationTest(unittest.TestCase):
         match = READY.fullmatch(line)
         self.assertIsNotNone(match, line)
         self.assertEqual(PROFILE.encode("ascii"), match.group(1))
+        return line.removeprefix(b"READY ")
 
     @staticmethod
     def send(process, data=b"GO\n"):
@@ -246,12 +247,28 @@ class NativePublicationTest(unittest.TestCase):
 
     def test_lost_confirmation_leaves_destination_for_rediscovery(self):
         process = self.start()
-        self.ready(process)
+        identity = self.ready(process)
         self.send(process)
         # Deliberately discard the completion frame and inspect independently.
         process.communicate(timeout=10)
         self.assertFalse(self.stage.exists())
         self.assertEqual(CONTENTS, (self.final / "migration.sql").read_bytes())
+        observed = self.start()
+        output, error = observed.communicate(timeout=10)
+        self.assertEqual((13, b"PRESENT " + identity + b"OBSERVED\n", b""),
+                         (observed.returncode, output, error))
+
+    def test_observer_refuses_original_stage_while_helper_holds_it(self):
+        original = self.start()
+        self.ready(original)
+        observer = self.start()
+        self.result(observer, 10, b"REFUSED", request=None)
+        self.result(original, 10, b"REFUSED", request=None)
+        observer = self.start()
+        self.ready(observer)
+        self.result(observer, 10, b"REFUSED", request=None)
+        self.assertFalse(self.final.exists())
+        self.assert_intact()
 
 
 if __name__ == "__main__":

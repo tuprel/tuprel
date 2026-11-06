@@ -6,16 +6,21 @@
 #include <inttypes.h>
 #include <linux/openat2.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
-static int directory(int parent, const char *path) {
+static int directory_with_access(int parent, const char *path, uint64_t access) {
     struct open_how options = {
-        .flags = O_PATH | O_DIRECTORY | O_CLOEXEC,
+        .flags = access | O_DIRECTORY | O_CLOEXEC,
         .resolve = RESOLVE_NO_SYMLINKS | RESOLVE_NO_MAGICLINKS
     };
     return (int)syscall(SYS_openat2, parent, path, &options, sizeof options);
+}
+
+static int directory(int parent, const char *path) {
+    return directory_with_access(parent, path, O_PATH);
 }
 
 static int identity(int fd, struct statx *id) {
@@ -35,6 +40,11 @@ static int still_named(int parent, const char *path, const struct statx *expecte
     int matches = identity(fd, &actual) && same(&actual, expected);
     if (fd >= 0) { close(fd); }
     return matches;
+}
+
+static int missing(int parent, const char *path) {
+    struct statx id;
+    return statx(parent, path, AT_SYMLINK_NOFOLLOW, STATX_TYPE, &id) != 0 && errno == ENOENT;
 }
 
 static const char *filesystem(uint64_t mount_id) {
@@ -71,16 +81,27 @@ static enum result rename_once(const char *path, const char *stage, const char *
     int root = directory(AT_FDCWD, path);
     if (root < 0) { return REFUSED; }
     int catalog = directory(root, "migrations");
-    int source = directory(root, stage);
-    struct statx root_id, catalog_id, source_id, old_name;
+    int source = directory_with_access(root, stage, O_RDONLY);
+    struct statx root_id, catalog_id, source_id;
     enum result result = REFUSED;
-    if (!identity(root, &root_id) || !identity(catalog, &catalog_id) || !identity(source, &source_id)
-            || (source_id.stx_mode & 0077) || root_id.stx_mnt_id != catalog_id.stx_mnt_id
-            || root_id.stx_mnt_id != source_id.stx_mnt_id) { goto done; }
+    if (!identity(root, &root_id) || !identity(catalog, &catalog_id)
+            || root_id.stx_mnt_id != catalog_id.stx_mnt_id) { goto done; }
     const char *type = filesystem(root_id.stx_mnt_id);
-    if (!type || printf("READY %s %" PRIx64 " %" PRIx64 " %" PRIx64 " %" PRIx64 "\n",
+    if (!type) { goto done; }
+    int observing = source < 0 && missing(root, stage);
+    if (observing) { source = directory_with_access(catalog, name, O_RDONLY); }
+    if (!identity(source, &source_id) || (source_id.stx_mode & 0077)
+            || root_id.stx_mnt_id != source_id.stx_mnt_id
+            || flock(source, LOCK_EX | LOCK_NB) != 0) { goto done; }
+    if (!still_named(AT_FDCWD, path, &root_id) || !still_named(root, "migrations", &catalog_id)) { goto done; }
+    if (observing ? (!still_named(catalog, name, &source_id) || !missing(root, stage))
+                  : !still_named(root, stage, &source_id)) { goto done; }
+    if (printf("%s %s %" PRIx64 " %" PRIx64 " %" PRIx64 " %" PRIx64 "\n",
+            observing ? "PRESENT" : "READY",
             type, (uint64_t)root_id.stx_mnt_id, (uint64_t)root_id.stx_ino,
-            (uint64_t)catalog_id.stx_ino, (uint64_t)source_id.stx_ino) < 0 || !proceed()) { goto done; }
+            (uint64_t)catalog_id.stx_ino, (uint64_t)source_id.stx_ino) < 0) { goto done; }
+    if (observing) { result = OBSERVED; goto done; }
+    if (!proceed()) { goto done; }
     if (!still_named(AT_FDCWD, path, &root_id) || !still_named(root, "migrations", &catalog_id)
             || !still_named(root, stage, &source_id)) { goto done; }
 
@@ -89,8 +110,7 @@ static enum result rename_once(const char *path, const char *stage, const char *
         goto done;
     }
     result = still_named(AT_FDCWD, path, &root_id) && still_named(root, "migrations", &catalog_id)
-        && still_named(catalog, name, &source_id)
-        && statx(root, stage, AT_SYMLINK_NOFOLLOW, STATX_TYPE, &old_name) != 0 && errno == ENOENT ? MOVED : UNKNOWN;
+        && still_named(catalog, name, &source_id) && missing(root, stage) ? MOVED : UNKNOWN;
 done:
     if (source >= 0) { close(source); }
     if (catalog >= 0) { close(catalog); }
@@ -99,7 +119,7 @@ done:
 }
 
 int main(int argc, char **argv) {
-    if (argc != 5 || strcmp(argv[1], "1") != 0 || !absolute_root(argv[2])
+    if (argc != 5 || strcmp(argv[1], "2") != 0 || !absolute_root(argv[2])
             || !stage_name(argv[3], strlen(argv[3])) || !destination_name(argv[4], strlen(argv[4]))) {
         return finish(REFUSED);
     }
