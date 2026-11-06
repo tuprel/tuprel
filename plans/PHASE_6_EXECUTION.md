@@ -71,7 +71,7 @@ não substituem nova consulta antes de cada integração.
 | F6-004A estados lógicos/diff Java | MERGED | ADRs 0015–0018 aceites | feat/f6-004a-schema-diff / [#44](https://github.com/tuprel/tuprel/pull/44) | 5e2bd1909dd695755e40e83ad522bfa289e20962 | — |
 | F6-004B projecção de schema.tuprel | MERGED | 004A; ADR-0019 aceite | feat/f6-004b-schema-projection / [#45](https://github.com/tuprel/tuprel/pull/45) | c16d23590a03115f90c0b3b81d67c4bbe81e4a66 | — |
 | F6-004C CLI diff | MERGED | 004B; ADR-0019 aceite | feat/f6-004c-migrate-diff / [#48](https://github.com/tuprel/tuprel/pull/48) | 9d405f04616162d34a5af1240935e0bf7442c9ec | — |
-| F6-005A contrato/leitura de catálogo | TODO | 004 consolidada; [ADR-0020](../docs/adr/ADR-0020-postgresql-catalog-observation.md) aceite | [#50](https://github.com/tuprel/tuprel/pull/50) (contrato) | — | Integrar contrato após os gates, depois implementar observação read-only em PR próprio |
+| F6-005A leitura de catálogo | TESTING | 004 consolidada; [ADR-0020](../docs/adr/ADR-0020-postgresql-catalog-observation.md) aceite e integrado | feat/f6-005a-catalog-observation | — | Confirmar checks remotos, revisão e CI da main após integração |
 | F6-005B comparação de drift | TODO | 005A e contrato de drift do ADR-0020 aprovado | — | — | Comparação com referência comprovada e cobertura explícita |
 | F6-005C propostas/dev | TODO | 005B e [ADR-0021](../docs/adr/ADR-0021-safe-migrate-dev.md) proposto | — | — | Aprovar separação preview/publicação e revisão do deploy antes de escrita |
 | F6-006 consolidação | TODO | Subconjuntos anteriores integrados | — | — | Matriz, segurança, documentação e desempenho medido |
@@ -600,8 +600,26 @@ na [CI](https://github.com/tuprel/tuprel/actions/runs/42224301656) e no
 A análise 2112117027 do commit integrado terminou sem erros ou resultados.
 O exemplo da CLI produziu o preview completo com código 1. A verificação
 local confirmou os dados do playground e zero schemas de teste remanescentes.
-O ADR-0020 foi aceite para F6-005A e F6-005B. A observação read-only começa
-depois da integração do PR documental #50. O ADR-0021 permanece proposto.
+O ADR-0020 foi aceite para F6-005A e F6-005B. O
+[#50](https://github.com/tuprel/tuprel/pull/50) foi integrado em
+`f4b219d66abadab263f5efab5069022dcbbaa0b1`, a partir do HEAD `875781f`,
+com os quatro checks aprovados e análise CodeQL 2112742802 sem resultados.
+A main passou na [CI](https://github.com/tuprel/tuprel/actions/runs/42237953755)
+e no [CodeQL](https://github.com/tuprel/tuprel/actions/runs/42237954038),
+análise 2112799707 sem resultados. O ADR-0021 permanece proposto.
 A escrita com `dev --write` e a revisão obrigatória do protocolo de deploy
 aguardam a revisão de publicação sem sobrescrita, falhas, portabilidade e
 compatibilidade com executores anteriores.
+
+### Validação local da F6-005A
+
+A build raiz em Java 21 com verificação estrita e PostgreSQL local passou.
+Os relatórios registam 418 testes, 414 aprovados e quatro skips existentes
+de symlinks em Windows. Os nove testes novos de catálogo cobrem os oito
+tipos, histórico apenas por forma, privilégios mínimos, namespace e TLS,
+objectos fora do perfil, DDL concorrente, timeouts, perda de sessão,
+orçamento e limpeza. O teste de DDL demonstra que uma leitura anterior
+ao commit continua coerente e que uma nova observação vê o DDL.
+A build do playground correu depois da raiz. A consulta read-only confirmou
+os dados persistidos e zero schemas de teste remanescentes. O exemplo Java
+compilou com Werror e foram verificados 147 links e 31 anchors do README.

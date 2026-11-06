@@ -146,3 +146,7 @@ sem novo comando CLI nesta fatia, ligação DB ou drift físico.
 F6-004C: CLI migrate diff offline compara todos os artefactos locais com
 schema.tuprel, com fontes/riscos explícitos, preview integral ou recusa e
 exit codes 0/1/2. Não consulta histórico/base nem verifica drift físico.
+
+F6-005A: API Java de observação read-only do catálogo PostgreSQL 17 num
+schema explícito. Devolve um snapshot apenas quando toda a evidência no
+perfil é válida. O histórico aplicado e a avaliação de drift pertencem à F6-005B.

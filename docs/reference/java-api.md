@@ -187,3 +187,19 @@ migration module has no new dependency. See the [guide](../guides/migrations.md#
 The [offline CLI diff](cli.md#offline-migration-diff) orchestrates discovery,
 parsing, projection and SchemaDiff without introducing another schema model
 or any database execution API. The same logical/physical limits apply.
+
+## PostgreSQL catalog observation
+
+`PostgresqlCatalogObserver(MigrationDatabaseSettings).observe(SqlIdentifier)`
+uses a dedicated PostgreSQL 17 connection and a `REPEATABLE READ READ ONLY`
+transaction. It checks the configured identity and TLS policy and looks up
+the exact schema in the catalog. A complete result carries a `SchemaSnapshot`
+using the same table, column and index metadata types as offline replay.
+
+`CatalogObservation.state()` is `COMPLETE`, `INCOMPLETE` or `UNKNOWN`.
+`snapshot()` is present only for `COMPLETE`. The other outcomes carry redacted
+diagnostic categories. Use `profile()` to identify the coverage version. A
+snapshot describes one transaction's view. External DDL can commit after
+that view was established. This call reads catalog metadata and checks the
+shape of any reserved history table. It does not read the applied history or
+determine drift. See [catalog observation](../guides/migrations.md#observe-the-postgresql-catalog).
