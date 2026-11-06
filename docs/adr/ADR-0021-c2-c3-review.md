@@ -93,7 +93,7 @@ provider. A via puramente NIO fica fora do contrato de escrita.
 | Plataforma candidata | Primitiva e limites |
 |---|---|
 | Linux, ext4 e XFS locais | `renameat2(RENAME_NOREPLACE)` com descritores de directório e basenames. Exigir kernel e filesystem com suporte comprovado no alvo. `EEXIST` é colisão e ausência de suporte é recusa. |
-| Windows, NTFS local | `SetFileInformationByHandle(FileRenameInfo)` no handle de staging, `ReplaceIfExists=FALSE` e destino relativo ao handle do directório. A API documenta a recusa de substituição. A publicação da pasta completa no mesmo volume tem de passar nos testes NTFS antes de ser suportada. |
+| Windows, NTFS local | `SetFileInformationByHandle(FileRenameInfo)` no handle de staging, `ReplaceIfExists=FALSE` e destino canónico de volume GUID obtido do handle de catálogo retido. Os ancestrais permanecem abertos sem partilha de remoção. A API documenta a recusa de substituição. A publicação da pasta completa no mesmo volume tem de passar nos testes NTFS antes de ser suportada. |
 | Outros providers e filesystems | Preview. Inclui volumes de rede, overlay e combinações de filesystem/OS sem validação específica. |
 
 Fontes da matriz. [Linux renameat2](https://man7.org/linux/man-pages/man2/rename.2.html)
@@ -145,9 +145,9 @@ e verificar que um leitor concorrente vê zero ou uma pasta completa. A via
 nativa, a sua distribuição e a matriz de suporte precisam de aprovação antes
 de introduzir dependências.
 
-### Distribuição a decidir antes da implementação de C2.2
+### Distribuição aprovada para C2.2
 
-Proposta de um executável pequeno em C por plataforma e arquitectura,
+Executável pequeno em C por plataforma e arquitectura,
 distribuído opcionalmente com manifesto de SHA-256 autenticado e build
 reproduzível. Java 21 invoca por caminho absoluto fora do projecto, sem
 shell, resolução pelo PATH ou procura em directórios graváveis pelo projecto.
@@ -162,6 +162,11 @@ verificados. Um runner Linux sobre overlay não conta como prova de ext4
 ou XFS. A suite exercita um processo escritor separado que cria o destino
 imediatamente antes do rename. Um perfil só fica disponível após verificação
 da matriz de OS, arquitectura, filesystem, instalação e recuperação.
+
+O primeiro incremento implementa a [primitiva nativa e o protocolo v1](../../native/migration-publisher/README.md).
+As provas compilam o auxiliar duas vezes e executam os binários em volumes
+locais verificados. A disponibilidade de escrita também exige o cliente Java
+com manifesto autenticado, recibo e reconciliação.
 
 ## C3 — Transição do protocolo de deploy
 

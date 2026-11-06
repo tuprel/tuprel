@@ -96,3 +96,72 @@ jobs:
                   raise SystemExit(f'Symlink confinement test must execute and pass on Linux: {suite}.{name}')
               print(f'Symlink confinement test executed and passed on Linux: {suite}.{name}')
           PY
+
+  native-linux:
+    name: Native Linux ${{ matrix.filesystem }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        filesystem: [ext4, xfs]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build twice and prove native publication on a dedicated volume
+        env:
+          TEST_FILESYSTEM: ${{ matrix.filesystem }}
+        run: |
+          set -euo pipefail
+          fixture="$(mktemp -d "$RUNNER_TEMP/tuprel-native.XXXXXXXX")"
+          mkdir "$fixture/volume" "$fixture/second"
+          bash native/migration-publisher/build-linux.sh "$fixture/publisher"
+          bash native/migration-publisher/build-linux.sh "$fixture/second/publisher"
+          cmp "$fixture/publisher" "$fixture/second/publisher"
+          sha256sum "$fixture/publisher"
+          if ! command -v "mkfs.$TEST_FILESYSTEM" >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --no-install-recommends -y xfsprogs
+          fi
+          truncate -s 512M "$fixture/image"
+          if [[ "$TEST_FILESYSTEM" == ext4 ]]; then
+            mkfs.ext4 -F -q "$fixture/image"
+          else
+            mkfs.xfs -f -q "$fixture/image"
+          fi
+          sudo mount -t "$TEST_FILESYSTEM" -o loop "$fixture/image" "$fixture/volume"
+          trap 'sudo umount -- "$fixture/volume"' EXIT
+          test "$(findmnt -n -o FSTYPE --mountpoint "$fixture/volume")" = "$TEST_FILESYSTEM"
+          sudo chown "$(id -u):$(id -g)" "$fixture/volume"
+          python3 native/migration-publisher/test_native.py "$fixture/publisher" "$fixture/volume" "$TEST_FILESYSTEM"
+
+  native-windows:
+    name: Native Windows NTFS
+    runs-on: windows-2025
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build twice and prove native publication on NTFS
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $fixture = Join-Path $env:RUNNER_TEMP ('tuprel-native-' + [guid]::NewGuid().ToString('N'))
+          $second = Join-Path $fixture 'second'
+          New-Item -ItemType Directory -Path $second -Force | Out-Null
+          if ([IO.DriveInfo]::new([IO.Path]::GetPathRoot($fixture)).DriveFormat -ne 'NTFS') { throw 'NTFS required' }
+          $binary = Join-Path $fixture 'publisher.exe'
+          $repeat = Join-Path $second 'publisher.exe'
+          & ./native/migration-publisher/build-windows.cmd $binary
+          if ($LASTEXITCODE) { throw 'Native build failed' }
+          & ./native/migration-publisher/build-windows.cmd $repeat
+          if ($LASTEXITCODE) { throw 'Repeat native build failed' }
+          $digest = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash
+          if ($digest -ne (Get-FileHash -LiteralPath $repeat -Algorithm SHA256).Hash) { throw 'Native builds differ' }
+          Write-Output "SHA-256 $digest"
+          python native/migration-publisher/test_native.py $binary $fixture ntfs
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
