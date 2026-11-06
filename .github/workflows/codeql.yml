@@ -48,3 +48,42 @@ jobs:
           ./gradlew -p examples/tuprel-playground classes --rerun-tasks --no-build-cache --no-daemon --dependency-verification strict
       - name: Analyze
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+
+  analyze-native:
+    name: C / ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Linux
+            runner: ubuntu-24.04
+          - platform: Windows
+            runner: windows-2025
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Initialize native CodeQL
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: c-cpp
+          build-mode: manual
+      - name: Build Linux helper
+        if: runner.os == 'Linux'
+        run: bash native/migration-publisher/build-linux.sh "$RUNNER_TEMP/tuprel-publisher"
+      - name: Build Windows helper
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & ./native/migration-publisher/build-windows.cmd (Join-Path $env:RUNNER_TEMP 'tuprel-publisher.exe')
+          exit $LASTEXITCODE
+      - name: Analyze native code
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: '/language:c-cpp/platform:${{ matrix.platform }}'
