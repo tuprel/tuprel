@@ -71,9 +71,9 @@ não substituem nova consulta antes de cada integração.
 | F6-004A estados lógicos/diff Java | MERGED | ADRs 0015–0018 aceites | feat/f6-004a-schema-diff / [#44](https://github.com/tuprel/tuprel/pull/44) | 5e2bd1909dd695755e40e83ad522bfa289e20962 | — |
 | F6-004B projecção de schema.tuprel | MERGED | 004A; ADR-0019 aceite | feat/f6-004b-schema-projection / [#45](https://github.com/tuprel/tuprel/pull/45) | c16d23590a03115f90c0b3b81d67c4bbe81e4a66 | — |
 | F6-004C CLI diff | MERGED | 004B; ADR-0019 aceite | feat/f6-004c-migrate-diff / [#48](https://github.com/tuprel/tuprel/pull/48) | 9d405f04616162d34a5af1240935e0bf7442c9ec | — |
-| F6-005A contrato/leitura de catálogo | TODO | 004 consolidada; ADR de catálogo | — | — | Snapshot read-only, completude, permissões e desconhecidos |
-| F6-005B comparação de drift | TODO | 005A | — | — | Distinguir drift confirmado de observação desconhecida |
-| F6-005C propostas/dev | TODO | Diff/drift; aprovação de novos contratos de escrita | — | — | Artefactos, aprovação contextual e revalidação; sem reset |
+| F6-005A contrato/leitura de catálogo | BLOCKED | 004 consolidada; [ADR-0020](../docs/adr/ADR-0020-postgresql-catalog-observation.md) proposto | docs/f6-005-catalog-safety-contracts | — | Aprovação explícita antes de implementar leitura de catálogo |
+| F6-005B comparação de drift | TODO | 005A e contrato de drift do ADR-0020 aprovado | — | — | Comparação com referência comprovada e cobertura explícita |
+| F6-005C propostas/dev | TODO | 005B e [ADR-0021](../docs/adr/ADR-0021-safe-migrate-dev.md) proposto | — | — | Aprovar separação preview/publicação e revisão do deploy antes de escrita |
 | F6-006 consolidação | TODO | Subconjuntos anteriores integrados | — | — | Matriz, segurança, documentação e desempenho medido |
 | F6-006 playground baseline | TODO | Motor estável; tarefa isolada com plano de preservação | — | — | Inventário read-only e consentimento antes de adoptar migrations |
 | F6-006 ignore de create.lock | TODO | Contrato de init/ownership | — | — | Evitar inclusão acidental sem sobrescrever .gitignore |
@@ -600,4 +600,6 @@ na [CI](https://github.com/tuprel/tuprel/actions/runs/42224301656) e no
 A análise 2112117027 do commit integrado terminou sem erros ou resultados.
 O exemplo da CLI produziu o preview completo com código 1. A verificação
 local confirmou os dados do playground e zero schemas de teste remanescentes.
-A F6-005 aguarda revisão dos contratos de catálogo e segurança.
+A F6-005 aguarda aprovação dos ADRs 0020 e 0021. O PR documental define os
+contratos e a sequência de PRs pequenos. A implementação e os testes de
+catálogo, drift e dev começam apenas após os respectivos gates de aprovação.
