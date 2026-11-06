@@ -97,11 +97,17 @@ public final class PostgresqlMigrationHistory implements MigrationHistoryReader 
     /** Caller owns the transaction and catalog resolution context; performs no lifecycle changes. */
     static MigrationHistory snapshot(Connection connection, SqlIdentifier schema)
             throws SQLException, MigrationHistoryException {
+        return snapshot(connection, schema, 10);
+    }
+
+    /** Uses a tighter JDBC query deadline when sharing a catalog observation transaction. */
+    static MigrationHistory snapshot(Connection connection, SqlIdentifier schema, int timeoutSeconds)
+            throws SQLException, MigrationHistoryException {
         long namespace;
         try (PreparedStatement statement = query(connection, """
                 SELECT oid, pg_catalog.has_schema_privilege(oid, 'USAGE')
                 FROM pg_catalog.pg_namespace WHERE nspname = ?
-                """)) {
+                """, timeoutSeconds)) {
             statement.setString(1, schema.name());
             try (ResultSet result = statement.executeQuery()) {
                 if (!result.next()) { throw failure(Reason.MISSING_SCHEMA); }
@@ -118,7 +124,7 @@ public final class PostgresqlMigrationHistory implements MigrationHistoryReader 
                   AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_trigger WHERE tgrelid = c.oid AND NOT tgisinternal),
                   pg_catalog.has_table_privilege(c.oid, 'SELECT')
                 FROM pg_catalog.pg_class c WHERE c.relnamespace = ?::oid AND c.relname = ?
-                """)) {
+                """, timeoutSeconds)) {
             statement.setLong(1, namespace);
             statement.setString(2, MigrationHistoryTable.NAME);
             try (ResultSet result = statement.executeQuery()) {
@@ -128,14 +134,14 @@ public final class PostgresqlMigrationHistory implements MigrationHistoryReader 
                 if (!result.getBoolean(3)) { throw failure(Reason.PERMISSION); }
             }
         }
-        verifyStructure(connection, relation);
+        verifyStructure(connection, relation, timeoutSeconds);
         List<AppliedMigration> rows = new ArrayList<>();
         // This is the only dynamic SQL identifier: validated SqlIdentifier, quoted
         // as one component. All catalog lookup values above use binding.
         String sql = "SELECT format_version, migration_id, migration_name, checksum, state, started_at, finished_at, "
                 + "execution_millis, engine_version FROM \"" + schema.name()
                 + "\".\"_tuprel_migrations\" ORDER BY migration_id COLLATE \"C\"";
-        try (PreparedStatement statement = query(connection, sql)) {
+        try (PreparedStatement statement = query(connection, sql, timeoutSeconds)) {
             statement.setMaxRows(MigrationDirectory.MAX_MIGRATIONS + 1);
             try (ResultSet result = statement.executeQuery()) {
                 while (result.next()) {
@@ -151,7 +157,8 @@ public final class PostgresqlMigrationHistory implements MigrationHistoryReader 
         return new MigrationHistory(true, rows);
     }
 
-    private static void verifyStructure(Connection connection, long relation) throws SQLException, MigrationHistoryException {
+    private static void verifyStructure(Connection connection, long relation, int timeoutSeconds)
+            throws SQLException, MigrationHistoryException {
         Map<String, String> actual = new HashMap<>();
         try (PreparedStatement statement = query(connection, """
                 SELECT a.attname, pg_catalog.format_type(a.atttypid, a.atttypmod),
@@ -159,7 +166,7 @@ public final class PostgresqlMigrationHistory implements MigrationHistoryReader 
                        AND a.attidentity = '' AND a.attgenerated = '' AND a.attcollation = t.typcollation
                 FROM pg_catalog.pg_attribute a LEFT JOIN pg_catalog.pg_type t ON t.oid = a.atttypid
                 WHERE a.attrelid = ?::oid AND a.attnum > 0
-                """)) {
+                """, timeoutSeconds)) {
             statement.setLong(1, relation);
             statement.setMaxRows(11);
             try (ResultSet result = statement.executeQuery()) {
@@ -176,7 +183,7 @@ public final class PostgresqlMigrationHistory implements MigrationHistoryReader 
                 SELECT convalidated AND NOT condeferrable AND NOT condeferred,
                        pg_catalog.pg_get_constraintdef(oid, false)
                 FROM pg_catalog.pg_constraint WHERE conrelid = ?::oid
-                """)) {
+                """, timeoutSeconds)) {
             statement.setLong(1, relation);
             statement.setMaxRows(7);
             try (ResultSet result = statement.executeQuery()) {
@@ -191,7 +198,7 @@ public final class PostgresqlMigrationHistory implements MigrationHistoryReader 
         try (PreparedStatement statement = query(connection, """
                 SELECT 1 FROM pg_catalog.pg_index WHERE indrelid = ?::oid
                 AND indisprimary AND indisvalid AND indisready AND indisunique AND indpred IS NULL
-                """)) {
+                """, timeoutSeconds)) {
             statement.setLong(1, relation);
             try (ResultSet result = statement.executeQuery()) {
                 if (!result.next()) { throw failure(Reason.INCOMPATIBLE); }
@@ -200,8 +207,12 @@ public final class PostgresqlMigrationHistory implements MigrationHistoryReader 
     }
 
     private static PreparedStatement query(Connection connection, String sql) throws SQLException {
+        return query(connection, sql, 10);
+    }
+
+    private static PreparedStatement query(Connection connection, String sql, int timeoutSeconds) throws SQLException {
         PreparedStatement statement = connection.prepareStatement(sql);
-        try { statement.setQueryTimeout(10); return statement; }
+        try { statement.setQueryTimeout(timeoutSeconds); return statement; }
         catch (SQLException exception) { statement.close(); throw exception; }
     }
 

@@ -11,6 +11,7 @@ import java.sql.SQLTimeoutException;
 import java.sql.Statement;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.function.Function;
 import javax.sql.DataSource;
 
 /**
@@ -41,40 +42,46 @@ public final class PostgresqlCatalogObserver {
      * @return an observation with a comparable snapshot only when coverage is complete
      */
     public CatalogObservation observe(SqlIdentifier schema) {
+        return observe(schema, (connection, target, historyOid, catalog) -> catalog, CatalogObservation::unknown);
+    }
+
+    <T> T observe(SqlIdentifier schema, SnapshotRead<T> read, Function<Diagnostic, T> unknown) {
         Objects.requireNonNull(schema, "schema");
         String name = schema.name();
         if (name.startsWith("pg_") || name.equals("information_schema")
                 || name.toLowerCase(Locale.ROOT).startsWith("_tuprel_")) {
-            return CatalogObservation.unknown(Diagnostic.TARGET);
+            return unknown.apply(Diagnostic.TARGET);
         }
-        CatalogObservation observation = null;
+        T observation = null;
         try (Connection connection = source.getConnection()) {
             if (!connection.getAutoCommit()) {
                 discard(connection);
-                return CatalogObservation.unknown(Diagnostic.SESSION);
+                return unknown.apply(Diagnostic.SESSION);
             }
             connection.setAutoCommit(false);
             try {
                 configureTransaction(connection);
                 Target target = verifyTarget(connection, schema);
-                observation = new CatalogInventory(connection, schema, target.namespace()).read(target.extensionNamespace());
+                CatalogInventory inventory = new CatalogInventory(connection, schema, target.namespace());
+                CatalogObservation catalog = inventory.read(target.extensionNamespace());
+                observation = read.read(connection, target, inventory.historyOid(), catalog);
             } catch (ObservationFailure failure) {
-                observation = CatalogObservation.unknown(failure.diagnostic);
+                observation = unknown.apply(failure.diagnostic);
             } catch (SQLException failure) {
-                observation = CatalogObservation.unknown(classify(failure));
+                observation = unknown.apply(classify(failure));
             } catch (RuntimeException failure) {
-                observation = CatalogObservation.unknown(Diagnostic.METADATA);
+                observation = unknown.apply(Diagnostic.METADATA);
             }
             try {
                 connection.rollback();
             } catch (SQLException | RuntimeException failure) {
                 discard(connection);
-                observation = CatalogObservation.unknown(Diagnostic.CLEANUP);
+                observation = unknown.apply(Diagnostic.CLEANUP);
             }
         } catch (SQLException failure) {
-            return CatalogObservation.unknown(observation == null ? classify(failure) : Diagnostic.CLEANUP);
+            return unknown.apply(observation == null ? classify(failure) : Diagnostic.CLEANUP);
         } catch (RuntimeException failure) {
-            return CatalogObservation.unknown(observation == null ? Diagnostic.READ : Diagnostic.CLEANUP);
+            return unknown.apply(observation == null ? Diagnostic.READ : Diagnostic.CLEANUP);
         }
         return observation;
     }
@@ -147,7 +154,12 @@ public final class PostgresqlCatalogObserver {
         catch (SQLException | RuntimeException ignored) { /* Closing still runs. */ }
     }
 
-    private record Target(long database, long namespace, boolean extensionNamespace) { }
+    record Target(long database, long namespace, boolean extensionNamespace) { }
+
+    @FunctionalInterface
+    interface SnapshotRead<T> {
+        T read(Connection connection, Target target, long historyOid, CatalogObservation catalog) throws SQLException;
+    }
 
     static final class ObservationFailure extends Exception {
         private static final long serialVersionUID = 1L;

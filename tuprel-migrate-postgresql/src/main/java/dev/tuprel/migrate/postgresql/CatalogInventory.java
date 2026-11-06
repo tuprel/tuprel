@@ -36,6 +36,7 @@ final class CatalogInventory {
     private final EnumSet<Diagnostic> diagnostics = EnumSet.noneOf(Diagnostic.class);
     private int rows;
     private long bytes;
+    private long historyOid;
 
     CatalogInventory(Connection connection, SqlIdentifier schema, long namespace) {
         this.connection = connection;
@@ -61,6 +62,8 @@ final class CatalogInventory {
         return CatalogObservation.complete(snapshot());
     }
 
+    long historyOid() { return historyOid; }
+
     private void relation(ResultSet row) throws SQLException, ObservationFailure {
         long oid = row.getLong(1);
         String name = text(row, 2);
@@ -70,6 +73,10 @@ final class CatalogInventory {
                 && Set.of("r", "i", "S", "t", "v", "m", "c", "f", "p", "I").contains(kind));
         Relation relation = new Relation(name, kind, columns);
         require(relations.putIfAbsent(oid, relation) == null);
+        if (relation.history()) {
+            require(historyOid == 0);
+            historyOid = oid;
+        }
         if (!row.getBoolean(5) || !identifier(name)
                 || (kind.equals("r") && reserved(name) && !relation.history())) {
             unsupported(relation, Diagnostic.RELATION);

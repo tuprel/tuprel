@@ -94,9 +94,22 @@ public final class SchemaDiff {
      * @throws IllegalArgumentException if the two explicit schemas differ
      */
     public static SchemaDiff compare(SchemaSnapshot before, SchemaSnapshot after) {
+        return compare(before, after, new Builder(true)).finish();
+    }
+
+    /**
+     * Compares the same structures without constructing SQL or inferring execution risks.
+     * @param before expected state
+     * @param after observed state in the same schema
+     * @return exact-name differences with empty risk sets
+     */
+    public static List<Change> structuralChanges(SchemaSnapshot before, SchemaSnapshot after) {
+        return List.copyOf(compare(before, after, new Builder(false)).changes);
+    }
+
+    private static Builder compare(SchemaSnapshot before, SchemaSnapshot after, Builder result) {
         Objects.requireNonNull(before, "before"); Objects.requireNonNull(after, "after");
         if (!before.schema().equals(after.schema())) { throw new IllegalArgumentException("TUPREL-DIFF-TARGET: Schema mismatch"); }
-        Builder result = new Builder();
         for (String name : union(before.tables().keySet(), after.tables().keySet())) {
             SqlIdentifier table = new SqlIdentifier(name);
             DdlStatement.TableName target = new DdlStatement.TableName(after.schema(), table);
@@ -113,7 +126,7 @@ public final class SchemaDiff {
                 compareIndexes(table, oldTable, newTable, result);
             }
         }
-        return result.finish();
+        return result;
     }
 
     /**
@@ -185,18 +198,23 @@ public final class SchemaDiff {
     }
 
     private static final class Builder {
+        private final boolean previewEnabled;
         private final List<Change> changes = new ArrayList<>();
         private final Set<Risk> risks = EnumSet.of(Risk.PHYSICAL_STATE_NOT_CHECKED);
         private final StringBuilder preview = new StringBuilder();
         private int statements;
 
+        private Builder(boolean previewEnabled) { this.previewEnabled = previewEnabled; }
+
         void block(Kind kind, SqlIdentifier table, SqlIdentifier member, boolean dataLoss) {
+            if (recordStructure(kind, table, member)) { return; }
             Set<Risk> detail = EnumSet.of(Risk.UNSUPPORTED_CHANGE, Risk.LOCK_IMPACT_NOT_MODELED);
             if (dataLoss) { detail.add(Risk.POTENTIAL_DATA_LOSS); }
             changes.add(new Change(kind, table, Optional.ofNullable(member), detail)); risks.addAll(detail);
         }
 
         void add(Kind kind, SqlIdentifier table, SqlIdentifier member, DdlStatement statement, Risk... detail) {
+            if (recordStructure(kind, table, member)) { return; }
             Set<Risk> operationRisks = EnumSet.noneOf(Risk.class); Collections.addAll(operationRisks, detail);
             changes.add(new Change(kind, table, Optional.ofNullable(member), operationRisks)); risks.addAll(operationRisks);
             String sql = new DdlParseResult(List.of(statement), Optional.empty()).preview();
@@ -204,6 +222,12 @@ public final class SchemaDiff {
                     || (long) preview.length() + sql.length() > PostgresqlMigrationPlanCompiler.MAX_PREVIEW_BYTES) {
                 risks.add(Risk.RESOURCE_LIMIT);
             } else if (!risks.contains(Risk.RESOURCE_LIMIT)) { preview.append(sql); }
+        }
+
+        private boolean recordStructure(Kind kind, SqlIdentifier table, SqlIdentifier member) {
+            if (previewEnabled) { return false; }
+            changes.add(new Change(kind, table, Optional.ofNullable(member), Set.of()));
+            return true;
         }
 
         void index(SqlIdentifier table, DdlStatement.CreateIndex index) {

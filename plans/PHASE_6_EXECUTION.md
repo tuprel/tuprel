@@ -71,9 +71,9 @@ não substituem nova consulta antes de cada integração.
 | F6-004A estados lógicos/diff Java | MERGED | ADRs 0015–0018 aceites | feat/f6-004a-schema-diff / [#44](https://github.com/tuprel/tuprel/pull/44) | 5e2bd1909dd695755e40e83ad522bfa289e20962 | — |
 | F6-004B projecção de schema.tuprel | MERGED | 004A; ADR-0019 aceite | feat/f6-004b-schema-projection / [#45](https://github.com/tuprel/tuprel/pull/45) | c16d23590a03115f90c0b3b81d67c4bbe81e4a66 | — |
 | F6-004C CLI diff | MERGED | 004B; ADR-0019 aceite | feat/f6-004c-migrate-diff / [#48](https://github.com/tuprel/tuprel/pull/48) | 9d405f04616162d34a5af1240935e0bf7442c9ec | — |
-| F6-005A leitura de catálogo | TESTING | 004 consolidada; [ADR-0020](../docs/adr/ADR-0020-postgresql-catalog-observation.md) aceite e integrado | feat/f6-005a-catalog-observation | — | Confirmar checks remotos, revisão e CI da main após integração |
-| F6-005B comparação de drift | TODO | 005A e contrato de drift do ADR-0020 aprovado | — | — | Comparação com referência comprovada e cobertura explícita |
-| F6-005C propostas/dev | TODO | 005B e [ADR-0021](../docs/adr/ADR-0021-safe-migrate-dev.md) proposto | — | — | Aprovar separação preview/publicação e revisão do deploy antes de escrita |
+| F6-005A leitura de catálogo | MERGED | 004 consolidada; [ADR-0020](../docs/adr/ADR-0020-postgresql-catalog-observation.md) aceite e integrado | feat/f6-005a-catalog-observation / [#51](https://github.com/tuprel/tuprel/pull/51) | 7fee6e8c5bff031180c8ccdb3900fb03aff03116 | — |
+| F6-005B comparação de drift | TESTING | 005A integrada; contrato de drift do ADR-0020 aprovado | feat/f6-005b-physical-drift | — | Confirmar checks remotos, revisão e CI da main após integração |
+| F6-005C propostas/dev | BLOCKED | 005B e [ADR-0021](../docs/adr/ADR-0021-safe-migrate-dev.md) proposto | — | — | Publicação e alteração ao deploy exigem aprovação separada do ADR-0021 |
 | F6-006 consolidação | TODO | Subconjuntos anteriores integrados | — | — | Matriz, segurança, documentação e desempenho medido |
 | F6-006 playground baseline | TODO | Motor estável; tarefa isolada com plano de preservação | — | — | Inventário read-only e consentimento antes de adoptar migrations |
 | F6-006 ignore de create.lock | TODO | Contrato de init/ownership | — | — | Evitar inclusão acidental sem sobrescrever .gitignore |
@@ -623,3 +623,23 @@ ao commit continua coerente e que uma nova observação vê o DDL.
 A build do playground correu depois da raiz. A consulta read-only confirmou
 os dados persistidos e zero schemas de teste remanescentes. O exemplo Java
 compilou com Werror e foram verificados 147 links e 31 anchors do README.
+
+O [#51](https://github.com/tuprel/tuprel/pull/51) foi integrado em
+`7fee6e8c5bff031180c8ccdb3900fb03aff03116`, a partir do HEAD `0fb64ec`,
+com quatro checks aprovados e análise CodeQL 2112889289 sem resultados.
+A main passou na [CI](https://github.com/tuprel/tuprel/actions/runs/42240971756)
+e no [CodeQL](https://github.com/tuprel/tuprel/actions/runs/42240971675),
+análise 2112936770 sem resultados.
+
+### Validação local da F6-005B
+
+A build raiz em Java 21 com verificação estrita e PostgreSQL local passou.
+Dos 429 testes reportados, 425 passaram e quatro são os skips existentes de
+symlinks no Windows. Os onze testes novos cobrem prefixo aplicado, drift por
+propriedade, ficheiros e histórico divergentes, aprovisionamento inicial,
+permissões mínimas, lock de histórico e troca da relação antes e durante o
+lock. Uma escrita concorrente de histórico comprova que catálogo e histórico
+são lidos no mesmo snapshot. A build do playground passou depois da raiz e
+os dados persistidos foram confirmados por consulta read-only, com zero
+schemas de teste remanescentes. O exemplo Java compilou com Werror e foram
+verificados 148 links e 31 anchors do README.

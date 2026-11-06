@@ -128,14 +128,19 @@ que misturem instantes ou escondam uma perda de ligação.
 
 ### API e Physical Drift Detection
 
-Contrato proposto, com nomes indicativos para revisão. `PostgresqlCatalogObserver`
-usa a configuração validada. `observe(SqlIdentifier)` devolve um
+O `PostgresqlCatalogObserver` usa a configuração validada.
+`observe(SqlIdentifier)` devolve um
 `CatalogObservation` imutável com estado, versão de cobertura,
 `Optional<SchemaSnapshot>` e diagnósticos tipados. A identidade observada fica
-encapsulada no adapter. `PostgresqlDriftInspector.inspect(SqlIdentifier, Path)`
-obtém evidência do catálogo local, história e alvo vivo e devolve
-`PhysicalDriftReport`. O chamador indica o schema e a raiz do catálogo v1.
-Nenhuma destas APIs recebe uma leitura fornecida pelo chamador como prova do alvo.
+encapsulada no adapter. `PostgresqlDriftInspector.inspect(SqlIdentifier, Path,
+ReferenceControl)` obtém evidência do catálogo local, história e alvo vivo e
+devolve `PhysicalDriftReport`. O chamador indica o schema, a raiz do catálogo
+v1 e confirma o controlo administrativo para a invocação. A forma de dois
+argumentos devolve `UNKNOWN` por ausência dessa confirmação. Uma invocação
+gerida verifica a ligação do nome aos OIDs antes do lock, confirma o lock
+no OID esperado e verifica de novo os nomes antes de ler o histórico. Esta
+defesa em profundidade depende da janela de exclusão externa. Nenhuma API
+aceita uma leitura fornecida pelo chamador como prova do alvo.
 
 | Estado de observação | Resultado |
 |---|---|
