@@ -49,6 +49,6 @@ jobs:
       - name: Compile and upgrade an external Maven consumer
         shell: pwsh
         run: ./test-support/distribution/Verify-MavenConsumer.ps1 -PreviousCheckout build/maven-upgrade-fixture
-      - name: Exercise the signed staging installer and version switching
+      - name: Exercise signed installation, version switching and recovery
         shell: pwsh
         run: ./test-support/distribution/Verify-SignedCli.ps1
