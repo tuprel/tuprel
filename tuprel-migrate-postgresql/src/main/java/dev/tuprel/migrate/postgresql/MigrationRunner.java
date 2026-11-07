@@ -47,7 +47,10 @@ final class MigrationRunner {
             InitialBootstrapAuthorization authorization) {
         return deploy(source, settings, targetSchema, directory, (connection, target, files) -> {
             PostgresqlPhysicalApproval.Inspection observed;
-            try { observed = physical.read(connection, target, files, authorization); }
+            try {
+                physical.requireSettledPublication(directory);
+                observed = physical.read(connection, target, files, authorization);
+            }
             catch (MigrationInspectionException failure) { throw new MigrationRunFailure(failure.reason(), false); }
             finally { if (!connection.getAutoCommit()) { rollback(connection); } }
             if (!observed.approval().equals(approval)) { throw new MigrationRunFailure(Failure.APPROVAL, false); }

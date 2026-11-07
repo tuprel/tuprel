@@ -55,6 +55,25 @@ final class ManagedCredentialIssuer {
         finally { discard(lease.backend()); }
     }
 
+    DeploymentReview review(Path directory, InitialBootstrapAuthorization proof) throws MigrationInspectionException {
+        PostgresqlPhysicalApproval.Inspection inspection = inspect(directory, proof);
+        MigrationPlan plan = inspection.plan();
+        return new DeploymentReview(plan, inspection.history().applied().size(), plan.state() == MigrationPlan.State.REVIEW_REQUIRED
+                ? Optional.of(ManagedDeployApproval.format(inspection.approval())) : Optional.empty());
+    }
+
+    MigrationExecutionResult deployReviewed(Path directory, String token, InitialBootstrapAuthorization proof) {
+        PostgresqlPhysicalApproval.Approval approval;
+        try { approval = ManagedDeployApproval.parse(token); }
+        catch (IllegalArgumentException failure) { return approvalRefused(); }
+        if (proof == null || !approval.generation().equals(proof.claims().generation())) { return approvalRefused(); }
+        return deploy(directory, approval, proof);
+    }
+
+    private static MigrationExecutionResult approvalRefused() {
+        return new MigrationExecutionResult(MigrationExecutionResult.Outcome.REFUSED, Failure.APPROVAL, List.of());
+    }
+
     MigrationExecutionResult deploy(Path directory, PostgresqlPhysicalApproval.Approval approval,
             InitialBootstrapAuthorization proof) {
         Lease lease;
@@ -235,4 +254,6 @@ final class ManagedCredentialIssuer {
     }
 
     private record Lease(Connection backend, PostgresqlPhysicalApproval runner) { }
+
+    record DeploymentReview(MigrationPlan plan, int applied, Optional<String> token) { }
 }

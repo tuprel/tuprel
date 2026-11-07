@@ -99,6 +99,19 @@ public final class MigrationDirectory {
         }
     }
 
+    /**
+     * Verifies that a format-v1 catalog has no unreconciled native publication receipt.
+     * @param root existing catalog directory
+     * @throws IOException when the receipt is present or its absence cannot be established
+     */
+    public static void requireSettledPublication(Path root) throws IOException {
+        Path canonical = validatedRoot(root);
+        if (canonical.getFileName() != null && canonical.getFileName().toString().equals("migrations")
+                && !Files.notExists(NativePublicationReceipt.path(canonical), LinkOption.NOFOLLOW_LINKS)) {
+            throw new MigrationCreationException(MigrationCreationException.Reason.UNRESOLVED_PUBLICATION);
+        }
+    }
+
     // Shared with creation: format/path checks must not evolve independently.
     static Path validatedRoot(Path root) throws IOException {
         Objects.requireNonNull(root, "root");
