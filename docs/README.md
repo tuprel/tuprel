@@ -4,6 +4,11 @@ Define models in `schema.tuprel`, generate Java, and use an explicit PostgreSQL
 client. These pages describe what is available in `main` from a source checkout.
 Tuprel is a development preview; there is no stable release or published artifact.
 
+The [official Tuprel website repository](https://github.com/tuprel/tuprel-website)
+maintains the public frontend, navigation, and search. This repository
+maintains the technical documentation, examples, and Java contracts that
+the website imports from a pinned commit.
+
 ## Getting started
 
 1. [Install and build from source](getting-started/installation.md) with JDK 21.
