@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.BuildTask;
 import org.gradle.testkit.runner.GradleRunner;
@@ -58,6 +60,9 @@ class TuprelCodegenPluginTest {
         assertOutcome(runner(project, "compileJava").build(), ":tuprelGenerate", UP_TO_DATE);
         Path generated = project.resolve("build/generated/sources/tuprel/main/consumer/generated");
         assertTrue(Files.exists(generated.resolve("TuprelClient.java")));
+        runner(project, "clean").build();
+        // A global build cache must not restore outputs past the CLI's ownership checks.
+        assertOutcome(runner(project, "compileJava").build(), ":tuprelGenerate", SUCCESS);
 
         Files.writeString(schema, SCHEMA.replace("  name String", "  name String\n  note String?"));
         assertOutcome(runner(project, "compileJava").build(), ":tuprelGenerate", SUCCESS);
@@ -78,7 +83,15 @@ class TuprelCodegenPluginTest {
     }
 
     private static GradleRunner runner(Path directory, String... tasks) {
-        return GradleRunner.create().withProjectDir(directory.toFile()).withPluginClasspath().withArguments(tasks);
+        List<String> arguments = new ArrayList<>(List.of("--build-cache"));
+        arguments.addAll(List.of(tasks));
+        GradleRunner runner = GradleRunner.create().withProjectDir(directory.toFile())
+                .withPluginClasspath().withArguments(arguments);
+        String installation = System.getProperty("tuprel.fixture.gradle.installation");
+        if (installation != null) {
+            runner.withGradleInstallation(Path.of(installation).toFile());
+        }
+        return runner;
     }
 
     private static String quote(String path) {

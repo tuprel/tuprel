@@ -15,6 +15,10 @@ dependencies {
 }
 
 tasks.test {
+    providers.gradleProperty("tuprelConsumerGradleInstallation").orNull?.let { installation ->
+        inputs.dir(installation).withPathSensitivity(PathSensitivity.RELATIVE)
+        systemProperty("tuprel.fixture.gradle.installation", installation)
+    }
     dependsOn(":tuprel-cli:installDist", ":tuprel-runtime:jar", ":tuprel-sql:jar")
     val fixtureDirectories = listOf(
         "../tuprel-cli/build/install/tuprel/lib",

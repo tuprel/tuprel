@@ -21,5 +21,8 @@ Declare Tuprel runtime dependencies in the consumer as needed.
 
 Generation retains the CLI ownership checks. Remote build caching is off
 because restoring files would bypass those checks. The plugin runs neither
-migrations nor database operations. Plugin Portal publication and a wider
-Gradle compatibility matrix remain pending.
+migrations nor database operations. The independent consumer fixture checks
+Gradle 9.7.1 and 9.8.2 on Java 21. It enables the build cache, verifies that a
+clean build runs generation again, and checks that the CLI refuses a manual
+edit to an owned file. Plugin Portal publication and other Gradle versions
+remain pending.
