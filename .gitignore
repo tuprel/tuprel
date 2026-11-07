@@ -34,6 +34,9 @@ CLAUDE.local.md
 # Testes/relatórios locais
 .testcontainers.properties
 reports/
+
+# Lock retained by migration draft creation and managed publication.
+/tuprel/.migrations.create.lock
 coverage/
 
 # Diagnósticos de crash da JVM (podem ser escritos em qualquer directório)
