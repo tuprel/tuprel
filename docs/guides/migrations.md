@@ -107,8 +107,12 @@ LF. Catalog validation rejects unexpected entries, links, aliases and duplicate
 IDs. Limits: 1 MiB per file, 16 MiB total, 1000 migrations. Hashes cover exact bytes.
 
 The empty coordination file is outside the catalog. Its existence does not mean
-a process holds the lock. You may explicitly add /tuprel/.migrations.create.lock
-to your project's .gitignore; the CLI does not edit existing configuration.
+a process holds the lock. To keep it out of commits, add this rule to your
+project's existing .gitignore. The CLI leaves that file under your control.
+
+```gitignore
+/tuprel/.migrations.create.lock
+```
 Do not remove it while creators are active.
 
 Inspect partial files after an error before retrying. No automatic filesystem

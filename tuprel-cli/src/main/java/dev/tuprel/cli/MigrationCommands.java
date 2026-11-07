@@ -85,6 +85,7 @@ final class MigrationCommands {
         out.println("Names are not silently normalized. IDs use UTC seconds; collisions are refused.");
         out.println("--dry-run validates and previews without writing files or reserving an ID.");
         out.println("Creation retains an empty tuprel/.migrations.create.lock for cooperating creators; do not delete it while active.");
+        out.println("Git projects can add /tuprel/.migrations.create.lock to .gitignore.");
         out.println("The draft contains comments only; edit/review it manually. No SQL is applied or approved.");
         out.println("--help, -h: show this help. Exit codes: 0 success; 2 usage, I/O or safety refusal.");
     }
