@@ -1,9 +1,13 @@
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.GeneralSecurityException;
@@ -50,6 +54,9 @@ final class SignedCliBundle {
         }
 
         byte[] bytes;
+        if (!Files.isRegularFile(archive, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Expected a regular staging archive");
+        }
         try (java.io.InputStream input = Files.newInputStream(archive, LinkOption.NOFOLLOW_LINKS)) {
             bytes = input.readNBytes(LIMIT + 1);
         }
@@ -114,21 +121,40 @@ final class SignedCliBundle {
     Path install(Path privateRoot) throws IOException {
         Path root = checkedRoot(privateRoot);
         Path destination = root.resolve(version);
-        Files.createDirectory(destination);
-        Files.createDirectory(destination.resolve("bin"));
-        Files.createDirectory(destination.resolve("lib"));
-        for (Map.Entry<String, byte[]> entry : files.entrySet()) {
-            Files.write(destination.resolve(entry.getKey()), entry.getValue(), StandardOpenOption.CREATE_NEW);
+        try (FileChannel channel = openLock(root); FileLock lock = channel.lock()) {
+            if (!lock.isValid()) throw new IOException("Staging lock is invalid");
+            if (!Files.notExists(destination, LinkOption.NOFOLLOW_LINKS)) {
+                throw new FileAlreadyExistsException(destination.toString());
+            }
+            // Each attempt writes to a fresh sibling. Only a complete tree becomes selectable.
+            Path pending = Files.createTempDirectory(root, "." + version + "-pending-");
+            Files.createDirectory(pending.resolve("bin"));
+            Files.createDirectory(pending.resolve("lib"));
+            for (Map.Entry<String, byte[]> entry : files.entrySet()) {
+                Files.write(pending.resolve(entry.getKey()), entry.getValue(), StandardOpenOption.CREATE_NEW);
+            }
+            if (System.getProperty("os.name").equalsIgnoreCase("Linux")) {
+                Files.setPosixFilePermissions(pending.resolve("bin/tuprel"),
+                        PosixFilePermissions.fromString("rwx------"));
+            }
+            return Files.move(pending, destination, StandardCopyOption.ATOMIC_MOVE);
         }
-        if (System.getProperty("os.name").equalsIgnoreCase("Linux")) {
-            Files.setPosixFilePermissions(destination.resolve("bin/tuprel"),
-                    PosixFilePermissions.fromString("rwx------"));
-        }
-        return destination;
     }
 
     void uninstall(Path privateRoot) throws IOException {
-        Path destination = checkedRoot(privateRoot).resolve(version);
+        Path root = checkedRoot(privateRoot);
+        try (FileChannel channel = openLock(root); FileLock lock = channel.lock()) {
+            if (!lock.isValid()) throw new IOException("Staging lock is invalid");
+            removeVersion(root.resolve(version));
+        }
+    }
+
+    private static FileChannel openLock(Path root) throws IOException {
+        return FileChannel.open(root.resolve(".tuprel-staging.lock"), StandardOpenOption.CREATE,
+                StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+    }
+
+    private void removeVersion(Path destination) throws IOException {
         checkedRoot(destination);
         for (String subdirectory : List.of("bin", "lib")) {
             Path directory = checkedRoot(destination.resolve(subdirectory));
