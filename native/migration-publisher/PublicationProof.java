@@ -153,6 +153,9 @@ public final class PublicationProof {
         expect(NativeMigrationPublication.State.REFUSED, publication.publish(snapshot, baseline, "candidate", CANDIDATE.sql(),
                 () -> { throw new AssertionError("Replaced entry reached the database gate"); }).state());
         expect(false, Files.exists(root.resolve(CANDIDATE.directoryName())));
+        expect(NativeMigrationPublication.State.PUBLISHED,
+                publication.publish(snapshot, publication.readBaseline(), "candidate", CANDIDATE.sql(), () -> {}).state());
+        intact(root);
     }
 
     private static void runAbruptExit(Path distribution, KeyPair key, Path root, boolean after) throws Exception {

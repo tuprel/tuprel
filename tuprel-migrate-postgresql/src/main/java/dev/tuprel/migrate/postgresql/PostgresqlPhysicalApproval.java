@@ -74,7 +74,9 @@ final class PostgresqlPhysicalApproval {
 
     ManagedDevPublication.Result publish(SqlIdentifier schema, NativeMigrationPublication publication,
             Path sourceFile, String name, InitialBootstrapAuthorization authorization) {
-        if (managed.isEmpty() || managed.orElseThrow().seal().isEmpty()) { return ManagedDevPublication.Result.refused(); }
+        if (managed.isEmpty() || managed.orElseThrow().seal().isEmpty()) {
+            return ManagedDevPublication.Result.refused(ManagedDevPublication.Diagnostic.SESSION);
+        }
         return new ManagedDevPublication(this, settings, source).publish(schema, publication, sourceFile, name, authorization);
     }
 

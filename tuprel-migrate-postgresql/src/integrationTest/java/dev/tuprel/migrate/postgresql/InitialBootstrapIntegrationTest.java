@@ -577,7 +577,7 @@ class InitialBootstrapIntegrationTest {
                 .inspect(catalog, proof).approval();
         ManagedDevPublication.Result publication = issuer(pin, credentials, provisioner, managedLogin, role)
                 .publish(catalog, schema, "initial", installation, key.getPublic(), proof, clock);
-        assertEquals(ManagedDevPublication.State.PUBLISHED, publication.state());
+        assertEquals(ManagedDevPublication.State.PUBLISHED, publication.state(), publication::toString);
         MigrationFile artifact = publication.file().orElseThrow();
         assertEquals(publication.proposal().orElseThrow().sql().orElseThrow(), artifact.sql());
         assertEquals(artifact.checksum(), MigrationDirectory.discover(catalog).getFirst().checksum());

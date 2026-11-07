@@ -73,15 +73,15 @@ final class ManagedCredentialIssuer {
             MigrationFile.validateName(name);
             if (!pin.protectedFile(installation.resolve("publisher")) || !pin.protectedFile(installation.resolve("manifest.txt"))
                     || !pin.protectedFile(installation.resolve("manifest.ed25519")) || proof == null) {
-                return ManagedDevPublication.Result.refused();
+                return ManagedDevPublication.Result.refused(ManagedDevPublication.Diagnostic.INSTALLATION);
             }
             publication = new NativeMigrationPublication(directory, installation, publisherKey, proof.claims().generation(), clock);
         } catch (IOException | IllegalArgumentException | SecurityException failure) {
-            return ManagedDevPublication.Result.refused();
+            return ManagedDevPublication.Result.refused(ManagedDevPublication.Diagnostic.INSTALLATION);
         }
         Lease lease;
         try { lease = open(proof); }
-        catch (MigrationInspectionException failure) { return ManagedDevPublication.Result.refused(); }
+        catch (MigrationInspectionException failure) { return ManagedDevPublication.Result.refused(ManagedDevPublication.Diagnostic.SESSION); }
         try { return lease.runner().publish(schema, publication, source, name, proof); }
         finally { discard(lease.backend()); }
     }

@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.sql.DataSource;
 
 /** Managed proposal publication. The advisory lock is acquired before the filesystem catalog lock. */
@@ -30,13 +31,16 @@ final class ManagedDevPublication {
 
     Result publish(SqlIdentifier schema, NativeMigrationPublication publication, Path sourceFile,
             String name, InitialBootstrapAuthorization proof) {
-        Result result = Result.refused();
+        Result result = null;
         try (MigrationSession session = MigrationSession.open(source, settings, schema.name())) {
             result = publish(session.connection(), settings.planTarget(schema.name()), publication, sourceFile, name, proof);
-        } catch (MigrationSessionException | MigrationInspectionException | MigrationHistoryException | SQLException
-                | IOException | IllegalArgumentException | SecurityException failure) {
+        } catch (MigrationInspectionException failure) {
+            return Result.refused(Diagnostic.REFERENCE);
+        } catch (MigrationSessionException | MigrationHistoryException | SQLException failure) {
             // Releasing a read-only session cannot invalidate a settled filesystem result.
-            return result;
+            return result == null ? Result.refused(Diagnostic.SESSION) : result;
+        } catch (IOException | IllegalArgumentException | SecurityException failure) {
+            return Result.refused(Diagnostic.FILES);
         }
         return result;
     }
@@ -49,32 +53,40 @@ final class ManagedDevPublication {
         SchemaCompilation compilation = new SchemaCompiler().compile(SourceText.of("schema.tuprel", snapshot.text()));
         if (!compilation.isValid()) { return Result.of(State.INVALID_SCHEMA); }
         SchemaProjection projection = new PostgresqlSchemaProjector().project(target.schema(), compilation.validatedSchema().orElseThrow());
-        if (projection.snapshot().isEmpty()) { return Result.refused(); }
+        if (projection.snapshot().isEmpty()) { return Result.refused(Diagnostic.PLAN); }
         NativeMigrationPublication.Baseline baseline = publication.readBaseline();
         PostgresqlPhysicalApproval.Inspection inspection = physical.read(connection, target, baseline.files(), proof);
         connection.rollback();
-        if (inspection.plan().state() != MigrationPlan.State.NO_CHANGES) { return Result.refused(); }
+        if (inspection.plan().state() != MigrationPlan.State.NO_CHANGES) { return Result.refused(Diagnostic.PENDING); }
         MigrationDevPlan proposal = PostgresqlMigrationDevPlanner.plan(target, name, inspection.reference(),
                 projection.snapshot().orElseThrow(), inspection.observation());
         if (proposal.state() == MigrationDevPlan.State.NO_CHANGES) { return Result.of(State.NO_CHANGES); }
-        if (proposal.state() == MigrationDevPlan.State.BLOCKED) { return Result.refused(); }
+        if (proposal.state() == MigrationDevPlan.State.BLOCKED) {
+            return new Result(State.REFUSED, Optional.of(Diagnostic.PLAN), Optional.of(proposal), Optional.empty());
+        }
+        AtomicBoolean revalidated = new AtomicBoolean();
         NativeMigrationPublication.Result published = publication.publish(snapshot, baseline, name, proposal.sql().orElseThrow(), () -> {
             try {
                 PostgresqlPhysicalApproval.Inspection latest = physical.read(connection, target, baseline.files(), proof);
                 if (!latest.approval().equals(inspection.approval())) { throw new IOException("Publication reference changed"); }
                 // Retain the session advisory lock without a transaction timeout during the native handshake.
                 connection.rollback();
+                revalidated.set(true);
             } catch (SQLException | MigrationInspectionException failure) {
                 throw new IOException("Publication reference could not be revalidated");
             }
         });
-        return new Result(State.valueOf(published.state().name()), Optional.of(proposal), published.file());
+        State outcome = State.valueOf(published.state().name());
+        Optional<Diagnostic> diagnostic = outcome == State.REFUSED
+                ? Optional.of(revalidated.get() ? Diagnostic.NATIVE : Diagnostic.BEFORE_RENAME) : Optional.empty();
+        return new Result(outcome, diagnostic, Optional.of(proposal), published.file());
     }
 
     enum State { NO_CHANGES, INVALID_SCHEMA, REFUSED, PUBLISHED, COLLISION, PUBLICATION_UNKNOWN }
+    enum Diagnostic { INSTALLATION, SESSION, FILES, REFERENCE, PENDING, PLAN, BEFORE_RENAME, NATIVE }
 
-    record Result(State state, Optional<MigrationDevPlan> proposal, Optional<MigrationFile> file) {
-        static Result refused() { return of(State.REFUSED); }
-        static Result of(State state) { return new Result(state, Optional.empty(), Optional.empty()); }
+    record Result(State state, Optional<Diagnostic> diagnostic, Optional<MigrationDevPlan> proposal, Optional<MigrationFile> file) {
+        static Result refused(Diagnostic diagnostic) { return new Result(State.REFUSED, Optional.of(diagnostic), Optional.empty(), Optional.empty()); }
+        static Result of(State state) { return new Result(state, Optional.empty(), Optional.empty(), Optional.empty()); }
     }
 }
