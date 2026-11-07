@@ -6,13 +6,13 @@ import dev.tuprel.migrate.MigrationDirectory;
 import dev.tuprel.migrate.MigrationFile;
 import dev.tuprel.migrate.MigrationHistory;
 import dev.tuprel.migrate.MigrationHistoryException;
-import dev.tuprel.migrate.MigrationValidationException;
 import dev.tuprel.migrate.NativeMigrationPublication;
 import dev.tuprel.migrate.postgresql.ddl.DdlParseResult;
 import dev.tuprel.migrate.postgresql.ddl.PostgresqlDdlParser;
 import dev.tuprel.migrate.postgresql.diff.SchemaDiff;
 import dev.tuprel.migrate.postgresql.diff.SchemaSnapshot;
 import dev.tuprel.sql.SqlIdentifier;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -52,11 +52,12 @@ final class PostgresqlPhysicalApproval {
             throws MigrationInspectionException {
         try (MigrationSession session = MigrationSession.open(source, settings, schema)) {
             MigrationPlanTarget target = settings.planTarget(schema);
+            requireSettledPublication(directory);
             List<MigrationFile> files = MigrationDirectory.discover(directory);
             return read(session.connection(), target, files, authorization);
         } catch (MigrationSessionException failure) {
             throw new MigrationInspectionException(MigrationRunner.sessionFailure(failure));
-        } catch (MigrationValidationException | SecurityException failure) {
+        } catch (IOException | SecurityException failure) {
             throw new MigrationInspectionException(Failure.FILES);
         } catch (MigrationHistoryException failure) {
             throw new MigrationInspectionException(Failure.CONFIGURATION);
@@ -64,6 +65,13 @@ final class PostgresqlPhysicalApproval {
             throw new MigrationInspectionException(MigrationRunner.classify(failure));
         } catch (RuntimeException failure) {
             throw new MigrationInspectionException(Failure.CONNECTION);
+        }
+    }
+
+    void requireSettledPublication(Path directory) throws MigrationInspectionException {
+        if (managed.isPresent() && managed.orElseThrow().seal().isPresent()) {
+            try { MigrationDirectory.requireSettledPublication(directory); }
+            catch (IOException | SecurityException failure) { throw new MigrationInspectionException(Failure.FILES); }
         }
     }
 

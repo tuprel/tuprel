@@ -323,6 +323,18 @@ sem aprovação de deploy. O recibo é preservado até reconhecimento
 explícito do resultado. O launcher público mantém o preview enquanto
 as provas da instalação gerida e do consumidor independente decorrem.
 
+### Revisão e execução independentes
+
+A C3.3B associa o resultado da revisão física à geração e ao digest no
+envelope `TUPREL-PG-PHYSICAL-DEPLOY/1:<geração>:<sha256>`. Só um plano com
+migrations pendentes tem um token de revisão. Um SHA-256 legado, uma versão
+desconhecida ou uma geração diferente são recusados antes de abrir a sessão.
+O executor recalcula a evidência sob o lock e compara-a com o valor que o
+operador confirmou. Um recibo de publicação por reconciliar bloqueia a
+revisão e a execução geridas. As consultas de status permanecem disponíveis
+em leitura. A distribuição e a interface da instalação controlada são
+validadas no consumidor da C3.3C.
+
 ## Decisões para aprovação
 
 - Aprovisionamento separado com autorização de uso único, recibo

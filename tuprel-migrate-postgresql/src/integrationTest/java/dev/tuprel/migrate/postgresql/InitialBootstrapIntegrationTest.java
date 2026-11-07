@@ -595,6 +595,10 @@ class InitialBootstrapIntegrationTest {
         assertEquals(artifact.checksum(), MigrationDirectory.discover(catalog).getFirst().checksum());
         assertTrue(historyInitialised());
         assertFalse(relationExists("Product"));
+        assertEquals(MigrationExecutionResult.Failure.FILES, assertThrows(MigrationInspectionException.class,
+                () -> issuer(pin, credentials, provisioner, managedLogin, role).review(catalog, proof)).reason());
+        assertEquals(MigrationExecutionResult.Failure.FILES, issuer(pin, credentials, provisioner, managedLogin, role)
+                .deployReviewed(catalog, ManagedDeployApproval.format(stale), proof).failure());
         assertEquals(ManagedDevPublication.State.PUBLICATION_UNKNOWN, issuer(pin, credentials, provisioner, managedLogin, role)
                 .publish(catalog, schema, "second", installation, key.getPublic(), proof, clock).state());
         assertEquals(NativeMigrationPublication.State.PUBLISHED, recovery.reconcile());
@@ -604,10 +608,12 @@ class InitialBootstrapIntegrationTest {
         assertEquals(MigrationExecutionResult.Failure.APPROVAL, issuer(pin, credentials, provisioner, managedLogin, role)
                 .deploy(catalog, stale, proof).failure());
         assertTrue(historyInitialised());
-        PostgresqlPhysicalApproval.Approval approved = issuer(pin, credentials, provisioner, managedLogin, role)
-                .inspect(catalog, proof).approval();
+        ManagedCredentialIssuer.DeploymentReview approved = issuer(pin, credentials, provisioner, managedLogin, role).review(catalog, proof);
+        assertEquals(MigrationExecutionResult.Failure.APPROVAL,
+                issuer(pin, ignored -> { throw new AssertionError("Credentials were requested"); }, provisioner, managedLogin, role)
+                        .deployReviewed(catalog, approved.plan().digest().value(), proof).failure());
         assertEquals(MigrationExecutionResult.Outcome.APPLIED, issuer(pin, credentials, provisioner, managedLogin, role)
-                .deploy(catalog, approved, proof).outcome());
+                .deployReviewed(catalog, approved.token().orElseThrow(), proof).outcome());
         assertTrue(relationExists("Product"));
         assertEquals(artifact.checksum(), new PostgresqlMigrationHistory(settings.dataSource()).read(target.name())
                 .applied().getFirst().checksum());
