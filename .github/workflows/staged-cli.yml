@@ -37,3 +37,6 @@ jobs:
           $archive = @(Get-ChildItem tuprel-cli/build/distributions -File -Filter '*.zip')
           if ($archive.Count -ne 1) { throw 'Expected one CLI archive' }
           ./test-support/distribution/Verify-StagedCli.ps1 -Archive $archive[0].FullName
+      - name: Verify runtime libraries in a temporary Maven repository
+        shell: pwsh
+        run: ./test-support/distribution/Verify-StagedMaven.ps1
