@@ -190,6 +190,7 @@ final class MigrationRunner {
         AppliedMigration applied;
         try {
             begin(connection);
+            if (physical.isPresent()) { physical.orElseThrow().enter(connection); }
             MigrationCatalog.lockHistory(connection, schema);
             if (!PostgresqlMigrationHistory.snapshot(connection, schema).equals(expected)) { throw new MigrationRunFailure(Failure.HISTORY, false); }
             MigrationCatalog.lockTargets(connection, parsed.statements());

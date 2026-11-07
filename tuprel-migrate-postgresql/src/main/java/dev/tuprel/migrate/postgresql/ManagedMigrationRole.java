@@ -1,0 +1,69 @@
+package dev.tuprel.migrate.postgresql;
+
+import dev.tuprel.sql.SqlIdentifier;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Objects;
+
+/** Trusted deployment configuration. Login credentials are supplied by the managed executor's issuer. */
+record ManagedMigrationRole(SqlIdentifier owner, SqlIdentifier ledgerOwner) {
+    ManagedMigrationRole {
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(ledgerOwner, "ledgerOwner");
+        if (owner.equals(ledgerOwner)) { throw new IllegalArgumentException("The executor must not own its provenance ledger"); }
+    }
+
+    boolean enter(Connection connection, SqlIdentifier schema) throws SQLException {
+        if (!checked(connection, schema, false)) { return false; }
+        // Only a validated identifier can be used in this transaction-scoped utility command.
+        MigrationCatalog.execute(connection, "SET LOCAL ROLE \"" + owner.name() + "\"");
+        return true;
+    }
+
+    boolean stillTrusted(Connection connection, SqlIdentifier schema) throws SQLException {
+        return checked(connection, schema, true);
+    }
+
+    private boolean checked(Connection connection, SqlIdentifier schema, boolean assumed) throws SQLException {
+        if (connection.getAutoCommit()) { return false; }
+        try (PreparedStatement query = MigrationCatalog.query(connection, """
+                SELECT r.rolname COLLATE pg_catalog."C" = ? AND NOT r.rolcanlogin
+                  AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb
+                  AND NOT r.rolreplication AND NOT r.rolbypassrls
+                  AND u.rolcanlogin AND NOT u.rolsuper AND NOT u.rolcreaterole AND NOT u.rolcreatedb
+                  AND NOT u.rolreplication AND NOT u.rolbypassrls
+                  AND CURRENT_USER = CASE WHEN ? THEN r.rolname ELSE SESSION_USER END
+                  AND EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.roleid = r.oid AND m.member = u.oid
+                              AND m.set_option AND NOT m.inherit_option AND NOT m.admin_option)
+                  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m
+                                  WHERE (m.roleid = r.oid AND m.member <> u.oid)
+                                     OR (m.member = u.oid AND m.roleid <> r.oid) OR m.member = r.oid
+                                     OR (m.roleid = r.oid AND m.member = u.oid
+                                         AND (NOT m.set_option OR m.inherit_option OR m.admin_option)))
+                  AND NOT EXISTS (
+                    SELECT 1 FROM pg_catalog.pg_class c WHERE c.relnamespace = n.oid AND c.relkind IN ('r', 'i')
+                      AND (c.relowner <> r.oid OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(c.relacl) acl
+                        WHERE acl.grantee <> r.oid
+                          AND (acl.privilege_type = 'TRIGGER' OR
+                            (c.relname = '_tuprel_migrations' AND acl.privilege_type <> 'SELECT')))))
+                  AND NOT EXISTS (
+                    SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid
+                    CROSS JOIN LATERAL pg_catalog.aclexplode(a.attacl) acl
+                    WHERE c.relnamespace = n.oid AND c.relname = '_tuprel_migrations'
+                      AND a.attnum > 0 AND acl.grantee <> r.oid AND acl.privilege_type <> 'SELECT')
+                FROM pg_catalog.pg_namespace n
+                JOIN pg_catalog.pg_roles r ON r.oid = n.nspowner
+                JOIN pg_catalog.pg_roles u ON u.rolname = SESSION_USER
+                WHERE n.nspname COLLATE pg_catalog."C" = ?
+                """)) {
+            query.setString(1, owner.name());
+            query.setBoolean(2, assumed);
+            query.setString(3, schema.name());
+            try (ResultSet rows = query.executeQuery()) {
+                return rows.next() && rows.getBoolean(1) && !rows.next();
+            }
+        }
+    }
+}

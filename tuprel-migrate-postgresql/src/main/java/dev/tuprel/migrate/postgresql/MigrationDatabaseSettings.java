@@ -97,9 +97,13 @@ public final class MigrationDatabaseSettings {
     }
 
     boolean matchesIdentity(String database, String currentUser, String sessionUser, Boolean ssl) {
-        return URI.create(url.substring(5)).getPath().substring(1).equals(database)
-                && user.equals(currentUser) && user.equals(sessionUser)
+        return matchesRole(database, currentUser, sessionUser, user)
                 && ssl != null && ssl == !sslMode.equals("disable");
+    }
+
+    boolean matchesRole(String database, String currentUser, String sessionUser, String effectiveRole) {
+        return URI.create(url.substring(5)).getPath().substring(1).equals(database)
+                && effectiveRole.equals(currentUser) && user.equals(sessionUser);
     }
 
     /**

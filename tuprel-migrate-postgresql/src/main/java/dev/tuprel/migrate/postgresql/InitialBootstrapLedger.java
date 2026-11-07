@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Privileged inventory and receipt table installed by the provisioner outside application schemas. */
@@ -33,9 +34,20 @@ record InitialBootstrapLedger(SqlIdentifier schema, long oid) {
     }
 
     boolean lock(Connection connection, boolean readOnly) throws SQLException {
+        return lock(connection, readOnly, Optional.empty());
+    }
+
+    boolean lockManagedRead(Connection connection, SqlIdentifier owner) throws SQLException {
+        return lock(connection, true, Optional.of(owner));
+    }
+
+    private boolean lock(Connection connection, boolean readOnly, Optional<SqlIdentifier> owner) throws SQLException {
         try (PreparedStatement query = MigrationCatalog.query(connection, """
                 SELECT c.oid = ?::oid AND c.relkind = 'r' AND c.relpersistence = 'p'
                   AND a.amname = 'heap' AND c.relowner = r.oid AND n.nspowner = r.oid
+                  AND (r.rolname = CURRENT_USER OR (
+                    NOT pg_catalog.pg_has_role(CURRENT_USER, r.oid, 'MEMBER')
+                    AND NOT pg_catalog.pg_has_role(SESSION_USER, r.oid, 'MEMBER')))
                   AND NOT c.relrowsecurity AND NOT c.relforcerowsecurity AND NOT c.relispartition
                   AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_inherits WHERE inhrelid = c.oid OR inhparent = c.oid)
                   AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_trigger WHERE tgrelid = c.oid)
@@ -55,13 +67,14 @@ record InitialBootstrapLedger(SqlIdentifier schema, long oid) {
                     COALESCE(n.nspacl, pg_catalog.acldefault('n', n.nspowner))) AS acl
                     WHERE acl.grantee <> r.oid AND acl.privilege_type = 'CREATE')
                 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-                JOIN pg_catalog.pg_roles r ON r.rolname = CURRENT_USER
+                JOIN pg_catalog.pg_roles r ON r.rolname = COALESCE(?::pg_catalog.text, CURRENT_USER::pg_catalog.text)
                 JOIN pg_catalog.pg_am a ON a.oid = c.relam
                 WHERE n.nspname = ? AND c.relname = ?
                 """)) {
             query.setLong(1, oid);
-            query.setString(2, schema.name());
-            query.setString(3, NAME);
+            query.setString(2, owner.map(SqlIdentifier::name).orElse(null));
+            query.setString(3, schema.name());
+            query.setString(4, NAME);
             try (ResultSet rows = query.executeQuery()) {
                 if (!rows.next() || !rows.getBoolean(1) || rows.next()) { return false; }
             }

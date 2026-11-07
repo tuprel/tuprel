@@ -229,6 +229,25 @@ Esta prova cobre a retirada da via legada. A via gerida ainda exige um
 executor fixado e um emissor que vincule a credencial ao artefacto e
 à versão do protocolo. O corte operacional exige autorização por alvo.
 
+### Identidades da via gerida
+
+O adapter interno separa o login JDBC configurado da role proprietária
+`NOLOGIN`. Valida a ligação e TLS como o login antes de assumir a role e aceita apenas a
+membership directa da role proprietária para esse login, com `SET`,
+sem `INHERIT` nem opção administrativa. O adapter usa `SET LOCAL ROLE`
+e confirma ambas as identidades no catálogo. Verifica ownership das
+relações e recusa privilégios de escrita no histórico para outras
+roles. O ledger mantém um owner administrativo independente e só
+concede leitura ao executor. A prova assinada continua vinculada
+ao aprovisionador e à geração consumida, enquanto o digest exterior
+vincula a configuração do login de execução e o alvo observado.
+
+As fixtures positivas usam roles sintéticas em PostgreSQL 17 isolado. A
+validação local cobre a recusa de um alvo sem essa separação de roles.
+Este gate cobre a identidade PostgreSQL. O emissor do ambiente continua
+responsável por verificar a versão e o artefacto e por manter a
+credencial fora de executores e jobs não autorizados.
+
 ## Decisões para aprovação
 
 - Aprovisionamento separado com autorização de uso único, recibo
