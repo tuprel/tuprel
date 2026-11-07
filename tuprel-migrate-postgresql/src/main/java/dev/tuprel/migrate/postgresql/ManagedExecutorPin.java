@@ -52,17 +52,20 @@ record ManagedExecutorPin(Path jar, MigrationChecksum checksum, String artifactV
     }
 
     /** The supervisor's OS account must be distinct from project writers and generic jobs. */
-    boolean protectedInstallation() {
-        if (!jar.isAbsolute() || !FileSystems.getDefault().supportedFileAttributeViews().contains("unix")) { return false; }
+    boolean protectedInstallation() { return protectedFile(jar); }
+
+    boolean protectedFile(Path file) {
+        if (!file.isAbsolute() || !file.equals(file.normalize())
+                || !FileSystems.getDefault().supportedFileAttributeViews().contains("unix")) { return false; }
         try {
             long uid = new UnixSystem().getUid();
             if (uid != supervisorUid) { return false; }
-            for (Path entry = jar; entry != null; entry = entry.getParent()) {
+            for (Path entry = file; entry != null; entry = entry.getParent()) {
                 Map<String, Object> attributes = Files.readAttributes(entry, "unix:uid,mode,isDirectory,isRegularFile,nlink",
                         LinkOption.NOFOLLOW_LINKS);
                 int owner = (Integer) attributes.get("uid");
                 int mode = (Integer) attributes.get("mode");
-                boolean expectedType = entry.equals(jar)
+                boolean expectedType = entry.equals(file)
                         ? Boolean.TRUE.equals(attributes.get("isRegularFile")) && Integer.valueOf(1).equals(attributes.get("nlink"))
                         : Boolean.TRUE.equals(attributes.get("isDirectory"));
                 if (!expectedType || (owner != 0 && Integer.toUnsignedLong(owner) != uid) || (mode & 0022) != 0) {

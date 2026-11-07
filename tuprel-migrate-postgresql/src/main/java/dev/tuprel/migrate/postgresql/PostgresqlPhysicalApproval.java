@@ -7,10 +7,12 @@ import dev.tuprel.migrate.MigrationFile;
 import dev.tuprel.migrate.MigrationHistory;
 import dev.tuprel.migrate.MigrationHistoryException;
 import dev.tuprel.migrate.MigrationValidationException;
+import dev.tuprel.migrate.NativeMigrationPublication;
 import dev.tuprel.migrate.postgresql.ddl.DdlParseResult;
 import dev.tuprel.migrate.postgresql.ddl.PostgresqlDdlParser;
 import dev.tuprel.migrate.postgresql.diff.SchemaDiff;
 import dev.tuprel.migrate.postgresql.diff.SchemaSnapshot;
+import dev.tuprel.sql.SqlIdentifier;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -70,6 +72,12 @@ final class PostgresqlPhysicalApproval {
                 Objects.requireNonNull(approval, "approval"), authorization);
     }
 
+    ManagedDevPublication.Result publish(SqlIdentifier schema, NativeMigrationPublication publication,
+            Path sourceFile, String name, InitialBootstrapAuthorization authorization) {
+        if (managed.isEmpty() || managed.orElseThrow().seal().isEmpty()) { return ManagedDevPublication.Result.refused(); }
+        return new ManagedDevPublication(this, settings, source).publish(schema, publication, sourceFile, name, authorization);
+    }
+
     // Caller owns the advisory lock and is responsible for a confirmed rollback before any later writes.
     Inspection read(Connection connection, MigrationPlanTarget target, List<MigrationFile> files,
             InitialBootstrapAuthorization authorization) throws SQLException, MigrationInspectionException {
@@ -93,7 +101,8 @@ final class PostgresqlPhysicalApproval {
             PhysicalDeployDigest digest = PhysicalDeployDigest.bind(target, observed.target(), plan, reference.expected(), observed.catalog());
             Revalidation revalidation = new Revalidation(target, authorization, observed.target(),
                     observed.catalog().relationOids(), reference.expected(), reference.applied());
-            return new Inspection(plan, history, new Approval(authorization.claims().generation(), digest), revalidation);
+            return new Inspection(plan, history, new Approval(authorization.claims().generation(), digest), revalidation,
+                    reference, drift.report());
         } catch (PostgresqlCatalogObserver.ObservationFailure | IllegalArgumentException failure) {
             throw new MigrationInspectionException(Failure.CATALOG);
         }
@@ -193,5 +202,6 @@ final class PostgresqlPhysicalApproval {
     /** Generation comes from the pinned and consumed provisioning evidence, outside the digest framing. */
     record Approval(UUID generation, PhysicalDeployDigest digest) { }
 
-    record Inspection(MigrationPlan plan, MigrationHistory history, Approval approval, Revalidation revalidation) { }
+    record Inspection(MigrationPlan plan, MigrationHistory history, Approval approval, Revalidation revalidation,
+                      PostgresqlDriftInspector.Reference reference, PhysicalDriftReport observation) { }
 }

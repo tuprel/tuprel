@@ -50,15 +50,32 @@ jobs:
           ./gradlew :tuprel-cli:installDist --no-daemon --dependency-verification strict
       - name: Build and verify
         run: |
+          set -euo pipefail
+          fixture="$(sudo mktemp -d /home/tuprel-managed-publication.XXXXXXXX)"
+          trap 'if mountpoint -q "$fixture/volume"; then sudo umount -- "$fixture/volume"; fi; sudo rm -rf -- "$fixture"' EXIT
+          sudo chown "$(id -u):$(id -g)" "$fixture"
+          mkdir "$fixture/volume"
+          truncate -s 64M "$fixture/ext4.img"
+          mkfs.ext4 -F -q "$fixture/ext4.img"
+          sudo mount -t ext4 -o loop "$fixture/ext4.img" "$fixture/volume"
+          test "$(findmnt -n -o FSTYPE --mountpoint "$fixture/volume")" = ext4
+          sudo chown "$(id -u):$(id -g)" "$fixture/volume"
+          bash native/migration-publisher/build-linux.sh "$fixture/publisher"
           ./gradlew build --no-daemon --dependency-verification strict -PtuprelTestDatabase=container \
-            "-PtuprelLegacyCliLauncher=$PWD/.legacy-executor-fixture/tuprel-cli/build/install/tuprel/bin/tuprel"
+            "-PtuprelLegacyCliLauncher=$PWD/.legacy-executor-fixture/tuprel-cli/build/install/tuprel/bin/tuprel" \
+            "-PtuprelTestPublisher=$fixture/publisher" "-PtuprelTestPublicationVolume=$fixture/volume"
           python3 - <<'PY'
           import xml.etree.ElementTree as ET
-          path = 'tuprel-cli/build/test-results/integrationTest/TEST-dev.tuprel.cli.DeployLauncherIntegrationTest.xml'
-          cases = [case for case in ET.parse(path).getroot().findall('testcase')
-                   if case.get('name') == 'pinnedLegacyExecutorLosesWriteAccessAfterFixtureCutover()']
-          if len(cases) != 1 or any(cases[0].find(tag) is not None for tag in ('skipped', 'failure', 'error')):
-              raise SystemExit('The pinned legacy executor cutover proof must execute and pass')
+          checks = (
+              ('tuprel-cli', 'dev.tuprel.cli.DeployLauncherIntegrationTest', 'pinnedLegacyExecutorLosesWriteAccessAfterFixtureCutover()'),
+              ('tuprel-migrate-postgresql', 'dev.tuprel.migrate.postgresql.InitialBootstrapIntegrationTest',
+               'managedPublicationWritesExactSqlWithoutApplyingIt(Path)'),
+          )
+          for module, suite, name in checks:
+              path = f'{module}/build/test-results/integrationTest/TEST-{suite}.xml'
+              cases = [case for case in ET.parse(path).getroot().findall('testcase') if case.get('name') == name]
+              if len(cases) != 1 or any(cases[0].find(tag) is not None for tag in ('skipped', 'failure', 'error')):
+                  raise SystemExit(f'Managed migration proof must execute and pass: {name}')
           PY
       - name: Reject the correct executor JAR under an untrusted OS account
         run: |

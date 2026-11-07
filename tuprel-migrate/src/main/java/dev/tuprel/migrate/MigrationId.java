@@ -1,7 +1,9 @@
 package dev.tuprel.migrate;
 
 import java.time.DateTimeException;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.ResolverStyle;
 import java.util.Objects;
@@ -35,6 +37,10 @@ public record MigrationId(String value) implements Comparable<MigrationId> {
     @Override
     public int compareTo(MigrationId other) {
         return value.compareTo(other.value);
+    }
+
+    static MigrationId at(Instant instant) {
+        return new MigrationId(FORMAT.withZone(ZoneOffset.UTC).format(instant));
     }
 
     private static IllegalArgumentException invalid() {
