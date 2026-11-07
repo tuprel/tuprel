@@ -22,9 +22,22 @@ and Java 21 using:
 pwsh -File test-support/distribution/Verify-MavenConsumer.ps1
 ```
 
-This proves version selection and transitive runtime resolution. Public
-coordinates and release distribution remain gated by the naming and release
-policies.
+CI also runs the same check with the baseline pinned to
+`2b9ef01baa96633efc630cae1d288c061a94256b` and the candidate built from
+the current checkout. The check runs the previously compiled consumer against
+the candidate libraries, recompiles the old generated sources, then regenerates
+from the updated schema and builds again.
+
+```powershell
+git worktree add --detach ../tuprel-maven-baseline 2b9ef01baa96633efc630cae1d288c061a94256b
+pwsh -File test-support/distribution/Verify-MavenConsumer.ps1 -PreviousCheckout ../tuprel-maven-baseline
+```
+
+These are two source revisions with fixture versions. The test exercises
+version selection, the generated API used by the consumer and transitive
+runtime resolution. A public release requires verification of the candidate
+namespace, authenticated publication and signed artifacts under the naming
+and release policies.
 
 The candidate group for public coordinates is dev.tuprel, subject to domain
 ownership verification. The proposed artifact IDs are tuprel-sql,
