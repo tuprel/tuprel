@@ -39,6 +39,20 @@ tuprel-cli/build/install/tuprel/
 Keep the distribution together. Invoke the launcher by its absolute path, or
 add its bin directory to your own PATH. The build does neither. Java 21 is still required.
 
+## Try a locally built archive
+
+Use `./gradlew :tuprel-cli:distZip --dependency-verification strict` to produce
+the CLI archive in `tuprel-cli/build/distributions/`. Extract it to a separate
+directory, keep `bin/` and `lib/` together, and invoke the launcher from your
+Java project. The archive contains the CLI and its libraries. It requires an
+existing Java 21 installation.
+
+The staged CLI checks extract this archive into a temporary installation on
+Linux and Windows. They run `init`, `validate` and `generate` from another
+directory and verify that the generated sources are current. This is a
+source-built package for staging. Release signing and distribution have
+their own gates.
+
 ## Use an existing Java project
 
 Run the launcher from that project's directory. `tuprel init` creates Tuprel
