@@ -139,7 +139,11 @@ final class SignedCliBundle {
             Files.createDirectory(pending.resolve("bin"));
             Files.createDirectory(pending.resolve("lib"));
             for (Map.Entry<String, byte[]> entry : files.entrySet()) {
-                Files.write(pending.resolve(entry.getKey()), entry.getValue(), StandardOpenOption.CREATE_NEW);
+                Path output = pending.resolve(entry.getKey()).normalize();
+                if (!output.startsWith(pending)) {
+                    throw new IOException("ZIP file path escapes the private staging directory");
+                }
+                Files.write(output, entry.getValue(), StandardOpenOption.CREATE_NEW);
             }
             if (System.getProperty("os.name").equalsIgnoreCase("Linux")) {
                 Files.setPosixFilePermissions(pending.resolve("bin/tuprel"),

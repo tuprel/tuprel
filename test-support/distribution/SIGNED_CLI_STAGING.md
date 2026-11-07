@@ -10,7 +10,9 @@ The fixture builds two versioned archives, signs their version, platform and
 SHA-256 digest with an ephemeral Ed25519 key, and verifies against the key
 fingerprint before writing files. It uses a caller-controlled private temporary
 directory. A signed archive is read once for verification and extraction.
-Only the expected launchers and library paths are accepted.
+Only the expected launchers and library paths are accepted. The installer
+also checks each normalized destination against the fresh staging root
+immediately before writing.
 
 The fixture packages a standalone verifier JAR and invokes it from a
 temporary directory outside the checkout. The JAR can verify, install and
