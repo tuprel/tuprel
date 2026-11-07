@@ -63,7 +63,7 @@ jobs:
       - name: Reject the correct executor JAR under an untrusted OS account
         run: |
           set -euo pipefail
-          fixture="$(sudo mktemp -d /opt/tuprel-executor-probe.XXXXXXXX)"
+          fixture="$(sudo mktemp -d /home/tuprel-executor-probe.XXXXXXXX)"
           trap 'sudo rm -rf -- "$fixture"' EXIT
           sudo chown "$(id -u):$(id -g)" "$fixture"
           chmod 0755 "$fixture"
@@ -77,9 +77,15 @@ jobs:
           java="$JAVA_HOME/bin/java"
           digest="$(sha256sum "$adapter" | cut -d ' ' -f 1)"
           probe=dev.tuprel.migrate.postgresql.ManagedExecutorPinProbe
-          "$java" -cp "$tests:$adapter:$migrate" "$probe" "$adapter" "$digest" "$(id -u)"
+          classpath="$tests:$adapter:$migrate"
+          "$java" -cp "$classpath" "$probe" "$adapter" "$digest" "$(id -u)" || {
+            echo 'The operator must pass the full artifact and installation check.' >&2
+            stat -c '%a %u %n' / /home "$fixture" "$adapter"
+            exit 1
+          }
+          sudo -n -u nobody -- "$java" -cp "$classpath" "$probe" "$adapter" "$digest"
           set +e
-          sudo -n -u nobody -- "$java" "-Duser.name=$(id -un)" -cp "$tests:$adapter:$migrate" \
+          sudo -n -u nobody -- "$java" "-Duser.name=$(id -un)" -cp "$classpath" \
             "$probe" "$adapter" "$digest" "$(id -u)"
           refused=$?
           set -e
