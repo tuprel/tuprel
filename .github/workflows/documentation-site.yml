@@ -1,0 +1,25 @@
+name: Documentation site
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['website/**', 'docs/**', 'examples/tuprel-playground/README.md', '.github/workflows/documentation-site.yml']
+  push:
+    branches: [main]
+    paths: ['website/**', 'docs/**', 'examples/tuprel-playground/README.md', '.github/workflows/documentation-site.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    name: Build public documentation preview
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: |
+          node website/build.mjs
+          node website/check.mjs
