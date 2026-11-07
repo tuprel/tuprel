@@ -63,9 +63,17 @@ jobs:
       - name: Reject the correct executor JAR under an untrusted OS account
         run: |
           set -euo pipefail
-          adapter="$PWD/tuprel-migrate-postgresql/build/libs/tuprel-migrate-postgresql.jar"
-          migrate="$PWD/tuprel-migrate/build/libs/tuprel-migrate.jar"
-          tests="$PWD/tuprel-migrate-postgresql/build/classes/java/integrationTest"
+          fixture="$(sudo mktemp -d /opt/tuprel-executor-probe.XXXXXXXX)"
+          trap 'sudo rm -rf -- "$fixture"' EXIT
+          sudo chown "$(id -u):$(id -g)" "$fixture"
+          chmod 0755 "$fixture"
+          adapter="$fixture/tuprel-migrate-postgresql.jar"
+          migrate="$fixture/tuprel-migrate.jar"
+          tests="$fixture/classes"
+          install -m 0644 tuprel-migrate-postgresql/build/libs/tuprel-migrate-postgresql.jar "$adapter"
+          install -m 0644 tuprel-migrate/build/libs/tuprel-migrate.jar "$migrate"
+          probe_class=dev/tuprel/migrate/postgresql/ManagedExecutorPinProbe.class
+          install -D -m 0644 "tuprel-migrate-postgresql/build/classes/java/integrationTest/$probe_class" "$tests/$probe_class"
           java="$JAVA_HOME/bin/java"
           digest="$(sha256sum "$adapter" | cut -d ' ' -f 1)"
           probe=dev.tuprel.migrate.postgresql.ManagedExecutorPinProbe
