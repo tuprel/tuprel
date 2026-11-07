@@ -225,6 +225,122 @@ class InitialBootstrapIntegrationTest {
         assertEquals(MigrationExecutionResult.Failure.CATALOG, failure.reason());
     }
 
+    @Test void physicalRunnerRejectsLegacyAndSerializesTwoApprovedDeploys(@TempDir Path directory) throws Exception {
+        Path root = physicalFiles(directory);
+        InitialBootstrapAuthorization authorization = sign(claims);
+        PostgresqlInitialBootstrap provisioner = bootstrap(settings.dataSource());
+        assertEquals(Outcome.BOOTSTRAPPED, provisioner.bootstrap(target, authorization));
+        PostgresqlPhysicalApproval runner = new PostgresqlPhysicalApproval(settings, settings.dataSource(), provisioner);
+        PostgresqlPhysicalApproval.Inspection preview = runner.inspect(target.name(), root, authorization);
+        PostgresqlPhysicalApproval.Approval legacy = new PostgresqlPhysicalApproval.Approval(claims.generation(),
+                new PhysicalDeployDigest(preview.plan().digest().value()));
+        assertEquals(MigrationExecutionResult.Failure.APPROVAL, runner.deploy(target.name(), root, legacy, authorization).failure());
+        assertTrue(historyInitialised());
+
+        execute("CREATE TABLE " + quote(target) + ".external (id integer)");
+        assertEquals(MigrationExecutionResult.Failure.CATALOG,
+                runner.deploy(target.name(), root, preview.approval(), authorization).failure());
+        execute("DROP TABLE " + quote(target) + ".external");
+
+        CompletableFuture<MigrationExecutionResult> first = CompletableFuture.supplyAsync(
+                () -> runner.deploy(target.name(), root, preview.approval(), authorization));
+        CompletableFuture<MigrationExecutionResult> second = CompletableFuture.supplyAsync(
+                () -> runner.deploy(target.name(), root, preview.approval(), authorization));
+        MigrationExecutionResult one = first.get(25, TimeUnit.SECONDS);
+        MigrationExecutionResult two = second.get(25, TimeUnit.SECONDS);
+        assertEquals(java.util.Set.of(MigrationExecutionResult.Outcome.APPLIED, MigrationExecutionResult.Outcome.REFUSED),
+                java.util.Set.of(one.outcome(), two.outcome()));
+        MigrationExecutionResult applied = one.outcome() == MigrationExecutionResult.Outcome.APPLIED ? one : two;
+        assertEquals(2, applied.confirmed().size());
+        PostgresqlPhysicalApproval.Inspection confirmed = runner.inspect(target.name(), root, authorization);
+        assertEquals(MigrationPlan.State.NO_CHANGES, confirmed.plan().state());
+        assertEquals(applied.confirmed(), confirmed.history().applied());
+        assertEquals(MigrationExecutionResult.Failure.APPROVAL,
+                runner.deploy(target.name(), root, preview.approval(), authorization).failure());
+    }
+
+    @Test void physicalRunnerPreservesOutcomeUnknownAndRequiresFreshApproval(@TempDir Path directory) throws Exception {
+        Path root = physicalFiles(directory);
+        InitialBootstrapAuthorization authorization = sign(claims);
+        PostgresqlInitialBootstrap provisioner = bootstrap(settings.dataSource());
+        assertEquals(Outcome.BOOTSTRAPPED, provisioner.bootstrap(target, authorization));
+        PostgresqlPhysicalApproval runner = new PostgresqlPhysicalApproval(settings, settings.dataSource(), provisioner);
+        PostgresqlPhysicalApproval.Approval approved = runner.inspect(target.name(), root, authorization).approval();
+        PostgresqlPhysicalApproval faulty = new PostgresqlPhysicalApproval(settings, fault("commit", true), provisioner);
+        MigrationExecutionResult uncertain = faulty.deploy(target.name(), root, approved, authorization);
+        assertEquals(MigrationExecutionResult.Outcome.OUTCOME_UNKNOWN, uncertain.outcome());
+        assertEquals(MigrationExecutionResult.Failure.COMMIT, uncertain.failure());
+        assertTrue(uncertain.confirmed().isEmpty());
+        PostgresqlPhysicalApproval.Inspection fresh = runner.inspect(target.name(), root, authorization);
+        assertEquals(1, fresh.history().applied().size());
+        assertEquals(1, fresh.plan().scripts().size());
+        assertEquals(MigrationExecutionResult.Failure.APPROVAL, runner.deploy(target.name(), root, approved, authorization).failure());
+        assertEquals(MigrationExecutionResult.Outcome.APPLIED, runner.deploy(target.name(), root, fresh.approval(), authorization).outcome());
+    }
+
+    @Test void driftBetweenCommitsStopsTheNextWriteAndPreservesTheConfirmedPrefix(@TempDir Path directory) throws Exception {
+        Path root = physicalFiles(directory);
+        InitialBootstrapAuthorization authorization = sign(claims);
+        PostgresqlInitialBootstrap provisioner = bootstrap(settings.dataSource());
+        assertEquals(Outcome.BOOTSTRAPPED, provisioner.bootstrap(target, authorization));
+        PostgresqlPhysicalApproval reader = new PostgresqlPhysicalApproval(settings, settings.dataSource(), provisioner);
+        PostgresqlPhysicalApproval.Approval approved = reader.inspect(target.name(), root, authorization).approval();
+        String peer = quote(target) + ".\"peer\"";
+        AtomicInteger commits = new AtomicInteger();
+        DataSource changed = intercept((connection, method, arguments) -> {
+            Object result = invoke(connection, method, arguments);
+            if (method.getName().equals("commit") && commits.incrementAndGet() == 1) {
+                execute("CREATE TABLE " + peer + " (id integer)");
+            }
+            return result;
+        });
+        PostgresqlPhysicalApproval runner = new PostgresqlPhysicalApproval(settings, changed, provisioner);
+        MigrationExecutionResult result = runner.deploy(target.name(), root, approved, authorization);
+        assertEquals(MigrationExecutionResult.Outcome.REFUSED, result.outcome());
+        assertEquals(MigrationExecutionResult.Failure.CATALOG, result.failure());
+        assertEquals(1, commits.get());
+        assertEquals(1, result.confirmed().size());
+        assertCatalogRefused(reader, root, authorization);
+        execute("DROP TABLE " + peer);
+        PostgresqlPhysicalApproval.Inspection after = reader.inspect(target.name(), root, authorization);
+        assertEquals(result.confirmed(), after.history().applied());
+        assertEquals(1, after.plan().scripts().size());
+    }
+
+    @Test void unexpectedPostDdlShapeRollsBackSqlAndHistoryTogether(@TempDir Path directory) throws Exception {
+        Path root = physicalFiles(directory);
+        InitialBootstrapAuthorization authorization = sign(claims);
+        PostgresqlInitialBootstrap provisioner = bootstrap(settings.dataSource());
+        assertEquals(Outcome.BOOTSTRAPPED, provisioner.bootstrap(target, authorization));
+        PostgresqlPhysicalApproval reader = new PostgresqlPhysicalApproval(settings, settings.dataSource(), provisioner);
+        PostgresqlPhysicalApproval.Approval approved = reader.inspect(target.name(), root, authorization).approval();
+        AtomicInteger mutations = new AtomicInteger();
+        DataSource changed = intercept((connection, method, arguments) -> {
+            if (method.getName().equals("prepareStatement") && arguments[0].toString().startsWith("INSERT INTO")
+                    && mutations.getAndIncrement() == 0) {
+                MigrationCatalog.execute(connection, "CREATE TABLE " + quote(target) + ".\"unexpected\" (id integer)");
+            }
+            return invoke(connection, method, arguments);
+        });
+        PostgresqlPhysicalApproval runner = new PostgresqlPhysicalApproval(settings, changed, provisioner);
+        MigrationExecutionResult result = runner.deploy(target.name(), root, approved, authorization);
+        assertEquals(MigrationExecutionResult.Outcome.REFUSED, result.outcome());
+        assertEquals(MigrationExecutionResult.Failure.CATALOG, result.failure());
+        assertEquals(1, mutations.get());
+        assertTrue(result.confirmed().isEmpty());
+        assertEquals(approved, reader.inspect(target.name(), root, authorization).approval());
+    }
+
+    private Path physicalFiles(Path directory) throws Exception {
+        Path root = directory.toRealPath();
+        Files.writeString(root.resolve(MigrationDirectory.FORMAT_FILE), MigrationDirectory.FORMAT_HEADER);
+        Files.writeString(Files.createDirectory(root.resolve("20261031_120000_first")).resolve("migration.sql"),
+                "CREATE TABLE " + quote(target) + ".\"example\" (\"id\" INTEGER);\n");
+        Files.writeString(Files.createDirectory(root.resolve("20261031_120001_second")).resolve("migration.sql"),
+                "ALTER TABLE " + quote(target) + ".\"example\" ADD COLUMN \"note\" TEXT;\n");
+        return root;
+    }
+
     @Test void concurrentExecutorsConfirmExactlyOneBootstrap() throws Exception {
         InitialBootstrapAuthorization authorization = sign(claims);
         PostgresqlInitialBootstrap bootstrap = bootstrap(settings.dataSource());
@@ -255,22 +371,33 @@ class InitialBootstrapIntegrationTest {
     }
 
     private DataSource fault(String operation, boolean after) {
+        return intercept((connection, method, arguments) -> {
+            boolean fail = method.getName().equals(operation)
+                    && (!operation.equals("prepareStatement") || arguments[0].toString().startsWith("UPDATE "));
+            if (fail && !after) { throw new SQLException("fixture failure", "XX000"); }
+            Object value = invoke(connection, method, arguments);
+            if (fail) { throw new SQLException("fixture failure", "08006"); }
+            return value;
+        });
+    }
+
+    @FunctionalInterface private interface Intercept {
+        Object call(Connection connection, java.lang.reflect.Method method, Object[] arguments) throws Throwable;
+    }
+
+    private DataSource intercept(Intercept intercept) {
         return new PGSimpleDataSource() {
             @Override public Connection getConnection() throws SQLException {
                 Connection connection = settings.dataSource().getConnection();
                 return (Connection) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{Connection.class},
-                        (proxy, method, args) -> {
-                            boolean fail = method.getName().equals(operation)
-                                    && (!operation.equals("prepareStatement") || args[0].toString().startsWith("UPDATE "));
-                            if (fail && !after) { throw new SQLException("fixture failure", "XX000"); }
-                            try {
-                                Object value = method.invoke(connection, args);
-                                if (fail) { throw new SQLException("fixture failure", "08006"); }
-                                return value;
-                            } catch (InvocationTargetException failure) { throw failure.getCause(); }
-                        });
+                        (proxy, method, arguments) -> intercept.call(connection, method, arguments));
             }
         };
+    }
+
+    private static Object invoke(Connection connection, java.lang.reflect.Method method, Object[] arguments) throws Throwable {
+        try { return method.invoke(connection, arguments); }
+        catch (InvocationTargetException failure) { throw failure.getCause(); }
     }
 
     private void execute(String sql) throws SQLException {

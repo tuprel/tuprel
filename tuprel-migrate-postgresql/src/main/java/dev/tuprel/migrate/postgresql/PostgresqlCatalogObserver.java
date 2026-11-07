@@ -107,6 +107,15 @@ public final class PostgresqlCatalogObserver {
     }
 
     Target verifyTarget(Connection connection, SqlIdentifier schema, boolean readOnly) throws SQLException, ObservationFailure {
+        return verifyTarget(connection, schema, readOnly, "repeatable read");
+    }
+
+    Target verifyWriteTarget(Connection connection, SqlIdentifier schema) throws SQLException, ObservationFailure {
+        return verifyTarget(connection, schema, false, "read committed");
+    }
+
+    private Target verifyTarget(Connection connection, SqlIdentifier schema, boolean readOnly, String isolation)
+            throws SQLException, ObservationFailure {
         if (!settings.matchesEndpoint(connection)) { throw new ObservationFailure(Diagnostic.TARGET); }
         try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT d.oid, n.oid, d.datname, n.nspname, CURRENT_USER, SESSION_USER, s.ssl,
@@ -137,7 +146,7 @@ public final class PostgresqlCatalogObserver {
                     throw new ObservationFailure(Diagnostic.TARGET);
                 }
                 if (!row.getBoolean(8)) { throw new ObservationFailure(Diagnostic.PERMISSION); }
-                if (row.getInt(9) != 17 || row.getBoolean(10) || !"repeatable read".equals(row.getString(11))
+                if (row.getInt(9) != 17 || row.getBoolean(10) || !isolation.equals(row.getString(11))
                         || !(readOnly ? "on" : "off").equals(row.getString(12))) {
                     throw new ObservationFailure(Diagnostic.SESSION);
                 }

@@ -201,6 +201,15 @@ Qualquer discrepância aborta a transacção corrente. Commits anteriores
 confirmados mantêm o seu estado. Perda de confirmação de commit/rollback
 mantém `OUTCOME_UNKNOWN` e exige reconciliação read-only em nova sessão.
 
+A C3.1c liga estes gates ao runner interno do perfil da C2.1. O mesmo
+runner conserva a sessão, os locks de relações, o DDL canónico, os limites
+e o registo transaccional do protocolo existente. Depois de obter os locks
+de relações em cada transacção, compara o histórico, a estrutura esperada
+e todos os OIDs com o prefixo confirmado. Antes do commit, compara o
+resultado com o replay da migration e verifica que os objectos anteriores
+mantêm os OIDs. Apenas a confirmação do commit avança o prefixo em memória.
+A via pública de escrita fica sujeita ao cutover da C3.2.
+
 ### Compatibilidade e ordem de implementação
 
 O formato v1 e os digests interiores mantêm a semântica existente. Para

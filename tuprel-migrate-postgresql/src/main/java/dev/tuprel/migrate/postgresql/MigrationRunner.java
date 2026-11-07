@@ -33,24 +33,50 @@ final class MigrationRunner {
 
     static MigrationExecutionResult deploy(DataSource source, MigrationDatabaseSettings settings, String targetSchema,
             Path directory, MigrationPlanDigest approval) {
+        return deploy(source, settings, targetSchema, directory, (connection, target, files) -> {
+            MigrationHistory history = observe(connection, target.schema());
+            MigrationPlan plan = new PostgresqlMigrationPlanCompiler().compile(target, files, history);
+            if (plan.state() == MigrationPlan.State.BLOCKED) { throw new MigrationRunFailure(Failure.BLOCKED, false); }
+            if (!plan.digest().equals(approval)) { throw new MigrationRunFailure(Failure.APPROVAL, false); }
+            return new Prepared(plan, history, Optional.empty());
+        });
+    }
+
+    static MigrationExecutionResult deployPhysical(DataSource source, MigrationDatabaseSettings settings, String targetSchema,
+            Path directory, PostgresqlPhysicalApproval physical, PostgresqlPhysicalApproval.Approval approval,
+            InitialBootstrapAuthorization authorization) {
+        return deploy(source, settings, targetSchema, directory, (connection, target, files) -> {
+            PostgresqlPhysicalApproval.Inspection observed;
+            try { observed = physical.read(connection, target, files, authorization); }
+            catch (MigrationInspectionException failure) { throw new MigrationRunFailure(failure.reason(), false); }
+            finally { if (!connection.getAutoCommit()) { rollback(connection); } }
+            if (!observed.approval().equals(approval)) { throw new MigrationRunFailure(Failure.APPROVAL, false); }
+            return new Prepared(observed.plan(), observed.history(), Optional.of(observed.revalidation()));
+        });
+    }
+
+    private static MigrationExecutionResult deploy(DataSource source, MigrationDatabaseSettings settings, String targetSchema,
+            Path directory, Preflight preflight) {
         MigrationSession session = null;
         List<AppliedMigration> confirmed = new ArrayList<>();
         MigrationExecutionResult result = new MigrationExecutionResult(Outcome.OUTCOME_UNKNOWN, Failure.CONNECTION, confirmed);
         try {
             session = MigrationSession.open(source, settings, targetSchema);
             Connection connection = session.connection();
-            SqlIdentifier schema = settings.planTarget(targetSchema).schema();
+            MigrationPlanTarget target = settings.planTarget(targetSchema);
+            SqlIdentifier schema = target.schema();
             // Rediscovery occurs under the session lock. These immutable exact bytes are all we execute.
             List<MigrationFile> files = MigrationDirectory.discover(directory);
-            MigrationHistory history = observe(connection, schema);
-            MigrationPlan plan = new PostgresqlMigrationPlanCompiler().compile(settings.planTarget(targetSchema), files, history);
-            if (plan.state() == MigrationPlan.State.BLOCKED) { throw new MigrationRunFailure(Failure.BLOCKED, false); }
-            if (!plan.digest().equals(approval)) { throw new MigrationRunFailure(Failure.APPROVAL, false); }
+            Prepared prepared = preflight.read(connection, target, files);
+            MigrationHistory history = prepared.history();
+            MigrationPlan plan = prepared.plan();
+            Optional<PostgresqlPhysicalApproval.Revalidation> physical = prepared.physical();
             if (plan.state() == MigrationPlan.State.NO_CHANGES) {
                 result = new MigrationExecutionResult(Outcome.NO_CHANGES, Failure.NONE, confirmed);
             } else {
                 interrupted();
                 if (!history.initialised()) {
+                    if (physical.isPresent()) { throw new MigrationRunFailure(Failure.HISTORY, false); }
                     bootstrap(connection, schema);
                     history = new MigrationHistory(true, List.of());
                 }
@@ -58,8 +84,8 @@ final class MigrationRunner {
                 for (MigrationPlan.Script script : plan.scripts()) {
                     interrupted();
                     MigrationFile file = files.stream().filter(value -> value.id().equals(script.id())).findFirst().orElseThrow();
-                    AppliedMigration applied = apply(connection, schema, file, new MigrationHistory(true, expected));
-                    confirmed.add(applied); expected.add(applied);
+                    AppliedStep step = apply(connection, schema, file, new MigrationHistory(true, expected), physical);
+                    confirmed.add(step.migration()); expected.add(step.migration()); physical = step.physical();
                 }
                 result = new MigrationExecutionResult(Outcome.APPLIED, Failure.NONE, confirmed);
             }
@@ -98,6 +124,17 @@ final class MigrationRunner {
         }
         return result;
     }
+
+    @FunctionalInterface
+    private interface Preflight {
+        Prepared read(Connection connection, MigrationPlanTarget target, List<MigrationFile> files)
+                throws SQLException, MigrationHistoryException, MigrationRunFailure;
+    }
+
+    private record Prepared(MigrationPlan plan, MigrationHistory history,
+                            Optional<PostgresqlPhysicalApproval.Revalidation> physical) { }
+
+    private record AppliedStep(AppliedMigration migration, Optional<PostgresqlPhysicalApproval.Revalidation> physical) { }
 
     static MigrationHistory observe(Connection connection, SqlIdentifier schema)
             throws SQLException, MigrationHistoryException, MigrationRunFailure {
@@ -145,7 +182,8 @@ final class MigrationRunner {
         commit(connection);
     }
 
-    private static AppliedMigration apply(Connection connection, SqlIdentifier schema, MigrationFile file, MigrationHistory expected)
+    private static AppliedStep apply(Connection connection, SqlIdentifier schema, MigrationFile file, MigrationHistory expected,
+            Optional<PostgresqlPhysicalApproval.Revalidation> physical)
             throws SQLException, MigrationRunFailure, MigrationHistoryException {
         DdlParseResult parsed = new PostgresqlDdlParser().parse(file);
         if (!parsed.isSupported()) { throw new MigrationRunFailure(Failure.BLOCKED, false); }
@@ -155,6 +193,7 @@ final class MigrationRunner {
             MigrationCatalog.lockHistory(connection, schema);
             if (!PostgresqlMigrationHistory.snapshot(connection, schema).equals(expected)) { throw new MigrationRunFailure(Failure.HISTORY, false); }
             MigrationCatalog.lockTargets(connection, parsed.statements());
+            if (physical.isPresent()) { physical.orElseThrow().before(connection); }
             Instant started = Instant.now().truncatedTo(ChronoUnit.MICROS);
             long start = System.nanoTime();
             for (DdlStatement statement : parsed.statements()) {
@@ -164,12 +203,21 @@ final class MigrationRunner {
             Instant finished = Instant.now().truncatedTo(ChronoUnit.MICROS);
             if (finished.isBefore(started)) { finished = started; }
             applied = new AppliedMigration(file.id(), file.name(), file.checksum(), started, finished,
-                    Math.max(0, (System.nanoTime() - start) / 1_000_000), "runner-v1-development");
+                    Math.max(0, (System.nanoTime() - start) / 1_000_000),
+                    physical.isPresent() ? "runner-physical-v1-development" : "runner-v1-development");
             record(connection, schema, applied);
+            if (physical.isPresent()) {
+                List<AppliedMigration> appended = new ArrayList<>(expected.applied());
+                appended.add(applied);
+                if (!PostgresqlMigrationHistory.snapshot(connection, schema).equals(new MigrationHistory(true, appended))) {
+                    throw new MigrationRunFailure(Failure.HISTORY, false);
+                }
+                physical = Optional.of(physical.orElseThrow().after(connection, parsed));
+            }
         } catch (SQLException failure) { failedStatement(connection, failure); throw failure; }
         catch (MigrationHistoryException | MigrationRunFailure failure) { rollback(connection); throw failure; }
         commit(connection);
-        return applied;
+        return new AppliedStep(applied, physical);
     }
 
     private static void record(Connection connection, SqlIdentifier schema, AppliedMigration applied) throws SQLException {
