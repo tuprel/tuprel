@@ -117,6 +117,8 @@ spotless {
             "examples/tuprel-playground/*.gradle.kts",
             "tuprel-migrate/*.gradle.kts",
             "tuprel-migrate-postgresql/*.gradle.kts",
+            "tuprel-gradle-plugin/*.gradle.kts",
+            "tuprel-spring-boot-starter/*.gradle.kts",
         )
         leadingTabsToSpaces(4)
         trimTrailingWhitespace()
@@ -154,7 +156,7 @@ spotless {
      * determinística de whitespace, sem acrescentar um formatter de Java.
      */
     format("javaSources") {
-        target("tuprel-schema/src/**/*.java", "tuprel-cli/src/**/*.java", "tuprel-codegen-java/src/**/*.java", "tuprel-sql/src/**/*.java", "tuprel-runtime/src/**/*.java", "tuprel-postgresql/src/**/*.java", "tuprel-migrate/src/**/*.java", "tuprel-migrate-postgresql/src/**/*.java", "examples/tuprel-playground/src/**/*.java", "test-support/src/**/*.java")
+        target("tuprel-schema/src/**/*.java", "tuprel-cli/src/**/*.java", "tuprel-codegen-java/src/**/*.java", "tuprel-sql/src/**/*.java", "tuprel-runtime/src/**/*.java", "tuprel-postgresql/src/**/*.java", "tuprel-migrate/src/**/*.java", "tuprel-migrate-postgresql/src/**/*.java", "examples/tuprel-playground/src/**/*.java", "test-support/src/**/*.java", "tuprel-gradle-plugin/src/**/*.java", "tuprel-spring-boot-starter/src/**/*.java")
         leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         endWithNewline()
