@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
 
@@ -26,11 +27,23 @@ final class PostgresqlPhysicalApproval {
     private final MigrationDatabaseSettings settings;
     private final DataSource source;
     private final PostgresqlInitialBootstrap provenance;
+    private final Optional<ManagedMigrationRole> managed;
 
     PostgresqlPhysicalApproval(MigrationDatabaseSettings settings, DataSource source, PostgresqlInitialBootstrap provenance) {
+        this(settings, source, provenance, Optional.empty());
+    }
+
+    PostgresqlPhysicalApproval(MigrationDatabaseSettings settings, DataSource source, PostgresqlInitialBootstrap provenance,
+            ManagedMigrationRole managed) {
+        this(settings, source, provenance, Optional.of(managed));
+    }
+
+    private PostgresqlPhysicalApproval(MigrationDatabaseSettings settings, DataSource source, PostgresqlInitialBootstrap provenance,
+            Optional<ManagedMigrationRole> managed) {
         this.settings = Objects.requireNonNull(settings, "settings");
         this.source = Objects.requireNonNull(source, "source");
         this.provenance = Objects.requireNonNull(provenance, "provenance");
+        this.managed = managed;
     }
 
     Inspection inspect(String schema, Path directory, InitialBootstrapAuthorization authorization)
@@ -64,6 +77,7 @@ final class PostgresqlPhysicalApproval {
         connection.setAutoCommit(false);
         PostgresqlCatalogObserver.configureTransaction(connection);
         try {
+            if (!enterRole(connection, target)) { throw new MigrationInspectionException(Failure.PERMISSION); }
             Observed observed = observe(connection, target, authorization, true);
             PostgresqlDriftInspector.Inspection drift = PostgresqlDriftInspector.inspect(connection, observed.target(),
                     target.schema(), observed.historyOid(), observed.catalog(), files);
@@ -85,15 +99,31 @@ final class PostgresqlPhysicalApproval {
         }
     }
 
+    private boolean enterRole(Connection connection, MigrationPlanTarget target) throws SQLException {
+        return managed.isEmpty() || managed.orElseThrow().enter(connection, target.schema());
+    }
+
     private Observed observe(Connection connection, MigrationPlanTarget target, InitialBootstrapAuthorization authorization,
             boolean readOnly) throws SQLException, PostgresqlCatalogObserver.ObservationFailure, MigrationInspectionException {
         PostgresqlCatalogObserver observer = new PostgresqlCatalogObserver(settings, source);
-        PostgresqlCatalogObserver.Target live = readOnly ? observer.verifyTarget(connection, target.schema(), true)
-                : observer.verifyWriteTarget(connection, target.schema());
+        PostgresqlCatalogObserver.Target live;
+        if (managed.isPresent()) {
+            if (!managed.orElseThrow().stillTrusted(connection, target.schema())) {
+                throw new MigrationInspectionException(Failure.PERMISSION);
+            }
+            live = observer.verifyManagedTarget(connection, target.schema(), readOnly, managed.orElseThrow().owner());
+        } else {
+            live = readOnly ? observer.verifyTarget(connection, target.schema(), true)
+                    : observer.verifyWriteTarget(connection, target.schema());
+        }
         CatalogInventory inventory = new CatalogInventory(connection, target.schema(), live.namespace());
         CatalogObservation catalog = inventory.read(live.extensionNamespace());
-        if (catalog.state() != CatalogObservation.State.COMPLETE
-                || !provenance.verifiesHistory(connection, target, live, inventory.historyOid(), authorization)) {
+        if (catalog.state() != CatalogObservation.State.COMPLETE) { throw new MigrationInspectionException(Failure.CATALOG); }
+        boolean trusted = managed.isPresent()
+                ? provenance.verifiesManagedHistory(connection, target.schema(), live, inventory.historyOid(), authorization,
+                        managed.orElseThrow().ledgerOwner())
+                : provenance.verifiesHistory(connection, target, live, inventory.historyOid(), authorization);
+        if (!trusted) {
             throw new MigrationInspectionException(Failure.CATALOG);
         }
         return new Observed(live, catalog, inventory.historyOid());
@@ -116,6 +146,10 @@ final class PostgresqlPhysicalApproval {
             this.identities = identities;
             this.expected = expected;
             this.applied = List.copyOf(applied);
+        }
+
+        void enter(Connection connection) throws SQLException, MigrationRunFailure {
+            if (!enterRole(connection, target)) { throw new MigrationRunFailure(Failure.PERMISSION, false); }
         }
 
         void before(Connection connection) throws SQLException, MigrationRunFailure {

@@ -11,6 +11,7 @@ import java.sql.SQLTimeoutException;
 import java.sql.Statement;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import javax.sql.DataSource;
 
@@ -107,14 +108,20 @@ public final class PostgresqlCatalogObserver {
     }
 
     Target verifyTarget(Connection connection, SqlIdentifier schema, boolean readOnly) throws SQLException, ObservationFailure {
-        return verifyTarget(connection, schema, readOnly, "repeatable read");
+        return verifyTarget(connection, schema, readOnly, "repeatable read", Optional.empty());
     }
 
     Target verifyWriteTarget(Connection connection, SqlIdentifier schema) throws SQLException, ObservationFailure {
-        return verifyTarget(connection, schema, false, "read committed");
+        return verifyTarget(connection, schema, false, "read committed", Optional.empty());
     }
 
-    private Target verifyTarget(Connection connection, SqlIdentifier schema, boolean readOnly, String isolation)
+    Target verifyManagedTarget(Connection connection, SqlIdentifier schema, boolean readOnly, SqlIdentifier owner)
+            throws SQLException, ObservationFailure {
+        return verifyTarget(connection, schema, readOnly, readOnly ? "repeatable read" : "read committed", Optional.of(owner));
+    }
+
+    private Target verifyTarget(Connection connection, SqlIdentifier schema, boolean readOnly, String isolation,
+            Optional<SqlIdentifier> owner)
             throws SQLException, ObservationFailure {
         if (!settings.matchesEndpoint(connection)) { throw new ObservationFailure(Diagnostic.TARGET); }
         try (PreparedStatement statement = connection.prepareStatement("""
@@ -140,9 +147,14 @@ public final class PostgresqlCatalogObserver {
                 if (!row.next()) { throw new ObservationFailure(Diagnostic.TARGET); }
                 long database = row.getLong(1);
                 long namespace = row.getLong(2);
-                if (database <= 0 || namespace <= 0 || !schema.name().equals(row.getString(4))
-                        || !settings.matchesIdentity(row.getString(3), row.getString(5), row.getString(6),
-                                row.getObject(7, Boolean.class))) {
+                String databaseName = row.getString(3);
+                String currentUser = row.getString(5);
+                String sessionUser = row.getString(6);
+                Boolean tls = row.getObject(7, Boolean.class);
+                boolean identity = owner.isPresent()
+                        ? settings.matchesIdentity(databaseName, currentUser, sessionUser, tls, owner.orElseThrow().name())
+                        : settings.matchesIdentity(databaseName, currentUser, sessionUser, tls);
+                if (database <= 0 || namespace <= 0 || !schema.name().equals(row.getString(4)) || !identity) {
                     throw new ObservationFailure(Diagnostic.TARGET);
                 }
                 if (!row.getBoolean(8)) { throw new ObservationFailure(Diagnostic.PERMISSION); }

@@ -46,6 +46,8 @@ class InitialBootstrapIntegrationTest {
     private SqlIdentifier admin;
     private boolean adminCreated;
     private boolean targetCreated;
+    private SqlIdentifier managedOwner;
+    private SqlIdentifier managedLogin;
     private KeyPair key;
     private InitialBootstrapAuthorization.Claims claims;
 
@@ -103,7 +105,18 @@ class InitialBootstrapIntegrationTest {
         try {
             if (adminCreated) { execute("DROP SCHEMA " + quote(admin) + " CASCADE"); }
         } finally {
-            if (targetCreated) { execute("DROP SCHEMA " + quote(target) + " CASCADE"); }
+            try {
+                if (targetCreated) { execute("DROP SCHEMA " + quote(target) + " CASCADE"); }
+            } finally {
+                try {
+                    if (managedLogin != null) { execute("DROP ROLE " + quote(managedLogin)); }
+                } finally {
+                    if (managedOwner != null) {
+                        execute("REVOKE EXECUTE ON FUNCTION pg_catalog.pg_control_system() FROM " + quote(managedOwner));
+                        execute("DROP ROLE " + quote(managedOwner));
+                    }
+                }
+            }
         }
     }
 
@@ -329,6 +342,62 @@ class InitialBootstrapIntegrationTest {
         assertEquals(1, mutations.get());
         assertTrue(result.confirmed().isEmpty());
         assertEquals(approved, reader.inspect(target.name(), root, authorization).approval());
+    }
+
+    @Test void managedExecutorUsesNoLoginOwnerAndReadOnlyAdministrativeLedger(@TempDir Path directory) throws Exception {
+        Path root = physicalFiles(directory);
+        InitialBootstrapAuthorization authorization = sign(claims);
+        PostgresqlInitialBootstrap provisioner = bootstrap(settings.dataSource());
+        assertEquals(Outcome.BOOTSTRAPPED, provisioner.bootstrap(target, authorization));
+        PGSimpleDataSource databaseSource = database.dataSource();
+        SqlIdentifier ledgerOwner = new SqlIdentifier(databaseSource.getUser());
+        if (!System.getProperty("tuprel.test.database").equals("container")) {
+            PostgresqlPhysicalApproval refused = new PostgresqlPhysicalApproval(settings, settings.dataSource(), provisioner,
+                    new ManagedMigrationRole(new SqlIdentifier("tuprel_status_reader"), ledgerOwner));
+            assertEquals(MigrationExecutionResult.Failure.PERMISSION, assertThrows(MigrationInspectionException.class,
+                    () -> refused.inspect(target.name(), root, authorization)).reason());
+            return;
+        }
+
+        String suffix = UUID.randomUUID().toString().replace("-", "");
+        SqlIdentifier owner = new SqlIdentifier("managed_owner_" + suffix);
+        execute("CREATE ROLE " + quote(owner) + " NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS");
+        managedOwner = owner;
+        SqlIdentifier login = new SqlIdentifier("managed_login_" + suffix);
+        String credential = UUID.randomUUID().toString();
+        execute("CREATE ROLE " + quote(login) + " LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD '"
+                + credential + "'");
+        managedLogin = login;
+        execute("GRANT " + quote(owner) + " TO " + quote(login) + " WITH INHERIT FALSE, SET TRUE, ADMIN FALSE");
+        execute("ALTER SCHEMA " + quote(target) + " OWNER TO " + quote(owner));
+        execute("ALTER TABLE " + quote(target) + ".\"_tuprel_migrations\" OWNER TO " + quote(owner));
+        execute("GRANT USAGE ON SCHEMA " + quote(target) + " TO " + quote(login));
+        execute("GRANT USAGE ON SCHEMA " + quote(admin) + " TO " + quote(owner));
+        execute("GRANT SELECT ON " + InitialBootstrapLedger.table(admin) + " TO " + quote(owner));
+        execute("GRANT EXECUTE ON FUNCTION pg_catalog.pg_control_system() TO " + quote(owner));
+
+        MigrationDatabaseSettings managedSettings = MigrationDatabaseSettings.fromEnvironment(Map.of(
+                "TUPREL_DATABASE_URL", "jdbc:postgresql://" + databaseSource.getServerNames()[0] + ":"
+                        + databaseSource.getPortNumbers()[0] + "/" + databaseSource.getDatabaseName(),
+                "TUPREL_DATABASE_USER", login.name(), "TUPREL_DATABASE_PASSWORD", credential));
+        PostgresqlPhysicalApproval runner = new PostgresqlPhysicalApproval(managedSettings, managedSettings.dataSource(),
+                provisioner, new ManagedMigrationRole(owner, ledgerOwner));
+        PostgresqlPhysicalApproval.Approval approved = runner.inspect(target.name(), root, authorization).approval();
+        execute("GRANT INSERT ON " + quote(target) + ".\"_tuprel_migrations\" TO " + quote(login));
+        assertEquals(MigrationExecutionResult.Failure.PERMISSION,
+                runner.deploy(target.name(), root, approved, authorization).failure());
+        execute("REVOKE INSERT ON " + quote(target) + ".\"_tuprel_migrations\" FROM " + quote(login));
+        execute("GRANT UPDATE ON " + InitialBootstrapLedger.table(admin) + " TO " + quote(owner));
+        assertCatalogRefused(runner, root, authorization);
+        execute("REVOKE UPDATE ON " + InitialBootstrapLedger.table(admin) + " FROM " + quote(owner));
+        execute("GRANT " + quote(owner) + " TO " + quote(ledgerOwner));
+        assertEquals(MigrationExecutionResult.Failure.PERMISSION,
+                runner.deploy(target.name(), root, approved, authorization).failure());
+        execute("REVOKE " + quote(owner) + " FROM " + quote(ledgerOwner));
+        MigrationExecutionResult applied = runner.deploy(target.name(), root, approved, authorization);
+        assertEquals(MigrationExecutionResult.Outcome.APPLIED, applied.outcome());
+        assertEquals(2, applied.confirmed().size());
+        assertEquals(MigrationPlan.State.NO_CHANGES, runner.inspect(target.name(), root, authorization).plan().state());
     }
 
     private Path physicalFiles(Path directory) throws Exception {

@@ -13,6 +13,7 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
 
@@ -76,11 +77,24 @@ final class PostgresqlInitialBootstrap {
     /** Verifies an already consumed provisioning authorization on the caller's live transaction. */
     boolean verifiesHistory(Connection connection, MigrationPlanTarget planTarget, PostgresqlCatalogObserver.Target target,
             long historyOid, InitialBootstrapAuthorization authorization) throws SQLException {
+        if (!planTarget.fingerprint().equals(authorization.claims().fingerprint())) { return false; }
+        return verifiesHistory(connection, planTarget.schema(), target, historyOid, authorization, Optional.empty());
+    }
+
+    boolean verifiesManagedHistory(Connection connection, SqlIdentifier schema, PostgresqlCatalogObserver.Target target,
+            long historyOid, InitialBootstrapAuthorization authorization, SqlIdentifier ledgerOwner) throws SQLException {
+        return verifiesHistory(connection, schema, target, historyOid, authorization, Optional.of(ledgerOwner));
+    }
+
+    private boolean verifiesHistory(Connection connection, SqlIdentifier schema, PostgresqlCatalogObserver.Target target,
+            long historyOid, InitialBootstrapAuthorization authorization, Optional<SqlIdentifier> ledgerOwner) throws SQLException {
         InitialBootstrapAuthorization.Claims claims = authorization.claims();
         if (historyOid <= 0 || target.database() != claims.database() || target.namespace() != claims.namespace()
-                || !planTarget.fingerprint().equals(claims.fingerprint())
-                || !trusted(planTarget.schema(), authorization, false)
-                || !targetPolicy(connection, claims) || !ledger.lock(connection, true)) { return false; }
+                || !settings.matchesEndpoint(connection) || !trusted(schema, authorization, false)
+                || !targetPolicy(connection, claims)) { return false; }
+        boolean locked = ledgerOwner.isPresent() ? ledger.lockManagedRead(connection, ledgerOwner.orElseThrow())
+                : ledger.lock(connection, true);
+        if (!locked) { return false; }
         InitialBootstrapLedger.Receipt receipt = ledger.read(connection, claims);
         return receipt.registered() && claims.nonce().equals(receipt.nonce()) && receipt.historyOid() == historyOid;
     }
