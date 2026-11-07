@@ -30,7 +30,12 @@ final class SignedCliBundleFixture {
             signBundle(privateRoot, secondZip, SECOND, fixtureKey);
             assertRejectsUntrustedInputs(privateRoot, firstZip, secondZip, fixtureKey, keyId);
             SignedCliBundle first = verified(privateRoot, firstZip, fixtureKey.getPublic(), keyId, FIRST);
+            Path interrupted = Files.createTempDirectory(privateRoot, "." + FIRST + "-pending-");
+            Path partial = Files.writeString(interrupted.resolve("partial"), "interrupted attempt");
             first.install(privateRoot);
+            if (!Files.readString(partial).equals("interrupted attempt")) {
+                throw new AssertionError("A new install must leave interrupted attempts available for inspection");
+            }
             try {
                 first.install(privateRoot);
                 throw new AssertionError("Replacing an existing version must fail");
