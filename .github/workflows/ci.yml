@@ -92,12 +92,22 @@ jobs:
               ('tuprel-cli', 'dev.tuprel.cli.DeployLauncherIntegrationTest', 'pinnedLegacyExecutorLosesWriteAccessAfterFixtureCutover()'),
               ('tuprel-migrate-postgresql', 'dev.tuprel.migrate.postgresql.InitialBootstrapIntegrationTest',
                'managedPublicationWritesExactSqlWithoutApplyingIt(Path)'),
+              ('tuprel-migrate-postgresql', 'dev.tuprel.migrate.postgresql.MigrationRunnerIntegrationTest',
+               'lostCommitAcknowledgementDiscardsAndNeverClaimsRollbackOrRetries()'),
+              ('tuprel-migrate-postgresql', 'dev.tuprel.migrate.postgresql.MigrationRunnerIntegrationTest$SequencesAndRecovery',
+               'realBackendTerminationBeforeCommitIsUnknownAndStopsTheSequence()'),
+              ('tuprel-migrate-postgresql', 'dev.tuprel.migrate.postgresql.MigrationRunnerIntegrationTest$SequencesAndRecovery',
+               'realCancellationConfirmsRollbackAndRetainsTheServerTimeouts()'),
+              ('tuprel-migrate-postgresql', 'dev.tuprel.migrate.postgresql.InitialBootstrapIntegrationTest',
+               'driftBetweenCommitsStopsTheNextWriteAndPreservesTheConfirmedPrefix(Path)'),
+              ('tuprel-migrate-postgresql', 'dev.tuprel.migrate.postgresql.InitialBootstrapIntegrationTest',
+               'unexpectedPostDdlShapeRollsBackSqlAndHistoryTogether(Path)'),
           )
           for module, suite, name in checks:
               path = f'{module}/build/test-results/integrationTest/TEST-{suite}.xml'
               cases = [case for case in ET.parse(path).getroot().findall('testcase') if case.get('name') == name]
               if len(cases) != 1 or any(cases[0].find(tag) is not None for tag in ('skipped', 'failure', 'error')):
-                  raise SystemExit(f'Managed migration proof must execute and pass: {name}')
+                  raise SystemExit(f'Migration regression must execute and pass: {name}')
           PY
       - name: Verify the plugin on Gradle 9.7.1
         run: |
@@ -109,6 +119,9 @@ jobs:
           unzip -q "$archive" -d "$RUNNER_TEMP"
           ./gradlew :tuprel-gradle-plugin:test --no-daemon --dependency-verification strict \
             "-PtuprelConsumerGradleInstallation=$RUNNER_TEMP/gradle-9.7.1"
+      - name: Verify the offline diff benchmark fixture
+        shell: pwsh
+        run: ./test-support/migrations/Measure-OfflineDiff.ps1 -Launcher tuprel-cli/build/install/tuprel/bin/tuprel -Samples 1
       - name: Reject the correct executor JAR under an untrusted OS account
         run: |
           set -euo pipefail
