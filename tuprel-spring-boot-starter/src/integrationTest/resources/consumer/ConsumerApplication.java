@@ -3,7 +3,14 @@ package consumer;
 import dev.tuprel.postgresql.PostgresqlDatabase;
 import dev.tuprel.runtime.TuprelDatabase;
 import dev.tuprel.runtime.TuprelDatabaseException;
+import dev.tuprel.sql.SqlCommand;
+import dev.tuprel.sql.SqlIdentifier;
+import dev.tuprel.sql.SqlValue;
+import java.io.DataInputStream;
+import java.io.IOException;
 import java.sql.Connection;
+import java.util.List;
+import org.postgresql.ds.PGSimpleDataSource;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.sql.DataSource;
@@ -19,6 +26,16 @@ public final class ConsumerApplication {
     private ConsumerApplication() {}
 
     public static void main(String[] args) {
+        if (args.length == 1 && args[0].equals("--postgresql")) {
+            try {
+                exercisePostgresql();
+                System.out.println("Spring Boot PostgreSQL transaction passed");
+            } catch (Exception | AssertionError failure) {
+                System.err.println("Spring Boot PostgreSQL fixture failed");
+                System.exit(1);
+            }
+            return;
+        }
         CountingDataSource pool;
         try (ConfigurableApplicationContext context = start(PrimaryDataSources.class)) {
             pool = context.getBean("preferredPool", CountingDataSource.class);
@@ -44,6 +61,36 @@ public final class ConsumerApplication {
             require(context.getBeansOfType(TuprelDatabase.class).isEmpty(), "Missing DataSource must leave Tuprel unconfigured");
         }
         System.out.println("Spring Boot consumer checks passed");
+    }
+
+    private static void exercisePostgresql() {
+        try (ConfigurableApplicationContext context = start(LivePostgresql.class)) {
+            TuprelDatabase database = context.getBean(TuprelDatabase.class);
+            SqlIdentifier table = new SqlIdentifier("inventory");
+            SqlIdentifier column = new SqlIdentifier("id");
+            SqlValue id = new SqlValue.Int32(7);
+            int inserted = database.transaction(transaction -> transaction.create(
+                    new SqlCommand.Insert(table, List.of(new SqlCommand.Assignment(column, id)))));
+            require(inserted == 1, "Expected one inserted row");
+            require(database.findById(new SqlCommand.FindById(table, column, id),
+                    row -> row.int32("id")).orElseThrow() == 7, "Expected the committed row");
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableAutoConfiguration
+    static class LivePostgresql {
+        @Bean DataSource pool() throws IOException {
+            PGSimpleDataSource source = new PGSimpleDataSource();
+            try (DataInputStream pipe = new DataInputStream(System.in)) {
+                source.setURL(pipe.readUTF());
+                source.setUser(pipe.readUTF());
+                source.setPassword(pipe.readUTF());
+                source.setCurrentSchema(pipe.readUTF());
+            }
+            source.setConnectTimeout(5);
+            return source;
+        }
     }
 
     private static ConfigurableApplicationContext start(Class<?> configuration) {

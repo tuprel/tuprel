@@ -17,6 +17,6 @@ The starter has no JPA dependency and performs no migrations or queries
 during startup. Use Tuprel's explicit transaction API. Participation in
 Spring-managed transactions requires a separate contract.
 
-Run `./gradlew :tuprel-spring-boot-starter:test --dependency-verification strict`
+Run `./gradlew :tuprel-spring-boot-starter:integrationTest --dependency-verification strict`
 to compile and launch a separate Spring Boot application against the starter
-JAR. Maven publication and support for other Boot lines remain pending.
+JAR. The live test uses the existing isolated PostgreSQL 17 test profile. Maven publication and support for other Boot lines remain pending.
