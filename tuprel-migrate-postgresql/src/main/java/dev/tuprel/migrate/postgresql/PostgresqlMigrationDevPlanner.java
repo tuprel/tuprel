@@ -58,11 +58,13 @@ public final class PostgresqlMigrationDevPlanner {
         if (!binding.supportedSchema()) { return MigrationDevPlan.blocked(Diagnostic.INPUT, null); }
         SchemaProjection projection = new PostgresqlSchemaProjector().project(target, desired);
         if (projection.snapshot().isEmpty()) { return MigrationDevPlan.blocked(Diagnostic.PROJECTION, null); }
-        SchemaSnapshot wanted = projection.snapshot().orElseThrow();
         PostgresqlDriftInspector.Inspection inspected = inspector.inspectReference(target, directory, control);
-        PhysicalDriftReport observation = inspected.report();
-        if (inspected.reference().isEmpty()) { return MigrationDevPlan.blocked(Diagnostic.REFERENCE, observation); }
-        PostgresqlDriftInspector.Reference reference = inspected.reference().orElseThrow();
+        if (inspected.reference().isEmpty()) { return MigrationDevPlan.blocked(Diagnostic.REFERENCE, inspected.report()); }
+        return plan(binding, name, inspected.reference().orElseThrow(), projection.snapshot().orElseThrow(), inspected.report());
+    }
+
+    static MigrationDevPlan plan(MigrationPlanTarget binding, String name, PostgresqlDriftInspector.Reference reference,
+            SchemaSnapshot wanted, PhysicalDriftReport observation) {
         if (reference.history().applied().size() != reference.files().size()) {
             return MigrationDevPlan.blocked(Diagnostic.PENDING, observation);
         }

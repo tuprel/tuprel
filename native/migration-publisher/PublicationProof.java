@@ -10,6 +10,9 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Locale;
@@ -122,7 +125,37 @@ public final class PublicationProof {
         Path nested = Files.copy(binary, refused.getParent().getParent().resolve(binary.getFileName()),
                 StandardCopyOption.COPY_ATTRIBUTES);
         rejects(refused, new NativePublisherInstallation(nested, manifest, signed, key.getPublic()));
+        if (Files.getFileStore(volume).type().equals("ext4")) {
+            verifyPublicationInputs(distribution, key, volume);
+        }
         System.out.println("Java/native proof passed: exact bytes, receipt replay, collision, abrupt process exit, tampering");
+    }
+
+    private static void verifyPublicationInputs(Path distribution, KeyPair key, Path volume) throws IOException {
+        Path root = fixture(volume);
+        Path source = Files.writeString(root.resolveSibling("schema.tuprel"), "model Item { id Int @id }\n");
+        NativeMigrationPublication publication = new NativeMigrationPublication(root, distribution, key.getPublic(), GENERATION,
+                Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
+        NativeMigrationPublication.Source snapshot = publication.readSource(source);
+        NativeMigrationPublication.Baseline baseline = publication.readBaseline();
+        Files.writeString(source, "model Changed { id Int @id }\n");
+        expect(NativeMigrationPublication.State.REFUSED, publication.publish(snapshot, baseline, "candidate", CANDIDATE.sql(),
+                () -> { throw new AssertionError("Changed source reached the database gate"); }).state());
+        expect(false, publication.hasUnresolvedAttempt());
+        Files.writeString(source, snapshot.text());
+        expect(NativeMigrationPublication.State.REFUSED, publication.publish(snapshot, baseline, "candidate", CANDIDATE.sql(),
+                () -> { throw new IOException("Fixture database gate refused"); }).state());
+        expect(false, publication.hasUnresolvedAttempt());
+        expect(false, Files.exists(root.resolve(CANDIDATE.directoryName())));
+        Path oldSql = root.resolve(PRIOR_NAME).resolve("migration.sql");
+        Path newSql = Files.write(root.resolve(PRIOR_NAME).resolve("replacement"), PRIOR);
+        Files.move(newSql, oldSql, StandardCopyOption.REPLACE_EXISTING);
+        expect(NativeMigrationPublication.State.REFUSED, publication.publish(snapshot, baseline, "candidate", CANDIDATE.sql(),
+                () -> { throw new AssertionError("Replaced entry reached the database gate"); }).state());
+        expect(false, Files.exists(root.resolve(CANDIDATE.directoryName())));
+        expect(NativeMigrationPublication.State.PUBLISHED,
+                publication.publish(snapshot, publication.readBaseline(), "candidate", CANDIDATE.sql(), () -> {}).state());
+        intact(root);
     }
 
     private static void runAbruptExit(Path distribution, KeyPair key, Path root, boolean after) throws Exception {

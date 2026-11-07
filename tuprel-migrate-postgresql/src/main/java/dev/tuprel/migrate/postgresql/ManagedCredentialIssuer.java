@@ -3,13 +3,18 @@ package dev.tuprel.migrate.postgresql;
 import static dev.tuprel.migrate.postgresql.MigrationExecutionResult.Failure;
 
 import dev.tuprel.migrate.MigrationHistoryException;
+import dev.tuprel.migrate.MigrationFile;
+import dev.tuprel.migrate.NativeMigrationPublication;
 import dev.tuprel.sql.SqlIdentifier;
+import java.io.IOException;
 import java.nio.file.Path;
+import java.security.PublicKey;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -58,6 +63,26 @@ final class ManagedCredentialIssuer {
             return new MigrationExecutionResult(MigrationExecutionResult.Outcome.REFUSED, failure.reason(), List.of());
         }
         try { return lease.runner().deploy(schema.name(), directory, approval, proof); }
+        finally { discard(lease.backend()); }
+    }
+
+    ManagedDevPublication.Result publish(Path directory, Path source, String name, Path installation, PublicKey publisherKey,
+            InitialBootstrapAuthorization proof, Clock clock) {
+        NativeMigrationPublication publication;
+        try {
+            MigrationFile.validateName(name);
+            if (!pin.protectedFile(installation.resolve("publisher")) || !pin.protectedFile(installation.resolve("manifest.txt"))
+                    || !pin.protectedFile(installation.resolve("manifest.ed25519")) || proof == null) {
+                return ManagedDevPublication.Result.refused(ManagedDevPublication.Diagnostic.INSTALLATION);
+            }
+            publication = new NativeMigrationPublication(directory, installation, publisherKey, proof.claims().generation(), clock);
+        } catch (IOException | IllegalArgumentException | SecurityException failure) {
+            return ManagedDevPublication.Result.refused(ManagedDevPublication.Diagnostic.INSTALLATION);
+        }
+        Lease lease;
+        try { lease = open(proof); }
+        catch (MigrationInspectionException failure) { return ManagedDevPublication.Result.refused(ManagedDevPublication.Diagnostic.SESSION); }
+        try { return lease.runner().publish(schema, publication, source, name, proof); }
         finally { discard(lease.backend()); }
     }
 

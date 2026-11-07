@@ -14,10 +14,7 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Clock;
 import java.time.DateTimeException;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -29,8 +26,6 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public final class MigrationCreator {
     private static final String DRAFT = "-- Add reviewed SQL below. Creating this draft does not apply or approve it.\n";
-    private static final DateTimeFormatter ID_FORMAT = DateTimeFormatter.ofPattern("uuuuMMdd_HHmmss", Locale.ROOT)
-            .withZone(ZoneOffset.UTC);
     // Do not open a second channel to the lock inode within the JVM: on some
     // systems closing that channel can release the first channel's process lock.
     private static final ReentrantLock JVM_LOCK = new ReentrantLock();
@@ -144,7 +139,7 @@ public final class MigrationCreator {
         List<MigrationFile> existing = MigrationDirectory.discover(root);
         MigrationId id;
         try {
-            id = new MigrationId(ID_FORMAT.format(clock.instant()));
+            id = MigrationId.at(clock.instant());
         } catch (IllegalArgumentException | DateTimeException exception) {
             throw new MigrationCreationException(Reason.CLOCK_ORDER);
         }

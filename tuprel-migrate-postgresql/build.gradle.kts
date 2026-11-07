@@ -24,6 +24,8 @@ tasks.named<Test>("integrationTest") {
     systemProperty("tuprel.test.database", providers.gradleProperty("tuprelTestDatabase").getOrElse("local"))
     systemProperty("tuprel.test.env.file", rootProject.layout.projectDirectory
         .file("examples/tuprel-playground/.env").asFile.absolutePath)
+    systemProperty("tuprel.test.publisher", providers.gradleProperty("tuprelTestPublisher").getOrElse(""))
+    systemProperty("tuprel.test.publicationVolume", providers.gradleProperty("tuprelTestPublicationVolume").getOrElse(""))
     outputs.upToDateWhen { false }
     outputs.doNotCacheIf("Integration tests use external database state") { true }
 }
