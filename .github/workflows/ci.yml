@@ -99,6 +99,16 @@ jobs:
               if len(cases) != 1 or any(cases[0].find(tag) is not None for tag in ('skipped', 'failure', 'error')):
                   raise SystemExit(f'Managed migration proof must execute and pass: {name}')
           PY
+      - name: Verify the plugin on Gradle 9.7.1
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/gradle-9.7.1-bin.zip"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --output "$archive" https://services.gradle.org/distributions/gradle-9.7.1-bin.zip
+          printf '%s  %s\n' acd53f1edaf02f1a8ff99879f8a34b302661a057d9b063ae9e35b552f804d20a "$archive" | sha256sum --check
+          unzip -q "$archive" -d "$RUNNER_TEMP"
+          ./gradlew :tuprel-gradle-plugin:test --no-daemon --dependency-verification strict \
+            "-PtuprelConsumerGradleInstallation=$RUNNER_TEMP/gradle-9.7.1"
       - name: Reject the correct executor JAR under an untrusted OS account
         run: |
           set -euo pipefail
