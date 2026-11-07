@@ -53,6 +53,6 @@ jobs:
         if: runner.os == 'Linux'
         shell: pwsh
         run: ./test-support/distribution/Verify-StagedGradlePlugin.ps1
-      - name: Exercise the signed staging installer and version switching
+      - name: Exercise signed installation, version switching and recovery
         shell: pwsh
         run: ./test-support/distribution/Verify-SignedCli.ps1
