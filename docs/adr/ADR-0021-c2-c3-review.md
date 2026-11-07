@@ -232,7 +232,7 @@ executor fixado e um emissor que vincule a credencial ao artefacto e
 ### Identidades da via gerida
 
 O adapter interno separa o login JDBC configurado da role proprietária
-`NOLOGIN`. Valida a ligação com a identidade de login e aceita apenas a
+`NOLOGIN`. Valida a ligação e TLS como o login antes de assumir a role e aceita apenas a
 membership directa da role proprietária para esse login, com `SET`,
 sem `INHERIT` nem opção administrativa. O adapter usa `SET LOCAL ROLE`
 e confirma ambas as identidades no catálogo. Verifica ownership das

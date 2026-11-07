@@ -115,6 +115,7 @@ public final class PostgresqlCatalogObserver {
         return verifyTarget(connection, schema, false, "read committed", Optional.empty());
     }
 
+    /** Rechecks names and effective role after TLS was verified as the login in this transaction. */
     Target verifyManagedTarget(Connection connection, SqlIdentifier schema, boolean readOnly, SqlIdentifier owner)
             throws SQLException, ObservationFailure {
         return verifyTarget(connection, schema, readOnly, readOnly ? "repeatable read" : "read committed", Optional.of(owner));
@@ -152,7 +153,7 @@ public final class PostgresqlCatalogObserver {
                 String sessionUser = row.getString(6);
                 Boolean tls = row.getObject(7, Boolean.class);
                 boolean identity = owner.isPresent()
-                        ? settings.matchesIdentity(databaseName, currentUser, sessionUser, tls, owner.orElseThrow().name())
+                        ? settings.matchesRole(databaseName, currentUser, sessionUser, owner.orElseThrow().name())
                         : settings.matchesIdentity(databaseName, currentUser, sessionUser, tls);
                 if (database <= 0 || namespace <= 0 || !schema.name().equals(row.getString(4)) || !identity) {
                     throw new ObservationFailure(Diagnostic.TARGET);

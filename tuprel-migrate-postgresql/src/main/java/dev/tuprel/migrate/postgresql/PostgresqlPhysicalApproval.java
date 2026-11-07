@@ -77,7 +77,7 @@ final class PostgresqlPhysicalApproval {
         connection.setAutoCommit(false);
         PostgresqlCatalogObserver.configureTransaction(connection);
         try {
-            if (!enterRole(connection, target)) { throw new MigrationInspectionException(Failure.PERMISSION); }
+            if (!enterRole(connection, target, true)) { throw new MigrationInspectionException(Failure.PERMISSION); }
             Observed observed = observe(connection, target, authorization, true);
             PostgresqlDriftInspector.Inspection drift = PostgresqlDriftInspector.inspect(connection, observed.target(),
                     target.schema(), observed.historyOid(), observed.catalog(), files);
@@ -99,8 +99,15 @@ final class PostgresqlPhysicalApproval {
         }
     }
 
-    private boolean enterRole(Connection connection, MigrationPlanTarget target) throws SQLException {
-        return managed.isEmpty() || managed.orElseThrow().enter(connection, target.schema());
+    private boolean enterRole(Connection connection, MigrationPlanTarget target, boolean readOnly) throws SQLException {
+        if (managed.isEmpty()) { return true; }
+        PostgresqlCatalogObserver observer = new PostgresqlCatalogObserver(settings, source);
+        try {
+            // pg_stat_ssl may redact the connection after SET LOCAL ROLE changes CURRENT_USER.
+            if (readOnly) { observer.verifyTarget(connection, target.schema(), true); }
+            else { observer.verifyWriteTarget(connection, target.schema()); }
+        } catch (PostgresqlCatalogObserver.ObservationFailure failure) { return false; }
+        return managed.orElseThrow().enter(connection, target.schema());
     }
 
     private Observed observe(Connection connection, MigrationPlanTarget target, InitialBootstrapAuthorization authorization,
@@ -149,7 +156,7 @@ final class PostgresqlPhysicalApproval {
         }
 
         void enter(Connection connection) throws SQLException, MigrationRunFailure {
-            if (!enterRole(connection, target)) { throw new MigrationRunFailure(Failure.PERMISSION, false); }
+            if (!enterRole(connection, target, false)) { throw new MigrationRunFailure(Failure.PERMISSION, false); }
         }
 
         void before(Connection connection) throws SQLException, MigrationRunFailure {
