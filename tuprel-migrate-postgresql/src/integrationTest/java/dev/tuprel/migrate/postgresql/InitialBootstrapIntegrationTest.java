@@ -4,6 +4,7 @@ import static dev.tuprel.migrate.postgresql.PostgresqlInitialBootstrap.Outcome;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.tuprel.migrate.MigrationHistory;
+import dev.tuprel.migrate.MigrationChecksum;
 import dev.tuprel.migrate.MigrationDirectory;
 import dev.tuprel.sql.SqlIdentifier;
 import dev.tuprel.testsupport.TestPostgresql;
@@ -11,8 +12,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.SecureRandom;
 import java.security.Signature;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -22,11 +25,14 @@ import java.sql.Statement;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.AfterAll;
@@ -35,6 +41,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.postgresql.ds.PGSimpleDataSource;
+import org.postgresql.PGConnection;
 
 class InitialBootstrapIntegrationTest {
     private static final Instant NOW = Instant.parse("2026-01-01T00:00:00Z");
@@ -398,6 +405,190 @@ class InitialBootstrapIntegrationTest {
         assertEquals(MigrationExecutionResult.Outcome.APPLIED, applied.outcome());
         assertEquals(2, applied.confirmed().size());
         assertEquals(MigrationPlan.State.NO_CHANGES, runner.inspect(target.name(), root, authorization).plan().state());
+    }
+
+    @Test void verifiedSupervisorIssuesOneSealedSessionAndRejectsReplay(@TempDir Path directory) throws Exception {
+        Path root = physicalFiles(Files.createDirectory(directory.resolve("migrations")));
+        InitialBootstrapAuthorization proof = sign(claims);
+        PostgresqlInitialBootstrap provisioner = bootstrap(settings.dataSource());
+        assertEquals(Outcome.BOOTSTRAPPED, provisioner.bootstrap(target, proof));
+        Path jar = Path.of(MigrationRunner.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toRealPath();
+        MigrationChecksum digest = MigrationChecksum.of(Files.readAllBytes(jar));
+        boolean unix = java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("unix");
+        long uid = unix ? new com.sun.security.auth.module.UnixSystem().getUid() : 0;
+        ManagedExecutorPin pin = new ManagedExecutorPin(jar, digest, "development",
+                PhysicalDeployDigest.DOMAIN, PhysicalDeployDigest.VERSION, uid);
+        assertTrue(pin.verifiesRunningExecutor());
+
+        Path substitute = Files.copy(jar, directory.resolve("changed-executor.jar"));
+        Files.write(substitute, new byte[]{1}, StandardOpenOption.APPEND);
+        MigrationChecksum changed = MigrationChecksum.of(Files.readAllBytes(substitute));
+        assertEquals(0, runPinProbe(jar, digest));
+        assertEquals(2, runPinProbe(substitute, digest));
+        AtomicInteger issued = new AtomicInteger();
+        SqlIdentifier ledgerOwner = new SqlIdentifier(database.dataSource().getUser());
+        ManagedMigrationRole placeholder = new ManagedMigrationRole(new SqlIdentifier("untrusted_owner"), ledgerOwner);
+        ManagedCredentialIssuer.CredentialSource forbidden = connection -> {
+            issued.incrementAndGet();
+            throw new SQLException("fixture source must not be reached");
+        };
+        for (ManagedExecutorPin refused : java.util.List.of(
+                new ManagedExecutorPin(jar, changed, pin.artifactVersion(), pin.domain(), pin.version(), uid),
+                new ManagedExecutorPin(substitute, changed, pin.artifactVersion(), pin.domain(), pin.version(), uid),
+                new ManagedExecutorPin(jar, digest, "unapproved-version", pin.domain(), pin.version(), uid),
+                new ManagedExecutorPin(jar, digest, pin.artifactVersion(), pin.domain(), pin.version() + 1, uid),
+                new ManagedExecutorPin(jar, digest, pin.artifactVersion(), "TUPREL-MIGRATION-PLAN", 1, uid),
+                new ManagedExecutorPin(jar, digest, pin.artifactVersion(), pin.domain(), pin.version(), uid ^ 1L))) {
+            assertEquals(MigrationExecutionResult.Failure.PERMISSION, assertThrows(MigrationInspectionException.class,
+                    () -> issuer(refused, forbidden, provisioner, new SqlIdentifier("untrusted_login"), placeholder)
+                            .inspect(root, proof)).reason());
+        }
+        assertEquals(0, issued.get());
+
+        if (!System.getProperty("tuprel.test.database").equals("container")) {
+            assertEquals(MigrationExecutionResult.Failure.PERMISSION, assertThrows(MigrationInspectionException.class,
+                    () -> issuer(pin, forbidden, provisioner, new SqlIdentifier("tuprel_status_reader"), placeholder)
+                            .inspect(root, proof)).reason());
+            assertEquals(0, issued.get());
+            assertTrue(historyInitialised());
+            return;
+        }
+
+        assertTrue(pin.protectedInstallation(), "CI must provide a protected POSIX installation path");
+        Files.setPosixFilePermissions(directory, java.nio.file.attribute.PosixFilePermissions.fromString("rwxrwx---"));
+        assertFalse(new ManagedExecutorPin(substitute, changed, pin.artifactVersion(), pin.domain(), pin.version(), uid)
+                .protectedInstallation(), "Group-writable ancestors cannot host a supervisor installation");
+        ManagedMigrationRole role = provisionSealedFixture(ledgerOwner);
+        AtomicReference<MigrationDatabaseSettings> captured = new AtomicReference<>();
+        ManagedCredentialIssuer.CredentialSource approvedSource = connection -> {
+            issued.incrementAndGet();
+            MigrationDatabaseSettings temporary = issueFixtureCredential(connection);
+            captured.set(temporary);
+            return temporary;
+        };
+        ManagedCredentialIssuer invalid = issuer(pin, approvedSource, provisioner, managedLogin, role);
+        assertThrows(MigrationInspectionException.class,
+                () -> invalid.inspect(root, new InitialBootstrapAuthorization(claims, new byte[64])));
+        assertEquals(0, issued.get());
+
+        ManagedCredentialIssuer preview = issuer(pin, connection -> {
+            ManagedCredentialIssuer competing = issuer(pin, forbidden, provisioner, managedLogin, role);
+            assertEquals(MigrationExecutionResult.Failure.PERMISSION, assertThrows(MigrationInspectionException.class,
+                    () -> competing.inspect(root, proof)).reason());
+            return approvedSource.issue(connection);
+        }, provisioner, managedLogin, role);
+        PostgresqlPhysicalApproval.Approval approval = preview.inspect(root, proof).approval();
+        assertThrows(MigrationInspectionException.class, () -> preview.inspect(root, proof));
+        assertEquals(1, issued.get());
+        assertCredentialRejected(captured.get());
+
+        ManagedCredentialIssuer failing = issuer(pin, connection -> {
+            approvedSource.issue(connection);
+            throw new SQLException("private fixture issuer failure", "08006");
+        }, provisioner, managedLogin, role);
+        MigrationExecutionResult refused = failing.deploy(root, approval, proof);
+        assertEquals(MigrationExecutionResult.Outcome.REFUSED, refused.outcome());
+        assertTrue(refused.confirmed().isEmpty());
+        assertFalse(refused.toString().contains("private fixture issuer failure"));
+        assertCredentialRejected(captured.get());
+        assertTrue(historyInitialised());
+
+        ManagedCredentialIssuer wrongPassword = issuer(pin, connection -> {
+            approvedSource.issue(connection);
+            return fixtureSettings("incorrect-fixture-password");
+        }, provisioner, managedLogin, role);
+        assertEquals(MigrationExecutionResult.Outcome.REFUSED, wrongPassword.deploy(root, approval, proof).outcome());
+        assertCredentialRejected(captured.get());
+        assertTrue(historyInitialised());
+
+        ManagedCredentialIssuer expired = issuer(pin, connection -> {
+            MigrationDatabaseSettings temporary = approvedSource.issue(connection);
+            MigrationCatalog.execute(connection, "ALTER ROLE " + quote(managedLogin) + " VALID UNTIL '-infinity'");
+            return temporary;
+        }, provisioner, managedLogin, role);
+        assertEquals(MigrationExecutionResult.Outcome.REFUSED, expired.deploy(root, approval, proof).outcome());
+        assertCredentialRejected(captured.get());
+        assertTrue(historyInitialised());
+
+        ManagedCredentialIssuer deployment = issuer(pin, approvedSource, provisioner, managedLogin, role);
+        MigrationExecutionResult result = deployment.deploy(root, approval, proof);
+        assertEquals(MigrationExecutionResult.Outcome.APPLIED, result.outcome());
+        assertEquals(2, result.confirmed().size());
+        assertEquals(MigrationExecutionResult.Failure.PERMISSION, deployment.deploy(root, approval, proof).failure());
+        assertEquals(5, issued.get());
+        assertCredentialRejected(captured.get());
+        assertEquals(result.confirmed(), new PostgresqlMigrationHistory(settings.dataSource()).read(target.name()).applied());
+    }
+
+    private static int runPinProbe(Path jar, MigrationChecksum expected) throws Exception {
+        boolean windows = System.getProperty("os.name").startsWith("Windows");
+        Path javaExecutable = Path.of(System.getProperty("java.home"), "bin", windows ? "java.exe" : "java");
+        Path tests = Path.of(ManagedExecutorPinProbe.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        Path migrate = Path.of(MigrationChecksum.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        String classpath = String.join(java.io.File.pathSeparator, tests.toString(), jar.toString(), migrate.toString());
+        ProcessBuilder builder = new ProcessBuilder(javaExecutable.toString(), "-cp", classpath,
+                ManagedExecutorPinProbe.class.getName(), jar.toString(), expected.value());
+        builder.environment().clear();
+        Process child = builder.redirectOutput(ProcessBuilder.Redirect.DISCARD).redirectError(ProcessBuilder.Redirect.DISCARD).start();
+        try {
+            assertTrue(child.waitFor(15, TimeUnit.SECONDS), "Artifact probe did not exit");
+            return child.exitValue();
+        } finally { if (child.isAlive()) { child.destroyForcibly(); } }
+    }
+
+    private ManagedCredentialIssuer issuer(ManagedExecutorPin pin, ManagedCredentialIssuer.CredentialSource source,
+            PostgresqlInitialBootstrap provisioner, SqlIdentifier login, ManagedMigrationRole role) {
+        return new ManagedCredentialIssuer(pin, settings.dataSource(), source, provisioner, target, login, role);
+    }
+
+    private ManagedMigrationRole provisionSealedFixture(SqlIdentifier ledgerOwner) throws SQLException {
+        String suffix = UUID.randomUUID().toString().replace("-", "");
+        SqlIdentifier owner = new SqlIdentifier("sealed_owner_" + suffix);
+        execute("CREATE ROLE " + quote(owner) + " NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS");
+        managedOwner = owner;
+        SqlIdentifier login = new SqlIdentifier("sealed_login_" + suffix);
+        execute("CREATE ROLE " + quote(login)
+                + " NOLOGIN CONNECTION LIMIT 1 NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS");
+        managedLogin = login;
+        execute("GRANT " + quote(owner) + " TO " + quote(login) + " WITH INHERIT FALSE, SET TRUE, ADMIN FALSE");
+        execute("ALTER SCHEMA " + quote(target) + " OWNER TO " + quote(owner));
+        execute("ALTER TABLE " + quote(target) + ".\"_tuprel_migrations\" OWNER TO " + quote(owner));
+        execute("GRANT USAGE ON SCHEMA " + quote(target) + " TO " + quote(login));
+        execute("GRANT USAGE ON SCHEMA " + quote(admin) + " TO " + quote(owner));
+        execute("GRANT SELECT ON " + InitialBootstrapLedger.table(admin) + " TO " + quote(owner));
+        execute("GRANT EXECUTE ON FUNCTION pg_catalog.pg_control_system() TO " + quote(owner));
+        return new ManagedMigrationRole(owner, ledgerOwner);
+    }
+
+    private MigrationDatabaseSettings issueFixtureCredential(Connection connection)
+            throws SQLException, dev.tuprel.migrate.MigrationHistoryException {
+        byte[] entropy = new byte[32];
+        new SecureRandom().nextBytes(entropy);
+        char[] password = Base64.getUrlEncoder().withoutPadding().encodeToString(entropy).toCharArray();
+        Arrays.fill(entropy, (byte) 0);
+        try {
+            MigrationDatabaseSettings temporary = fixtureSettings(new String(password));
+            connection.unwrap(PGConnection.class).alterUserPassword(managedLogin.name(), password, "scram-sha-256");
+            MigrationCatalog.execute(connection, "ALTER ROLE " + quote(managedLogin) + " LOGIN");
+            return temporary;
+        } finally { Arrays.fill(password, '\0'); }
+    }
+
+    private MigrationDatabaseSettings fixtureSettings(String password) throws dev.tuprel.migrate.MigrationHistoryException {
+        PGSimpleDataSource source = database.dataSource();
+        return MigrationDatabaseSettings.fromEnvironment(Map.of(
+                "TUPREL_DATABASE_URL", "jdbc:postgresql://" + source.getServerNames()[0] + ":"
+                        + source.getPortNumbers()[0] + "/" + source.getDatabaseName(),
+                "TUPREL_DATABASE_USER", managedLogin.name(), "TUPREL_DATABASE_PASSWORD", password));
+    }
+
+    private static void assertCredentialRejected(MigrationDatabaseSettings temporary) {
+        SQLException failure = assertThrows(SQLException.class, () -> {
+            try (Connection connection = temporary.dataSource().getConnection()) {
+                assertFalse(connection.isValid(5), "A sealed login must reject new connections");
+            }
+        });
+        assertTrue(failure.getSQLState().startsWith("28"));
     }
 
     private Path physicalFiles(Path directory) throws Exception {

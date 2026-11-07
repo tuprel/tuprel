@@ -60,6 +60,36 @@ jobs:
           if len(cases) != 1 or any(cases[0].find(tag) is not None for tag in ('skipped', 'failure', 'error')):
               raise SystemExit('The pinned legacy executor cutover proof must execute and pass')
           PY
+      - name: Reject the correct executor JAR under an untrusted OS account
+        run: |
+          set -euo pipefail
+          fixture="$(sudo mktemp -d /home/tuprel-executor-probe.XXXXXXXX)"
+          trap 'sudo rm -rf -- "$fixture"' EXIT
+          sudo chown "$(id -u):$(id -g)" "$fixture"
+          chmod 0755 "$fixture"
+          adapter="$fixture/tuprel-migrate-postgresql.jar"
+          migrate="$fixture/tuprel-migrate.jar"
+          tests="$fixture/classes"
+          install -m 0644 tuprel-migrate-postgresql/build/libs/tuprel-migrate-postgresql.jar "$adapter"
+          install -m 0644 tuprel-migrate/build/libs/tuprel-migrate.jar "$migrate"
+          probe_class=dev/tuprel/migrate/postgresql/ManagedExecutorPinProbe.class
+          install -D -m 0644 "tuprel-migrate-postgresql/build/classes/java/integrationTest/$probe_class" "$tests/$probe_class"
+          java="$JAVA_HOME/bin/java"
+          digest="$(sha256sum "$adapter" | cut -d ' ' -f 1)"
+          probe=dev.tuprel.migrate.postgresql.ManagedExecutorPinProbe
+          classpath="$tests:$adapter:$migrate"
+          "$java" -cp "$classpath" "$probe" "$adapter" "$digest" "$(id -u)" || {
+            echo 'The operator must pass the full artifact and installation check.' >&2
+            stat -c '%a %u %n' / /home "$fixture" "$adapter"
+            exit 1
+          }
+          sudo -n -u nobody -- "$java" -cp "$classpath" "$probe" "$adapter" "$digest"
+          set +e
+          sudo -n -u nobody -- "$java" "-Duser.name=$(id -un)" -cp "$classpath" \
+            "$probe" "$adapter" "$digest" "$(id -u)"
+          refused=$?
+          set -e
+          test "$refused" -eq 2
       - name: Smoke test packaged CLI in Bash
         run: |
           ./gradlew :tuprel-cli:installDist --no-daemon --dependency-verification strict

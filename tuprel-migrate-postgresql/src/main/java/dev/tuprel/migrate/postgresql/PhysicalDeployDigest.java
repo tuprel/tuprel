@@ -10,6 +10,9 @@ import java.util.TreeMap;
 
 /** Canonical ADR-0021 evidence binding. The runner must establish provenance before using it. */
 record PhysicalDeployDigest(String value) {
+    static final String DOMAIN = "TUPREL-PG-PHYSICAL-DEPLOY";
+    static final int VERSION = 1;
+
     PhysicalDeployDigest { new MigrationChecksum(value); }
 
     static PhysicalDeployDigest bind(MigrationPlanTarget target, PostgresqlCatalogObserver.Target liveTarget,
@@ -32,8 +35,8 @@ record PhysicalDeployDigest(String value) {
         MigrationChecksum expectedDigest = structural(profile, expected);
         MigrationChecksum observedDigest = structural(profile, observed);
         return new PhysicalDeployDigest(PlanEncoding.digest(output -> {
-            PlanEncoding.text(output, "TUPREL-PG-PHYSICAL-DEPLOY");
-            output.writeInt(1);
+            PlanEncoding.text(output, DOMAIN);
+            output.writeInt(VERSION);
             PlanEncoding.text(output, target.fingerprint().value());
             output.writeLong(liveTarget.database());
             output.writeLong(liveTarget.namespace());

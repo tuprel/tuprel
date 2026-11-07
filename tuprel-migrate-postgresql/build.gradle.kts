@@ -18,6 +18,9 @@ sourceSets.named("integrationTest") {
 }
 
 tasks.named<Test>("integrationTest") {
+    // Exercise the installed adapter artifact as well as the PostgreSQL protocol.
+    val adapterJar = tasks.jar.flatMap { it.archiveFile }
+    classpath = files(adapterJar) + (classpath - sourceSets.main.get().output)
     systemProperty("tuprel.test.database", providers.gradleProperty("tuprelTestDatabase").getOrElse("local"))
     systemProperty("tuprel.test.env.file", rootProject.layout.projectDirectory
         .file("examples/tuprel-playground/.env").asFile.absolutePath)
@@ -27,6 +30,12 @@ tasks.named<Test>("integrationTest") {
 
 tasks.javadoc {
     (options as StandardJavadocDocletOptions).addBooleanOption("Werror", true)
+}
+
+tasks.jar {
+    manifest.attributes["Tuprel-Managed-Artifact"] = "dev.tuprel:tuprel-migrate-postgresql"
+    manifest.attributes["Implementation-Version"] =
+        project.version.toString().takeUnless { it == "unspecified" } ?: "development"
 }
 
 tasks.named("check") {
