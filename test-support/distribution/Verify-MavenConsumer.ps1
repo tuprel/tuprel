@@ -1,8 +1,8 @@
-param([string]$Maven = 'mvn')
+param([string]$Maven = $(if ($IsWindows) { 'mvn.cmd' } else { 'mvn' }))
 
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
-$mavenCommand = (Get-Command $Maven -CommandType Application -ErrorAction Stop).Source
+$mavenCommand = (Get-Command $Maven -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
 $fixture = Join-Path ([IO.Path]::GetTempPath()) ("tuprel-maven-consumer-" + [guid]::NewGuid())
 [IO.Directory]::CreateDirectory($fixture) | Out-Null
 try {
