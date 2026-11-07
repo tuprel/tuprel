@@ -25,3 +25,8 @@ pwsh -File test-support/distribution/Verify-MavenConsumer.ps1
 This proves version selection and transitive runtime resolution. Public
 coordinates and release distribution remain gated by the naming and release
 policies.
+
+The candidate group for public coordinates is dev.tuprel, subject to domain
+ownership verification. The proposed artifact IDs are tuprel-sql,
+tuprel-runtime and tuprel-postgresql. The fixture group remains
+dev.tuprel.staging.
