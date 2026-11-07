@@ -35,10 +35,10 @@ class ExternalSpringApplicationTest {
             execute(project, source, "Spring Boot PostgreSQL transaction passed");
             try (Connection connection = source.getConnection(); Statement statement = connection.createStatement();
                     java.sql.ResultSet result = statement.executeQuery("SELECT id FROM inventory ORDER BY id")) {
-                assertTrue(result.next());
-                assertEquals(7, result.getInt(1));
-                assertTrue(result.next());
-                assertEquals(9, result.getInt(1));
+                for (int expected : new int[] {7, 9}) {
+                    assertTrue(result.next());
+                    assertEquals(expected, result.getInt(1));
+                }
                 assertFalse(result.next());
             }
         }
