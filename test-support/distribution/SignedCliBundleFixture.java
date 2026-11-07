@@ -84,13 +84,15 @@ final class SignedCliBundleFixture {
         alteredManifest[alteredManifest.length - 2] ^= 1;
         reject(() -> SignedCliBundle.verify(firstZip, alteredManifest, signature, publicKey, keyId, FIRST));
         Path traversal = directory.resolve("traversal.zip");
-        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(traversal))) {
-            zip.putNextEntry(new ZipEntry("tuprel-" + FIRST + "/bin/../../outside"));
-            zip.write(1);
+        for (String entry : java.util.List.of("bin/../../outside", "lib/../outside.jar", "lib/nested\\..\\outside.jar")) {
+            try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(traversal))) {
+                zip.putNextEntry(new ZipEntry("tuprel-" + FIRST + "/" + entry));
+                zip.write(1);
+            }
+            byte[] hostile = SignedCliBundle.manifest(FIRST, Files.readAllBytes(traversal));
+            reject(() -> SignedCliBundle.verify(traversal, hostile, sign(fixtureKey, hostile), publicKey, keyId, FIRST));
+            Files.delete(traversal);
         }
-        byte[] hostile = SignedCliBundle.manifest(FIRST, Files.readAllBytes(traversal));
-        reject(() -> SignedCliBundle.verify(traversal, hostile, sign(fixtureKey, hostile), publicKey, keyId, FIRST));
-        Files.delete(traversal);
     }
 
     private static void signBundle(Path directory, Path archive, String version, KeyPair fixtureKey) throws Exception {
