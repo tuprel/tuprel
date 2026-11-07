@@ -219,7 +219,8 @@ ownership, retira os grants de escrita e confirma que nem um digest legado
 recalculado permite aplicar a migration seguinte. O status continua
 disponível durante a janela de leitura. A fixture Linux usa roles
 separadas, confirma a ausência de membership de ownership e testa NOLOGIN
-e a terminação de uma sessão anterior. O perfil local confirma a recusa
+e a terminação de uma sessão anterior. Depois do corte, uma identidade
+independente com acesso read-only continua a consultar o status. O perfil local confirma a recusa
 do launcher com os grants de teste existentes. A conta local conserva
 a capacidade de assumir a role de fixture e, por isso, essa execução não
 demonstra a exclusão de todos os caminhos de escrita.

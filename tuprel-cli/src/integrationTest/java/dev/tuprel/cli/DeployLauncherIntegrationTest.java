@@ -86,10 +86,7 @@ class DeployLauncherIntegrationTest {
         String owner = isolatedRoles ? "cutover_owner_" + suffix : "tuprel_status_reader";
         String legacyUser = isolatedRoles ? "cutover_legacy_" + suffix : source.getUser();
         String credential = isolatedRoles ? UUID.randomUUID().toString() : source.getPassword();
-        PGSimpleDataSource legacy = new PGSimpleDataSource();
-        legacy.setURL(source.getURL());
-        legacy.setUser(legacyUser);
-        legacy.setPassword(credential);
+        PGSimpleDataSource legacy = fixtureLogin(legacyUser, credential);
         String oldLauncher = System.getProperty("tuprel.cli.legacyLauncher");
         String protectedSchema = schema + "_cut";
         String namespace = quote(protectedSchema);
@@ -161,7 +158,10 @@ class DeployLauncherIntegrationTest {
                 probe.setString(1, namespace + ".\"blocked\"");
                 try (ResultSet rows = probe.executeQuery()) { assertTrue(rows.next()); assertTrue(rows.getBoolean(1)); }
             }
-            if (isolatedRoles) { closeLegacyAccess(legacy, legacyUser); }
+            if (isolatedRoles) {
+                closeLegacyAccess(legacy, legacyUser);
+                verifyReadOnlyIdentity(owner, "cutover_read_" + suffix, protectedSchema, history, oldLauncher);
+            }
         } finally {
             try {
                 if (protectedCreated) { asOwner(owner, "DROP SCHEMA " + namespace + " CASCADE"); }
@@ -197,6 +197,47 @@ class DeployLauncherIntegrationTest {
             try (Connection forbidden = legacy.getConnection()) { assertFalse(forbidden.isValid(5)); }
         });
         assertEquals("28000", refused.getSQLState());
+    }
+
+    private void verifyReadOnlyIdentity(String owner, String role, String schema, String history, String launcher)
+            throws Exception {
+        String credential = UUID.randomUUID().toString();
+        execute("CREATE ROLE " + quote(role)
+                + " LOGIN NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOBYPASSRLS PASSWORD '" + credential + "'");
+        try {
+            asOwner(owner, "GRANT USAGE ON SCHEMA " + quote(schema) + " TO " + quote(role)
+                    + "; GRANT SELECT ON " + history + " TO " + quote(role));
+            PGSimpleDataSource reader = fixtureLogin(role, credential);
+            Result status = launch(reader, launcher, true, true, "migrate", "status", "--target-schema", schema);
+            assertEquals(0, status.exit(), status::output);
+            try (Connection connection = reader.getConnection(); PreparedStatement probe = connection.prepareStatement("""
+                    SELECT pg_catalog.has_schema_privilege(?, 'CREATE'),
+                           pg_catalog.has_table_privilege(?, 'INSERT'),
+                           pg_catalog.pg_has_role(?, 'MEMBER')
+                    """)) {
+                probe.setString(1, schema);
+                probe.setString(2, history);
+                probe.setString(3, owner);
+                try (ResultSet rows = probe.executeQuery()) {
+                    assertTrue(rows.next());
+                    assertFalse(rows.getBoolean(1));
+                    assertFalse(rows.getBoolean(2));
+                    assertFalse(rows.getBoolean(3));
+                }
+            }
+        } finally {
+            asOwner(owner, "REVOKE USAGE ON SCHEMA " + quote(schema) + " FROM " + quote(role)
+                    + "; REVOKE SELECT ON " + history + " FROM " + quote(role));
+            execute("DROP ROLE " + quote(role));
+        }
+    }
+
+    private static PGSimpleDataSource fixtureLogin(String role, String password) {
+        PGSimpleDataSource login = new PGSimpleDataSource();
+        login.setURL(source.getURL());
+        login.setUser(role);
+        login.setPassword(password);
+        return login;
     }
 
     private static void asOwner(String owner, String sql) throws Exception {
