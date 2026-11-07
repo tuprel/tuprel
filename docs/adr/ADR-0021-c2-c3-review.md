@@ -281,7 +281,8 @@ O executor recebe uma fonte de uma só ligação. Nenhum argumento,
 variável de ambiente ou ficheiro do executor transporta a password.
 
 O runner verifica o selo, a exclusividade e o prazo do backend em cada
-transacção. Usa os gates físicos existentes e reduz o timeout da
+transacção. O selo identifica a mesma ligação JDBC, e o PostgreSQL
+determina o prazo pelo seu relógio. O runner usa os gates físicos existentes e reduz o timeout da
 transacção ao tempo restante da lease. Uma falha de emissão, autenticação
 ou selagem recusa a execução antes do DDL. O supervisor tenta repor
 `NOLOGIN` mesmo se a autenticação falhar. Se perder acesso administrativo
@@ -294,7 +295,10 @@ Na CI, uma autoridade de fixture usa o driver PostgreSQL para gerar o
 verifier sem inserir a password em comandos SQL. Os testes positivos
 correm com roles descartáveis num PostgreSQL 17 isolado. Em Windows
 local, a prova verifica o JAR, o protocolo e a recusa sem privilégios
-administrativos. O launcher legado continua coberto pela prova de corte.
+administrativos. A CI tenta também usar o mesmo JAR a partir de outra
+conta POSIX, passando o nome do operador como propriedade Java. O UID
+do sistema impede a autorização. O launcher legado continua coberto
+pela prova de corte.
 O perfil é interno. A instalação e o corte por ambiente continuam a
 exigir validação operacional e autorização própria.
 

@@ -12,7 +12,6 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -39,7 +38,7 @@ final class ManagedCredentialIssuer {
         this.schema = Objects.requireNonNull(schema, "schema");
         this.login = Objects.requireNonNull(login, "login");
         this.role = Objects.requireNonNull(role, "role");
-        if (login.equals(role.owner()) || login.equals(role.ledgerOwner()) || role.sealedUntil().isPresent()) {
+        if (login.equals(role.owner()) || login.equals(role.ledgerOwner()) || role.seal().isPresent()) {
             throw new IllegalArgumentException("Invalid managed issuance identities");
         }
     }
@@ -75,7 +74,7 @@ final class ManagedCredentialIssuer {
             if (!lock(admin) || !provenance.verifiesIssuanceTarget(admin, schema, proof) || !idle(admin)) {
                 throw new MigrationInspectionException(Failure.PERMISSION);
             }
-            Instant deadline = Instant.now().plusSeconds(45).truncatedTo(ChronoUnit.SECONDS);
+            Instant deadline = deadline(admin);
             MigrationDatabaseSettings settings;
             try {
                 MigrationCatalog.execute(admin, "ALTER ROLE " + quotedLogin() + " VALID UNTIL '" + deadline + "'");
@@ -91,7 +90,8 @@ final class ManagedCredentialIssuer {
                 MigrationCatalog.execute(admin, "ALTER ROLE " + quotedLogin() + " NOLOGIN PASSWORD NULL");
             }
             if (!sealed(admin, backendPid(backend))) { throw new MigrationInspectionException(Failure.PERMISSION); }
-            ManagedMigrationRole sealedRole = new ManagedMigrationRole(role.owner(), role.ledgerOwner(), Optional.of(deadline));
+            ManagedMigrationRole sealedRole = new ManagedMigrationRole(role.owner(), role.ledgerOwner(),
+                    Optional.of(new Seal(backend, deadline)));
             return new Lease(backend, new PostgresqlPhysicalApproval(settings, settings.singleSession(backend), provenance, sealedRole));
         } catch (MigrationInspectionException failure) {
             discard(backend);
@@ -99,6 +99,15 @@ final class ManagedCredentialIssuer {
         } catch (SQLException | MigrationHistoryException | RuntimeException failure) {
             discard(backend);
             throw new MigrationInspectionException(Failure.PERMISSION);
+        }
+    }
+
+    private static Instant deadline(Connection admin) throws SQLException {
+        try (PreparedStatement query = MigrationCatalog.query(admin, """
+                SELECT pg_catalog.date_trunc('second', pg_catalog.clock_timestamp()) + interval '45 seconds'
+                """); ResultSet row = query.executeQuery()) {
+            if (!row.next()) { throw new SQLException("Missing PostgreSQL lease deadline"); }
+            return row.getObject(1, OffsetDateTime.class).toInstant();
         }
     }
 
@@ -137,6 +146,7 @@ final class ManagedCredentialIssuer {
         try (PreparedStatement query = MigrationCatalog.query(admin, """
                 SELECT rolcanlogin AND rolconnlimit = 1 AND rolpassword LIKE 'SCRAM-SHA-256$%'
                   AND rolvaliduntil <= ? AND rolvaliduntil > pg_catalog.clock_timestamp()
+                  AND rolvaliduntil <= pg_catalog.clock_timestamp() + interval '45 seconds'
                 FROM pg_catalog.pg_authid WHERE rolname = ?
                 """)) {
             query.setObject(1, OffsetDateTime.ofInstant(deadline, ZoneOffset.UTC));
@@ -182,6 +192,21 @@ final class ManagedCredentialIssuer {
     /** Trusted provisioning hook. Only the supervisor sees the resulting short-lived settings. */
     @FunctionalInterface interface CredentialSource {
         MigrationDatabaseSettings issue(Connection administrativeSession) throws SQLException, MigrationHistoryException;
+    }
+
+    /** Opaque proof bound to the exact JDBC connection authenticated and sealed by this supervisor. */
+    static final class Seal {
+        private final Connection backend;
+        private final Instant deadline;
+
+        private Seal(Connection backend, Instant deadline) {
+            this.backend = backend;
+            this.deadline = deadline;
+        }
+
+        @SuppressWarnings("ReferenceEquality") // A driver-defined equals() cannot establish session ownership.
+        boolean matches(Connection connection) { return backend == connection; }
+        Instant deadline() { return deadline; }
     }
 
     private record Lease(Connection backend, PostgresqlPhysicalApproval runner) { }
