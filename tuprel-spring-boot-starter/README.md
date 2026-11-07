@@ -20,6 +20,14 @@ independently even if an enclosing Spring `@Transactional` method rolls back.
 The external PostgreSQL fixture verifies that boundary. Spring-managed
 transaction participation requires a separate contract.
 
+The external fixture also exercises a statement-only adapter over Spring's
+transaction-bound connection. Spring commits or rolls back its JDBC write and
+the Tuprel write together. The fixture wires the adapter explicitly. It
+supports evaluation of a future opt-in mode. Before exposing that mode, define
+which transaction manager owns the connection, reject explicit Tuprel
+transaction ownership in a Spring-bound scope, and verify propagation,
+read-only transactions, timeouts and failure translation.
+
 Run `./gradlew :tuprel-spring-boot-starter:integrationTest --dependency-verification strict`
 to compile and launch a separate Spring Boot application against the starter
 JAR. The live test uses the existing isolated PostgreSQL 17 test profile. Maven publication and support for other Boot lines remain pending.

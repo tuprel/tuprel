@@ -23,6 +23,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -79,8 +80,9 @@ public final class ConsumerApplication {
             require(database.findById(new SqlCommand.FindById(table, column, id),
                     row -> row.int32("id")).orElseThrow() == 7, "Expected the committed row");
 
+            RollbackProbe probe = context.getBean(RollbackProbe.class);
             try {
-                context.getBean(RollbackProbe.class).writeThenFail();
+                probe.writeThenFail();
                 throw new AssertionError("Expected the Spring rollback trigger");
             } catch (RollbackTrigger expected) {
                 // The outer transaction must have rolled back before control returns here.
@@ -90,6 +92,14 @@ public final class ConsumerApplication {
             require(database.findById(new SqlCommand.FindById(table, column, new SqlValue.Int32(9)),
                     row -> row.int32("id")).orElseThrow() == 9,
                     "The explicit Tuprel transaction currently commits independently");
+
+            probe.boundStatements(10, 11, false);
+            try {
+                probe.boundStatements(12, 13, true);
+                throw new AssertionError("Expected a rollback for both bound writes");
+            } catch (RollbackTrigger expected) {
+                // Both statement adapters used the connection owned by Spring.
+            }
         }
     }
 
@@ -102,7 +112,8 @@ public final class ConsumerApplication {
         }
 
         @Bean RollbackProbe rollbackProbe(DataSource source, TuprelDatabase database) {
-            return new RollbackProbe(new JdbcTemplate(source), database);
+            TuprelDatabase statementAdapter = PostgresqlDatabase.using(new TransactionAwareDataSourceProxy(source));
+            return new RollbackProbe(new JdbcTemplate(source), database, statementAdapter);
         }
 
         @Bean DataSource pool() throws IOException {
@@ -121,10 +132,12 @@ public final class ConsumerApplication {
     static class RollbackProbe {
         private final JdbcTemplate jdbc;
         private final TuprelDatabase database;
+        private final TuprelDatabase statementAdapter;
 
-        RollbackProbe(JdbcTemplate jdbc, TuprelDatabase database) {
+        RollbackProbe(JdbcTemplate jdbc, TuprelDatabase database, TuprelDatabase statementAdapter) {
             this.jdbc = jdbc;
             this.database = database;
+            this.statementAdapter = statementAdapter;
         }
 
         @Transactional
@@ -134,6 +147,20 @@ public final class ConsumerApplication {
                     new SqlIdentifier("inventory"),
                     List.of(new SqlCommand.Assignment(new SqlIdentifier("id"), new SqlValue.Int32(9))))));
             throw new RollbackTrigger();
+        }
+
+        @Transactional
+        public void boundStatements(int jdbcId, int tuprelId, boolean fail) {
+            jdbc.update("INSERT INTO inventory (id) VALUES (?)", jdbcId);
+            SqlIdentifier table = new SqlIdentifier("inventory");
+            SqlIdentifier column = new SqlIdentifier("id");
+            SqlValue id = new SqlValue.Int32(tuprelId);
+            require(statementAdapter.create(new SqlCommand.Insert(table,
+                    List.of(new SqlCommand.Assignment(column, id)))) == 1, "Expected one Tuprel insert");
+            require(jdbc.queryForList("SELECT id FROM inventory WHERE id IN (?, ?) ORDER BY id",
+                    Integer.class, jdbcId, tuprelId).equals(List.of(jdbcId, tuprelId)),
+                    "Spring JDBC should see both uncommitted statements");
+            if (fail) throw new RollbackTrigger();
         }
     }
 
