@@ -43,6 +43,13 @@ do driver de produção e da configuração Gradle.
 
 ## Responsabilidades
 
+### `tuprel-gradle-plugin`
+
+Integração de desenvolvimento que chama a CLI a partir de uma instalação
+configurada pelo projecto consumidor. Regista a validação e liga a geração
+à compilação Java. O plugin usa a API Gradle e a CLI no classpath do
+processo de geração. O core fica independente de Gradle.
+
 ### `tuprel-schema`
 
 Lexer, parser, AST, source spans, diagnostics, validated schema model.
