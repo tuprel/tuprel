@@ -3,7 +3,7 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -14,6 +14,7 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.PublicKey;
 import java.security.Signature;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.HexFormat;
@@ -32,11 +33,14 @@ final class SignedCliBundle {
     private static final Pattern LIBRARY = Pattern.compile("lib/[A-Za-z0-9][A-Za-z0-9_.+-]{0,150}\\.jar");
     private static final Pattern WINDOWS_DEVICE = Pattern.compile("(?i)(?:CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(?:\\..*)?");
     private static final Set<String> LAUNCHERS = Set.of("bin/tuprel", "bin/tuprel.bat");
+    private static final String RECEIPT = ".bundle-sha256";
     private final String version;
+    private final byte[] receipt;
     private final Map<String, byte[]> files;
 
-    private SignedCliBundle(String version, Map<String, byte[]> files) {
+    private SignedCliBundle(String version, String manifestSha256, Map<String, byte[]> files) {
         this.version = version;
+        this.receipt = (manifestSha256 + "\n").getBytes(StandardCharsets.US_ASCII);
         this.files = Map.copyOf(files);
     }
 
@@ -63,7 +67,7 @@ final class SignedCliBundle {
         if (bytes.length > LIMIT || !Arrays.equals(manifest, manifest(expectedVersion, bytes))) {
             throw new IOException("CLI bundle identity, platform or checksum differs from the signed manifest");
         }
-        return new SignedCliBundle(expectedVersion, contents(expectedVersion, bytes));
+        return new SignedCliBundle(expectedVersion, sha256(manifest), contents(expectedVersion, bytes));
     }
 
     static byte[] manifest(String version, byte[] bytes) throws IOException, GeneralSecurityException {
@@ -123,8 +127,12 @@ final class SignedCliBundle {
         Path destination = root.resolve(version);
         try (FileChannel channel = openLock(root); FileLock lock = channel.lock()) {
             if (!lock.isValid()) throw new IOException("Staging lock is invalid");
-            if (!Files.notExists(destination, LinkOption.NOFOLLOW_LINKS)) {
-                throw new FileAlreadyExistsException(destination.toString());
+            if (present(removalPath(root))) {
+                throw new IOException("Resume the interrupted removal before installing this version");
+            }
+            if (present(destination)) {
+                inspectVersion(destination, false);
+                return destination;
             }
             // Each attempt writes to a fresh sibling. Only a complete tree becomes selectable.
             Path pending = Files.createTempDirectory(root, "." + version + "-pending-");
@@ -137,16 +145,42 @@ final class SignedCliBundle {
                 Files.setPosixFilePermissions(pending.resolve("bin/tuprel"),
                         PosixFilePermissions.fromString("rwx------"));
             }
+            Files.write(pending.resolve(RECEIPT), receipt, StandardOpenOption.CREATE_NEW);
+            inspectVersion(pending, false);
             return Files.move(pending, destination, StandardCopyOption.ATOMIC_MOVE);
         }
     }
 
     void uninstall(Path privateRoot) throws IOException {
         Path root = checkedRoot(privateRoot);
+        Path destination = root.resolve(version);
+        Path removing = removalPath(root);
         try (FileChannel channel = openLock(root); FileLock lock = channel.lock()) {
             if (!lock.isValid()) throw new IOException("Staging lock is invalid");
-            removeVersion(root.resolve(version));
+            if (present(destination)) {
+                if (present(removing)) throw new IOException("Conflicting installation and removal directories");
+                inspectVersion(destination, false);
+                Files.move(destination, removing, StandardCopyOption.ATOMIC_MOVE);
+            }
+            if (present(removing)) {
+                // Validate every surviving entry before deleting any of them.
+                List<Path> verified = inspectVersion(removing, true);
+                for (Path entry : verified) {
+                    Files.delete(entry);
+                }
+                Files.delete(removing);
+            }
         }
+    }
+
+    private Path removalPath(Path root) {
+        return root.resolve("." + version + "-removing");
+    }
+
+    private static boolean present(Path path) throws IOException {
+        if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return true;
+        if (Files.notExists(path, LinkOption.NOFOLLOW_LINKS)) return false;
+        throw new IOException("Cannot determine installation state");
     }
 
     private static FileChannel openLock(Path root) throws IOException {
@@ -154,38 +188,52 @@ final class SignedCliBundle {
                 StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
     }
 
-    private void removeVersion(Path destination) throws IOException {
-        checkedRoot(destination);
-        for (String subdirectory : List.of("bin", "lib")) {
-            Path directory = checkedRoot(destination.resolve(subdirectory));
-            Set<String> expected = new HashSet<>();
-            for (Map.Entry<String, byte[]> file : files.entrySet()) {
-                if (!file.getKey().startsWith(subdirectory + "/")) continue;
-                Path installed = destination.resolve(file.getKey());
-                expected.add(installed.getFileName().toString());
-                if (!Files.isRegularFile(installed, LinkOption.NOFOLLOW_LINKS)
-                        || Files.size(installed) != file.getValue().length
-                        || !Arrays.equals(Files.readAllBytes(installed), file.getValue())) {
-                    throw new IOException("Installed file differs from its authenticated archive");
+    private List<Path> inspectVersion(Path directory, boolean allowMissing) throws IOException {
+        checkedRoot(directory);
+        List<Path> verified = new ArrayList<>();
+        Path marker = directory.resolve(RECEIPT);
+        boolean hasReceipt = present(marker);
+        if (hasReceipt) {
+            verifyInstalledBytes(marker, receipt);
+        }
+        int fileCount = 0;
+        try (DirectoryStream<Path> folders = Files.newDirectoryStream(directory)) {
+            for (Path folder : folders) {
+                String name = folder.getFileName().toString();
+                if (name.equals(RECEIPT)) continue;
+                if (!hasReceipt || !Set.of("bin", "lib").contains(name)) {
+                    throw new IOException("Installation contains an unknown directory or file");
                 }
-            }
-            try (java.util.stream.Stream<Path> entries = Files.list(directory)) {
-                if (!entries.map(path -> path.getFileName().toString()).allMatch(expected::contains)) {
-                    throw new IOException("Refusing to remove additional files");
+                checkedRoot(folder);
+                try (DirectoryStream<Path> entries = Files.newDirectoryStream(folder)) {
+                    for (Path entry : entries) {
+                        byte[] expected = files.get(name + "/" + entry.getFileName());
+                        if (expected == null) throw new IOException("Installation contains an unknown file");
+                        verifyInstalledBytes(entry, expected);
+                        verified.add(entry);
+                        fileCount++;
+                    }
                 }
+                verified.add(folder);
             }
         }
-        try (java.util.stream.Stream<Path> entries = Files.list(destination)) {
-            if (!entries.map(path -> path.getFileName().toString()).allMatch(Set.of("bin", "lib")::contains)) {
-                throw new IOException("Refusing to remove additional directories");
+        if (!allowMissing && (!hasReceipt || fileCount != files.size())) {
+            throw new IOException("Installation is missing authenticated files");
+        }
+        // Remove the receipt last. A receipt-free removal directory can only be empty.
+        if (hasReceipt) verified.add(marker);
+        return verified;
+    }
+
+    private static void verifyInstalledBytes(Path file, byte[] expected) throws IOException {
+        if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Installation contains a non-regular file or link");
+        }
+        try (java.io.InputStream input = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
+            if (!Arrays.equals(expected, input.readNBytes(expected.length + 1))) {
+                throw new IOException("Installed file differs from its authenticated archive");
             }
         }
-        for (String file : files.keySet()) {
-            Files.delete(destination.resolve(file));
-        }
-        Files.delete(destination.resolve("bin"));
-        Files.delete(destination.resolve("lib"));
-        Files.delete(destination);
     }
 
     private static Path checkedRoot(Path directory) throws IOException {

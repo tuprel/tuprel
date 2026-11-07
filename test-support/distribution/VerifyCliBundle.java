@@ -9,23 +9,33 @@ import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 
-/** Verifies a staging bundle using a public key and an independently supplied fingerprint. */
+/** Verifies and applies a signed bundle within a caller-controlled private staging root. */
 public final class VerifyCliBundle {
     private VerifyCliBundle() {}
 
     public static void main(String[] args) {
-        if (args.length != 6 || !args[5].matches("[0-9a-f]{64}")) {
-            System.err.println("Usage: verify-cli <version> <archive> <manifest> <signature> <public-key-der> <key-sha256>");
+        if ((args.length != 6 && args.length != 8) || !args[5].matches("[0-9a-f]{64}")
+                || (args.length == 8 && !args[6].equals("install") && !args[6].equals("remove"))) {
+            System.err.println("Usage: verify-cli <version> <archive> <manifest> <signature>"
+                    + " <public-key-der> <key-sha256> [install|remove <private-staging-root>]");
             System.exit(2);
         }
         try {
             PublicKey key = KeyFactory.getInstance("Ed25519")
                     .generatePublic(new X509EncodedKeySpec(read(Path.of(args[4]), 128)));
-            SignedCliBundle.verify(Path.of(args[1]), read(Path.of(args[2]), 512),
+            SignedCliBundle bundle = SignedCliBundle.verify(Path.of(args[1]), read(Path.of(args[2]), 512),
                     read(Path.of(args[3]), 64), key, args[5], args[0]);
-            System.out.println("Signed Tuprel staging bundle verified");
+            if (args.length == 6) {
+                System.out.println("Signed Tuprel staging bundle verified");
+            } else if (args[6].equals("install")) {
+                bundle.install(Path.of(args[7]));
+                System.out.println("Signed Tuprel staging version installed");
+            } else {
+                bundle.uninstall(Path.of(args[7]));
+                System.out.println("Signed Tuprel staging version removed");
+            }
         } catch (IOException | GeneralSecurityException | InvalidPathException e) {
-            System.err.println("Tuprel staging bundle verification failed");
+            System.err.println("Tuprel staging operation refused or incomplete. Inspect the private staging root.");
             System.exit(1);
         }
     }
