@@ -90,11 +90,7 @@ final class ManagedCredentialIssuer {
         NativeMigrationPublication publication;
         try {
             MigrationFile.validateName(name);
-            if (!pin.protectedFile(installation.resolve("publisher")) || !pin.protectedFile(installation.resolve("manifest.txt"))
-                    || !pin.protectedFile(installation.resolve("manifest.ed25519")) || proof == null) {
-                return ManagedDevPublication.Result.refused(ManagedDevPublication.Diagnostic.INSTALLATION);
-            }
-            publication = new NativeMigrationPublication(directory, installation, publisherKey, proof.claims().generation(), clock);
+            publication = installedPublisher(directory, installation, publisherKey, proof, clock);
         } catch (IOException | IllegalArgumentException | SecurityException failure) {
             return ManagedDevPublication.Result.refused(ManagedDevPublication.Diagnostic.INSTALLATION);
         }
@@ -103,6 +99,24 @@ final class ManagedCredentialIssuer {
         catch (MigrationInspectionException failure) { return ManagedDevPublication.Result.refused(ManagedDevPublication.Diagnostic.SESSION); }
         try { return lease.runner().publish(schema, publication, source, name, proof); }
         finally { discard(lease.backend()); }
+    }
+
+    boolean verifiedPublicationProfile(Path directory, Path installation, PublicKey publisherKey,
+            InitialBootstrapAuthorization proof, Clock clock) {
+        try {
+            installedPublisher(directory, installation, publisherKey, proof, clock);
+            return true;
+        } catch (IOException | IllegalArgumentException | SecurityException failure) { return false; }
+    }
+
+    private NativeMigrationPublication installedPublisher(Path directory, Path installation, PublicKey publisherKey,
+            InitialBootstrapAuthorization proof, Clock clock) throws IOException {
+        if (proof == null || !pin.protectedFile(installation.resolve("publisher"))
+                || !pin.protectedFile(installation.resolve("manifest.txt"))
+                || !pin.protectedFile(installation.resolve("manifest.ed25519"))) {
+            throw new IOException("Managed installation refused");
+        }
+        return new NativeMigrationPublication(directory, installation, publisherKey, proof.claims().generation(), clock);
     }
 
     private Lease open(InitialBootstrapAuthorization proof) throws MigrationInspectionException {
