@@ -1,0 +1,29 @@
+import java.nio.file.Files
+import java.nio.file.Path
+import org.gradle.api.publish.maven.MavenPublication
+
+// Applied only by the staging test. The normal build has no publication repository.
+def configuredRepository = System.getProperty('tuprel.test.maven.repository')
+if (configuredRepository == null) { throw new GradleException('Set the isolated Maven staging repository') }
+def repository = Path.of(configuredRepository)
+if (!repository.isAbsolute() || !repository.equals(repository.toRealPath())
+        || !repository.fileName.toString().startsWith('tuprel-maven-fixture-')) {
+    throw new GradleException('An isolated local repository is required for Maven staging')
+}
+Files.list(repository).withCloseable { entries ->
+    if (entries.findAny().isPresent()) { throw new GradleException('The Maven staging repository must be empty') }
+}
+
+gradle.beforeProject { library ->
+    if (library.rootProject.name != 'tuprel'
+            || !(library.name in ['tuprel-sql', 'tuprel-runtime', 'tuprel-postgresql'])) { return }
+    library.group = 'dev.tuprel.staging'
+    library.version = '0.0.0-fixture'
+    library.pluginManager.apply('maven-publish')
+    library.pluginManager.withPlugin('java') {
+        library.publishing {
+            publications.create('fixture', MavenPublication) { from library.components.java }
+            repositories.maven { name = 'fixture'; url = repository.toUri() }
+        }
+    }
+}
