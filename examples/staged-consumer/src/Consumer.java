@@ -1,6 +1,7 @@
 package example.sales;
 
 import dev.tuprel.postgresql.PostgresqlDatabase;
+import dev.tuprel.runtime.TuprelDatabaseException;
 import example.sales.generated.TuprelClient;
 import example.sales.generated.create.ProductCreate;
 import example.sales.generated.create.PurchaseCreate;
@@ -11,6 +12,7 @@ import example.sales.generated.order.ProductOrder;
 import example.sales.generated.update.ProductUpdate;
 import example.sales.generated.where.ProductWhere;
 import java.io.DataInputStream;
+import java.sql.SQLException;
 import java.util.List;
 import org.postgresql.ds.PGSimpleDataSource;
 
@@ -36,7 +38,9 @@ public final class Consumer {
             else { throw new IllegalArgumentException("Unknown fixture mode"); }
             System.out.println("Staged Java consumer passed");
         } catch (Exception failure) {
-            System.err.println("Staged Java consumer failed. Inspect the fixture and installed libraries.");
+            String state = failure instanceof TuprelDatabaseException database ? database.sqlState()
+                    : failure instanceof SQLException sql ? sql.getSQLState() : null;
+            System.err.println("Staged Java consumer failed. SQLSTATE=" + (state != null && state.matches("[A-Z0-9]{5}") ? state : "UNKNOWN"));
             System.exit(1);
         }
     }

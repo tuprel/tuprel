@@ -107,7 +107,9 @@ public final class StagedJavaConsumer {
             assertTrue(child.waitFor(60, TimeUnit.SECONDS), "Staged consumer subprocess did not exit");
             String text = output.get(5, TimeUnit.SECONDS);
             if (database != null) { assertFalse(text.contains(database.getPassword()), "Fixture credentials reached subprocess output"); }
-            assertEquals(0, child.exitValue(), "A staged launcher, compiler or consumer failed");
+            String state = text.lines().filter(line -> line.matches("Staged Java consumer failed\\. SQLSTATE=(?:[A-Z0-9]{5}|UNKNOWN)"))
+                    .findFirst().orElse("A staged launcher, compiler or consumer failed");
+            assertEquals(0, child.exitValue(), state);
             return text;
         } finally { if (child.isAlive()) { child.destroyForcibly(); } }
     }

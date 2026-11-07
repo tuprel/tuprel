@@ -80,7 +80,8 @@ jobs:
                       continue
                   failure = case.find('failure')
                   if failure is not None:
-                      for field in re.findall(r'(?:state=[A-Z_]+|diagnostic=Optional\[[A-Z_]*\])', failure.get('message', '')):
+                      for field in re.findall(r'(?:state=[A-Z_]+|diagnostic=Optional\[[A-Z_]*\]|SQLSTATE=(?:[A-Z0-9]{5}|UNKNOWN))',
+                                              failure.get('message', '')):
                           print(field)
           PY
             exit 1

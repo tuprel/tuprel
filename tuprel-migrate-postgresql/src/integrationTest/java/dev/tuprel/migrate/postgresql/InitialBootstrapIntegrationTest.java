@@ -659,13 +659,17 @@ class InitialBootstrapIntegrationTest {
         assertTrue(recovery.acknowledge(NativeMigrationPublication.State.PUBLISHED));
         String beforeDrift = reviewToken(upgrade);
         String namespace = quote(target);
-        execute("CREATE TABLE " + namespace + ".\"Unexpected\" (\"id\" INTEGER PRIMARY KEY)");
-        assertEquals(2, deploy(upgrade, beforeDrift).code());
+        externalDdl("CREATE TABLE " + namespace + ".\"Unexpected\" (\"id\" INTEGER PRIMARY KEY)");
+        CommandResult drift = deploy(upgrade, beforeDrift);
+        assertEquals(2, drift.code());
+        assertTrue(drift.error().contains("TUPREL-MANAGED-DEPLOY: CATALOG"));
         assertFalse(columnExists("note"));
-        execute("DROP TABLE " + namespace + ".\"Unexpected\"");
-        execute("DROP INDEX " + namespace + ".\"Product_stock_idx\"");
-        execute("CREATE INDEX \"Product_stock_idx\" ON " + namespace + ".\"Product\" (\"stock\")");
-        assertEquals(2, deploy(upgrade, beforeDrift).code());
+        externalDdl("DROP TABLE " + namespace + ".\"Unexpected\"",
+                "DROP INDEX " + namespace + ".\"Product_stock_idx\"",
+                "CREATE INDEX \"Product_stock_idx\" ON " + namespace + ".\"Product\" (\"stock\")");
+        CommandResult replaced = deploy(upgrade, beforeDrift);
+        assertEquals(2, replaced.code());
+        assertTrue(replaced.error().contains("TUPREL-MANAGED-DEPLOY: APPROVAL"));
         String reviewedUpgrade = reviewToken(upgrade);
         assertNotEquals(beforeDrift, reviewedUpgrade);
         assertEquals(0, deploy(upgrade, reviewedUpgrade).code());
@@ -676,11 +680,23 @@ class InitialBootstrapIntegrationTest {
         consumer.exercise(application, "--verify-upgrade");
     }
 
+    private void externalDdl(String... commands) throws SQLException {
+        try (Connection connection = settings.dataSource().getConnection(); Statement statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            statement.execute("SET LOCAL ROLE " + quote(managedOwner));
+            for (String command : commands) { statement.execute(command); }
+            connection.commit();
+        }
+    }
+
     private PGSimpleDataSource provisionConsumerLogin() throws SQLException {
         consumerLogin = new SqlIdentifier("consumer_" + UUID.randomUUID().toString().replace("-", ""));
         execute("CREATE ROLE " + quote(consumerLogin) + " NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS");
         PGSimpleDataSource source = new PGSimpleDataSource();
-        source.setURL(database.dataSource().getURL());
+        PGSimpleDataSource administrator = database.dataSource();
+        source.setServerNames(administrator.getServerNames());
+        source.setPortNumbers(administrator.getPortNumbers());
+        source.setDatabaseName(administrator.getDatabaseName());
         source.setCurrentSchema(target.name());
         source.setUser(consumerLogin.name());
         byte[] entropy = new byte[32];
@@ -695,6 +711,14 @@ class InitialBootstrapIntegrationTest {
         execute("GRANT USAGE ON SCHEMA " + quote(target) + " TO " + quote(consumerLogin));
         execute("GRANT SELECT, INSERT, UPDATE, DELETE ON " + quote(target) + ".\"Product\", "
                 + quote(target) + ".\"Purchase\" TO " + quote(consumerLogin));
+        try (Connection connection = source.getConnection(); Statement query = connection.createStatement(); ResultSet row = query.executeQuery("""
+                SELECT CURRENT_SCHEMA, CURRENT_USER, pg_catalog.has_schema_privilege(CURRENT_SCHEMA, 'CREATE')
+                """)) {
+            assertTrue(row.next());
+            assertEquals(target.name(), row.getString(1));
+            assertEquals(consumerLogin.name(), row.getString(2));
+            assertFalse(row.getBoolean(3));
+        }
         return source;
     }
 

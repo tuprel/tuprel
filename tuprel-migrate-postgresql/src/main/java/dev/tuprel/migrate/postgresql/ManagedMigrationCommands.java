@@ -88,6 +88,9 @@ final class ManagedMigrationCommands {
                 out.println("Plan: " + review.plan().state());
                 out.println("Applied: " + review.applied());
                 out.println("Risks: " + review.plan().risks().stream().sorted().toList());
+                for (MigrationPlan.Script script : review.plan().scripts()) {
+                    out.println("Pending " + script.id().value() + "_" + script.name() + " SHA-256 " + script.checksum().value());
+                }
                 out.print(review.plan().preview());
                 review.token().ifPresent(token -> out.println("Physical approval: " + token));
                 return 0;
