@@ -24,5 +24,15 @@ because restoring files would bypass those checks. The plugin runs neither
 migrations nor database operations. The independent consumer fixture checks
 Gradle 9.7.1 and 9.8.2 on Java 21. It enables the build cache, verifies that a
 clean build runs generation again, and checks that the CLI refuses a manual
-edit to an owned file. Plugin Portal publication and other Gradle versions
-remain pending.
+edit to an owned file.
+
+The distribution fixture stages the plugin marker and implementation in a
+temporary Maven repository. It runs the same consumer offline, resolving
+the explicit plugin ID and fixture version without TestKit classpath
+injection.
+
+```powershell
+pwsh -File test-support/distribution/Verify-StagedGradlePlugin.ps1
+```
+
+Plugin Portal publication and other Gradle versions remain pending.

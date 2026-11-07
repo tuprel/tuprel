@@ -33,11 +33,21 @@ class TuprelCodegenPluginTest {
         String cli = System.getProperty("tuprel.fixture.artifact.0");
         String runtime = System.getProperty("tuprel.fixture.artifact.1");
         String sql = System.getProperty("tuprel.fixture.artifact.2");
-        Files.writeString(project.resolve("settings.gradle"), "rootProject.name = 'external-codegen-consumer'\n");
+        String repository = System.getProperty("tuprel.fixture.plugin.repository");
+        String settings = repository == null ? "" : """
+                pluginManagement {
+                    repositories {
+                        maven { url = uri('%s') }
+                    }
+                }
+                """.formatted(quote(repository));
+        Files.writeString(project.resolve("settings.gradle"), settings + "rootProject.name = 'external-codegen-consumer'\n");
+        String plugin = repository == null ? "id 'dev.tuprel.codegen'"
+                : "id 'dev.tuprel.codegen' version '0.0.0-fixture'";
         Files.writeString(project.resolve("build.gradle"), """
                 plugins {
                     id 'java'
-                    id 'dev.tuprel.codegen'
+                    %s
                 }
                 tuprelCodegen {
                     cliClasspath.from(fileTree('%s') { include '*.jar' })
@@ -46,7 +56,7 @@ class TuprelCodegenPluginTest {
                     implementation(fileTree('%s') { include '*.jar' })
                     implementation(fileTree('%s') { include '*.jar' })
                 }
-                """.formatted(quote(cli), quote(runtime), quote(sql)));
+                """.formatted(plugin, quote(cli), quote(runtime), quote(sql)));
         Path schema = Files.createDirectories(project.resolve("tuprel")).resolve("schema.tuprel");
         Files.writeString(schema, SCHEMA);
         Path handwritten = Files.createDirectories(project.resolve("src/main/java")).resolve("Consumer.java");
@@ -84,9 +94,11 @@ class TuprelCodegenPluginTest {
 
     private static GradleRunner runner(Path directory, String... tasks) {
         List<String> arguments = new ArrayList<>(List.of("--build-cache"));
+        String repository = System.getProperty("tuprel.fixture.plugin.repository");
+        if (repository != null) arguments.add("--offline");
         arguments.addAll(List.of(tasks));
-        GradleRunner runner = GradleRunner.create().withProjectDir(directory.toFile())
-                .withPluginClasspath().withArguments(arguments);
+        GradleRunner runner = GradleRunner.create().withProjectDir(directory.toFile()).withArguments(arguments);
+        if (repository == null) runner.withPluginClasspath();
         String installation = System.getProperty("tuprel.fixture.gradle.installation");
         if (installation != null) {
             runner.withGradleInstallation(Path.of(installation).toFile());

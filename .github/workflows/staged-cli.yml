@@ -53,6 +53,10 @@ jobs:
       - name: Compile and upgrade an external Maven consumer
         shell: pwsh
         run: ./test-support/distribution/Verify-MavenConsumer.ps1 -PreviousCheckout build/maven-upgrade-fixture
+      - name: Resolve the staged Gradle plugin marker in an external project
+        if: runner.os == 'Linux'
+        shell: pwsh
+        run: ./test-support/distribution/Verify-StagedGradlePlugin.ps1
       - name: Exercise signed installation, version switching and recovery
         shell: pwsh
         run: ./test-support/distribution/Verify-SignedCli.ps1

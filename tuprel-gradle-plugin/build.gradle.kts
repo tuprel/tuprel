@@ -15,6 +15,10 @@ dependencies {
 }
 
 tasks.test {
+    providers.gradleProperty("tuprelConsumerPluginRepository").orNull?.let { repository ->
+        inputs.dir(repository).withPathSensitivity(PathSensitivity.RELATIVE)
+        systemProperty("tuprel.fixture.plugin.repository", repository)
+    }
     providers.gradleProperty("tuprelConsumerGradleInstallation").orNull?.let { installation ->
         inputs.dir(installation).withPathSensitivity(PathSensitivity.RELATIVE)
         systemProperty("tuprel.fixture.gradle.installation", installation)
