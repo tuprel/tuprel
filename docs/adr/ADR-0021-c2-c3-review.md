@@ -248,6 +248,56 @@ Este gate cobre a identidade PostgreSQL. O emissor do ambiente continua
 responsável por verificar a versão e o artefacto e por manter a
 credencial fora de executores e jobs não autorizados.
 
+### Supervisor local para a prova de emissão
+
+A C3.2c usa uma invocação privada do supervisor Java, iniciada pelo
+operador. O perfil exige uma conta e instalação controladas, com JVM,
+classpath, configuração, pin e acesso administrativo inacessíveis ao
+projecto e a jobs genéricos. O supervisor não oferece endpoint de emissão,
+não carrega código do projecto e não aceita claims de identidade do
+processo candidato. A política compara o caminho canónico e SHA-256 do
+JAR efectivamente carregado, o identificador e a versão no manifesto e o
+domínio e versão do protocolo físico. A instalação protegida é uma
+precondição. A leitura do JAR não atesta dependências ou uma JVM já
+comprometida.
+
+A primeira autoridade de escrita exige POSIX. Compara o UID obtido pelo
+JDK com o UID fixado na política e verifica o JAR e todos os ancestrais.
+Recusa links, owners diferentes de root ou do supervisor e caminhos
+graváveis por grupo ou terceiros. A separação de jobs que partilham um
+UID não é verificável neste perfil e constitui motivo para não o activar.
+O Windows continua a poder executar as provas do JAR e do protocolo,
+sem activar o emissor.
+
+O supervisor consome a invocação uma vez. Verifica a proveniência assinada
+e o alvo vivo antes de chamar a autoridade que provisiona o segredo. O
+login reservado começa em `NOLOGIN`, sem password e com limite de uma
+ligação. Sob um lock administrativo separado, a autoridade pode
+configurar um verifier SCRAM para uma password aleatória de vida curta.
+O supervisor autentica uma ligação dedicada e volta a impor `NOLOGIN`,
+removendo o verifier, antes de entregar a ligação ao runner. Confirma
+que o único backend desse login é o que abriu, no database autorizado.
+O executor recebe uma fonte de uma só ligação. Nenhum argumento,
+variável de ambiente ou ficheiro do executor transporta a password.
+
+O runner verifica o selo, a exclusividade e o prazo do backend em cada
+transacção. Usa os gates físicos existentes e reduz o timeout da
+transacção ao tempo restante da lease. Uma falha de emissão, autenticação
+ou selagem recusa a execução antes do DDL. O supervisor tenta repor
+`NOLOGIN` mesmo se a autenticação falhar. Se perder acesso administrativo
+durante essa janela, a credencial de autenticação ainda expira pelo
+prazo definido no PostgreSQL. O perfil pressupõe uma identidade de
+login dedicada ao alvo e exclusão de DDL e mudanças de roles concorrentes.
+A confirmação e a reconciliação continuam regidas pelo ADR-0021.
+
+Na CI, uma autoridade de fixture usa o driver PostgreSQL para gerar o
+verifier sem inserir a password em comandos SQL. Os testes positivos
+correm com roles descartáveis num PostgreSQL 17 isolado. Em Windows
+local, a prova verifica o JAR, o protocolo e a recusa sem privilégios
+administrativos. O launcher legado continua coberto pela prova de corte.
+O perfil é interno. A instalação e o corte por ambiente continuam a
+exigir validação operacional e autorização própria.
+
 ## Decisões para aprovação
 
 - Aprovisionamento separado com autorização de uso único, recibo

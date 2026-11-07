@@ -10,6 +10,8 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.io.PrintWriter;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -66,7 +68,13 @@ public final class MigrationDatabaseSettings {
      * Requires a PostgreSQL JDBC driver on the consumer runtime classpath.
      * @return datasource that never logs credentials
      */
-    public DataSource dataSource() { return new ConfiguredDataSource(); }
+    public DataSource dataSource() { return new ConfiguredDataSource(Optional.empty()); }
+
+    DataSource singleSession(Connection connection) {
+        return new ConfiguredDataSource(Optional.of(new AtomicReference<>(connection)));
+    }
+
+    boolean isLogin(String expected) { return user.equals(expected); }
 
     /** Checks the owned session against configured context without logging it. */
     boolean matches(Connection connection, dev.tuprel.sql.SqlIdentifier schema) throws SQLException {
@@ -134,7 +142,16 @@ public final class MigrationDatabaseSettings {
     }
 
     private final class ConfiguredDataSource implements DataSource {
+        private final Optional<AtomicReference<Connection>> leased;
+
+        private ConfiguredDataSource(Optional<AtomicReference<Connection>> leased) { this.leased = leased; }
+
         @Override public Connection getConnection() throws SQLException {
+            if (leased.isPresent()) {
+                Connection connection = leased.orElseThrow().getAndSet(null);
+                if (connection == null) { throw new SQLException("Managed session already claimed"); }
+                return connection;
+            }
             Properties properties = new Properties();
             properties.setProperty("user", user);
             properties.setProperty("password", password);

@@ -44,6 +44,33 @@ final class PostgresqlInitialBootstrap {
         return run(schema, authorization, false);
     }
 
+    boolean verifiesIssuanceTarget(Connection connection, SqlIdentifier schema,
+            InitialBootstrapAuthorization authorization) throws SQLException {
+        InitialBootstrapAuthorization.Claims claims = authorization.claims();
+        if (!trusted(schema, authorization, false) || !settings.matches(connection, schema)
+                || InitialBootstrapLedger.relationOid(connection, InitialBootstrapLedger.table(ledger.schema())) != ledger.oid()) {
+            return false;
+        }
+        try (PreparedStatement query = MigrationCatalog.query(connection, """
+                SELECT (SELECT system_identifier FROM pg_catalog.pg_control_system()) = ?
+                    AND d.oid = ?::pg_catalog.oid AND n.oid = ?::pg_catalog.oid
+                FROM pg_catalog.pg_database d CROSS JOIN pg_catalog.pg_namespace n
+                WHERE d.datname = pg_catalog.current_database() AND n.nspname COLLATE pg_catalog."C" = ?
+                """)) {
+            query.setLong(1, claims.cluster());
+            query.setLong(2, claims.database());
+            query.setLong(3, claims.namespace());
+            query.setString(4, schema.name());
+            try (ResultSet row = query.executeQuery()) {
+                if (!row.next() || !row.getBoolean(1) || row.next()) { return false; }
+            }
+        }
+        InitialBootstrapLedger.Receipt receipt = ledger.read(connection, claims);
+        String history = MigrationCatalog.table(new DdlStatement.TableName(schema, new SqlIdentifier(MigrationHistoryTable.NAME)));
+        return receipt.registered() && claims.nonce().equals(receipt.nonce()) && receipt.historyOid() > 0
+                && InitialBootstrapLedger.relationOid(connection, history) == receipt.historyOid();
+    }
+
     /** Fresh read-only reconciliation, permitted after the signed authorization expires. */
     Outcome reconcile(SqlIdentifier schema, InitialBootstrapAuthorization authorization) {
         return run(schema, authorization, true);
