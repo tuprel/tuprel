@@ -1,0 +1,39 @@
+name: Staged CLI
+
+on:
+  pull_request:
+    branches: [main, 'feat/**']
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Staged CLI (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: Linux, runner: ubuntu-24.04 }
+          - { platform: Windows, runner: windows-2025 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Build and verify an installed archive outside the checkout
+        shell: pwsh
+        run: |
+          $gradle = if ($IsWindows) { '.\gradlew.bat' } else { './gradlew' }
+          & $gradle :tuprel-cli:distZip --no-daemon --dependency-verification strict
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $archive = @(Get-ChildItem tuprel-cli/build/distributions -File -Filter '*.zip')
+          if ($archive.Count -ne 1) { throw 'Expected one CLI archive' }
+          ./test-support/distribution/Verify-StagedCli.ps1 -Archive $archive[0].FullName
