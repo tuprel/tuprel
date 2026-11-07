@@ -15,6 +15,7 @@ import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -37,13 +38,17 @@ final class NativeMigrationPublisher {
     }
 
     Outcome publish(Path root, MigrationFile candidate) {
+        return publish(root, candidate, Optional.empty(), () -> {});
+    }
+
+    Outcome publish(Path root, MigrationFile candidate, Optional<MigrationChecksum> expected, BeforeRename check) {
         Outcome outcome = Outcome.REFUSED;
         try {
             Path canonical = catalog(root);
             installation.verify(canonical.getParent().getParent());
             MigrationCreator.CatalogLock lock = MigrationCreator.acquire(canonical);
             try (lock) {
-                outcome = publishLocked(canonical, candidate);
+                outcome = publishLocked(canonical, candidate, expected, check);
             }
         } catch (IOException | SecurityException | IllegalArgumentException | OverlappingFileLockException failure) {
             return outcome;
@@ -81,10 +86,13 @@ final class NativeMigrationPublisher {
         catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); return false; }
     }
 
-    private Outcome publishLocked(Path root, MigrationFile candidate) throws IOException {
+    private Outcome publishLocked(Path root, MigrationFile candidate, Optional<MigrationChecksum> expected, BeforeRename check)
+            throws IOException {
         Path journal = NativePublicationReceipt.path(root);
         if (!Files.notExists(journal, LinkOption.NOFOLLOW_LINKS)) { return Outcome.PUBLICATION_UNKNOWN; }
         List<MigrationFile> existing = MigrationDirectory.discover(root);
+        MigrationChecksum baseline = digest(existing);
+        if (expected.isPresent() && !expected.orElseThrow().equals(baseline)) { return Outcome.REFUSED; }
         byte[] sql = candidate.sql().getBytes(StandardCharsets.UTF_8);
         if (!existing.isEmpty() && existing.getLast().id().compareTo(candidate.id()) >= 0) { return Outcome.REFUSED; }
         if (existing.size() >= MigrationDirectory.MAX_MIGRATIONS || sql.length + existing.stream()
@@ -102,7 +110,8 @@ final class NativeMigrationPublisher {
         boolean recorded = false;
         try (NativeRenameProcess process = NativeRenameProcess.start(executable, parent, stageName, candidate.directoryName())) {
             NativePublicationReceipt receipt = new NativePublicationReceipt(generation, stageName, candidate.directoryName(),
-                    candidate.checksum(), digest(existing), process.identity("READY"));
+                    candidate.checksum(), baseline, process.identity("READY"));
+            check.verify();
             if (!staged(stage, receipt.checksum()) || !digest(MigrationDirectory.discover(root)).equals(receipt.baseline())) {
                 return Outcome.REFUSED;
             }
@@ -121,7 +130,7 @@ final class NativeMigrationPublisher {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             return recorded ? Outcome.PUBLICATION_UNKNOWN : Outcome.REFUSED;
-        } catch (IOException | SecurityException failure) {
+        } catch (IOException | RuntimeException failure) {
             return recorded ? Outcome.PUBLICATION_UNKNOWN : Outcome.REFUSED;
         }
     }
@@ -146,7 +155,7 @@ final class NativeMigrationPublisher {
         }
     }
 
-    private static Path catalog(Path root) throws IOException {
+    static Path catalog(Path root) throws IOException {
         Path canonical = MigrationDirectory.validatedRoot(root);
         if (canonical.getParent() == null || canonical.getParent().getParent() == null
                 || !canonical.getFileName().toString().equals("migrations")
@@ -180,7 +189,7 @@ final class NativeMigrationPublisher {
         }
     }
 
-    private static MigrationChecksum digest(List<MigrationFile> catalog) {
+    static MigrationChecksum digest(List<MigrationFile> catalog) {
         StringBuilder canonical = new StringBuilder("TUPREL-PUBLICATION-BASELINE 1\n");
         for (MigrationFile file : catalog) {
             canonical.append(file.directoryName()).append(' ').append(file.checksum().value()).append('\n');
@@ -191,5 +200,10 @@ final class NativeMigrationPublisher {
     @FunctionalInterface
     interface InterruptionPoint {
         void check(boolean renamed) throws IOException;
+    }
+
+    @FunctionalInterface
+    interface BeforeRename {
+        void verify() throws IOException;
     }
 }

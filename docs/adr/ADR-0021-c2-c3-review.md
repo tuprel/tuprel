@@ -302,6 +302,27 @@ pela prova de corte.
 O perfil é interno. A instalação e o corte por ambiente continuam a
 exigir validação operacional e autorização própria.
 
+### Ligação entre o plano gerido e o publicador
+
+A C3.3A usa a sessão selada do supervisor para tomar primeiro o lock de
+sessão de migrations. O plano parte de um histórico inteiramente aplicado,
+de proveniência verificada e sem drift no perfil de catálogo. A projeção e
+o replay partilham o mesmo planner do preview. A publicação usa a snapshot
+do schema e o catálogo exacto usado pelo planner. Depois de obter o lock de
+ficheiros, volta a verificar caminhos, identidades e bytes. Antes do `GO`
+nativo abre uma segunda observação read-only na mesma sessão e exige a
+mesma evidência física. O lock de sessão cobre a publicação e coordena
+executores Tuprel. O controlo operacional exclui DDL externo e escritores
+que partilhem a conta do supervisor durante a janela.
+
+O perfil de integração inicial é Linux x86-64 com ext4 local e instalação
+protegida. A assinatura e o SHA-256 são verificados antes de pedir uma
+sessão ao emissor. O helper continua a verificar identidades e filesystem
+no momento do rename. Um resultado confirmado devolve apenas o ficheiro,
+sem aprovação de deploy. O recibo é preservado até reconhecimento
+explícito do resultado. O launcher público mantém o preview enquanto
+as provas da instalação gerida e do consumidor independente decorrem.
+
 ## Decisões para aprovação
 
 - Aprovisionamento separado com autorização de uso único, recibo

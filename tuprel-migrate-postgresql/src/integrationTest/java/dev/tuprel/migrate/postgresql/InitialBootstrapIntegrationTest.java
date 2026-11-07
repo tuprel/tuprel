@@ -6,13 +6,17 @@ import static org.junit.jupiter.api.Assertions.*;
 import dev.tuprel.migrate.MigrationHistory;
 import dev.tuprel.migrate.MigrationChecksum;
 import dev.tuprel.migrate.MigrationDirectory;
+import dev.tuprel.migrate.MigrationFile;
+import dev.tuprel.migrate.NativeMigrationPublication;
 import dev.tuprel.sql.SqlIdentifier;
 import dev.tuprel.testsupport.TestPostgresql;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.SecureRandom;
@@ -518,6 +522,103 @@ class InitialBootstrapIntegrationTest {
         assertEquals(5, issued.get());
         assertCredentialRejected(captured.get());
         assertEquals(result.confirmed(), new PostgresqlMigrationHistory(settings.dataSource()).read(target.name()).applied());
+    }
+
+    @Test void managedPublicationWritesExactSqlWithoutApplyingIt(@TempDir Path directory) throws Exception {
+        InitialBootstrapAuthorization proof = sign(claims);
+        PostgresqlInitialBootstrap provisioner = bootstrap(settings.dataSource());
+        assertEquals(Outcome.BOOTSTRAPPED, provisioner.bootstrap(target, proof));
+        Path jar = Path.of(MigrationRunner.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toRealPath();
+        boolean unix = java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("unix");
+        long uid = unix ? new com.sun.security.auth.module.UnixSystem().getUid() : 0;
+        ManagedExecutorPin pin = new ManagedExecutorPin(jar, MigrationChecksum.of(Files.readAllBytes(jar)), "development",
+                PhysicalDeployDigest.DOMAIN, PhysicalDeployDigest.VERSION, uid);
+        SqlIdentifier ledgerOwner = new SqlIdentifier(database.dataSource().getUser());
+        String fixtureBinary = System.getProperty("tuprel.test.publisher");
+        String fixtureVolume = System.getProperty("tuprel.test.publicationVolume");
+        if (fixtureBinary.isEmpty() && fixtureVolume.isEmpty()) {
+            ManagedMigrationRole role = new ManagedMigrationRole(new SqlIdentifier("untrusted_owner"), ledgerOwner);
+            ManagedCredentialIssuer refused = issuer(pin, ignored -> { throw new AssertionError("Credentials were requested"); },
+                    provisioner, new SqlIdentifier("untrusted_login"), role);
+            assertEquals(ManagedDevPublication.State.REFUSED, refused.publish(directory.resolve("migrations"), Path.of("schema.tuprel"),
+                    "initial", directory, key.getPublic(), proof, Clock.fixed(NOW, ZoneOffset.UTC)).state());
+            assertTrue(historyInitialised());
+            return;
+        }
+        assertEquals("container", System.getProperty("tuprel.test.database"));
+        Path binary = Path.of(fixtureBinary).toRealPath();
+        Path project = Files.createTempDirectory(Path.of(fixtureVolume), "managed-dev-").toRealPath();
+        Path catalog = Files.createDirectories(project.resolve("tuprel/migrations"));
+        Files.writeString(catalog.resolve(MigrationDirectory.FORMAT_FILE), MigrationDirectory.FORMAT_HEADER);
+        Path schema = Files.writeString(project.resolve("tuprel/schema.tuprel"), """
+                model Product {
+                  id Int @id
+                  label String
+                }
+                """);
+        Path installation = Files.createTempDirectory(binary.getParent(), "signed-publisher-");
+        Path installed = Files.copy(binary, installation.resolve("publisher"), StandardCopyOption.COPY_ATTRIBUTES);
+        byte[] manifest = ("TUPREL-NATIVE-PUBLISHER 2\nos linux\narch x86_64\nsha256 "
+                + MigrationChecksum.of(Files.readAllBytes(installed)).value() + "\n").getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        Files.write(installation.resolve("manifest.txt"), manifest);
+        Signature signer = Signature.getInstance("Ed25519");
+        signer.initSign(key.getPrivate());
+        signer.update(manifest);
+        Files.write(installation.resolve("manifest.ed25519"), signer.sign());
+        Files.setPosixFilePermissions(installed, PosixFilePermissions.fromString("rwxr-xr-x"));
+        for (String metadata : java.util.List.of("manifest.txt", "manifest.ed25519")) {
+            Path path = installation.resolve(metadata);
+            Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-r--r--"));
+            assertTrue(pin.protectedFile(path), "Signed fixture metadata must be operator-controlled");
+        }
+        assertTrue(pin.protectedFile(installed), "The native fixture must be operator-controlled");
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        ManagedMigrationRole role = provisionSealedFixture(ledgerOwner);
+        ManagedCredentialIssuer.CredentialSource credentials = this::issueFixtureCredential;
+        Files.write(installed, new byte[]{0}, StandardOpenOption.APPEND);
+        assertEquals(ManagedDevPublication.State.REFUSED,
+                issuer(pin, ignored -> { throw new AssertionError("Credentials were requested"); }, provisioner, managedLogin, role)
+                        .publish(catalog, schema, "initial", installation, key.getPublic(), proof, clock).state());
+        Files.copy(binary, installed, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+        Files.setPosixFilePermissions(installed, PosixFilePermissions.fromString("rwxr-xr-x"));
+        assertTrue(pin.protectedFile(installed), "Restored native fixture must be operator-controlled");
+        NativeMigrationPublication recovery = new NativeMigrationPublication(catalog, installation, key.getPublic(), claims.generation(), clock);
+        assertFalse(recovery.hasUnresolvedAttempt());
+        assertTrue(MigrationDirectory.discover(catalog).isEmpty());
+        PostgresqlPhysicalApproval.Approval stale = issuer(pin, credentials, provisioner, managedLogin, role)
+                .inspect(catalog, proof).approval();
+        ManagedDevPublication.Result publication = issuer(pin, credentials, provisioner, managedLogin, role)
+                .publish(catalog, schema, "initial", installation, key.getPublic(), proof, clock);
+        assertEquals(ManagedDevPublication.State.PUBLISHED, publication.state(), publication::toString);
+        MigrationFile artifact = publication.file().orElseThrow();
+        assertEquals(publication.proposal().orElseThrow().sql().orElseThrow(), artifact.sql());
+        assertEquals(artifact.checksum(), MigrationDirectory.discover(catalog).getFirst().checksum());
+        assertTrue(historyInitialised());
+        assertFalse(relationExists("Product"));
+        assertEquals(ManagedDevPublication.State.PUBLICATION_UNKNOWN, issuer(pin, credentials, provisioner, managedLogin, role)
+                .publish(catalog, schema, "second", installation, key.getPublic(), proof, clock).state());
+        assertEquals(NativeMigrationPublication.State.PUBLISHED, recovery.reconcile());
+        assertTrue(recovery.acknowledge(NativeMigrationPublication.State.PUBLISHED));
+        assertEquals(ManagedDevPublication.State.REFUSED, issuer(pin, credentials, provisioner, managedLogin, role)
+                .publish(catalog, schema, "second", installation, key.getPublic(), proof, clock).state());
+        assertEquals(MigrationExecutionResult.Failure.APPROVAL, issuer(pin, credentials, provisioner, managedLogin, role)
+                .deploy(catalog, stale, proof).failure());
+        assertTrue(historyInitialised());
+        PostgresqlPhysicalApproval.Approval approved = issuer(pin, credentials, provisioner, managedLogin, role)
+                .inspect(catalog, proof).approval();
+        assertEquals(MigrationExecutionResult.Outcome.APPLIED, issuer(pin, credentials, provisioner, managedLogin, role)
+                .deploy(catalog, approved, proof).outcome());
+        assertTrue(relationExists("Product"));
+        assertEquals(artifact.checksum(), new PostgresqlMigrationHistory(settings.dataSource()).read(target.name())
+                .applied().getFirst().checksum());
+    }
+
+    private boolean relationExists(String name) throws SQLException {
+        try (Connection connection = settings.dataSource().getConnection(); PreparedStatement query = connection.prepareStatement(
+                "SELECT pg_catalog.to_regclass(?) IS NOT NULL")) {
+            query.setString(1, quote(target) + ".\"" + name + "\"");
+            try (ResultSet row = query.executeQuery()) { return row.next() && row.getBoolean(1); }
+        }
     }
 
     private static int runPinProbe(Path jar, MigrationChecksum expected) throws Exception {
