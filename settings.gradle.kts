@@ -48,3 +48,4 @@ dependencyResolutionManagement {
      * automaticamente pelo Gradle; não precisa de declaração explícita.
      */
 }
+include("tuprel-gradle-plugin")

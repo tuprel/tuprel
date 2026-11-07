@@ -31,8 +31,8 @@ RFC-004, RFC-005, ADR-0010, ADR-0011).
 A F6-001 acrescenta `tuprel-migrate`, com identificação, ficheiros e checksums
 puros (ADR-0012 aceite). F6-002B acrescenta o adapter PostgreSQL read-only
 (ADRs 0013/0014 aceites); F6-003B acrescenta o runner no mesmo adapter,
-conforme ADRs 0015–0017. Os restantes módulos
-continuam planeados. `build-logic` é um included build de
+conforme ADRs 0015–0017. O plugin Gradle e o starter Spring Boot são integrações de desenvolvimento.
+Os restantes módulos continuam planeados. `build-logic` é um included build de
 infraestrutura e não faz parte deste grafo de produto.
 
 `test-support/src/main/java` contém apenas suporte local partilhado pelas
@@ -49,6 +49,13 @@ Integração de desenvolvimento com Spring Boot 4.1. O módulo expõe o tipo
 de bean `TuprelDatabase` através da dependência API no runtime. Usa o adapter
 PostgreSQL e a auto-configuração Spring Boot internamente. O DataSource
 pertence à aplicação. Nenhum módulo central depende deste starter.
+
+### `tuprel-gradle-plugin`
+
+Integração de desenvolvimento que chama a CLI a partir de uma instalação
+configurada pelo projecto consumidor. Regista a validação e liga a geração
+à compilação Java. O plugin usa a API Gradle e a CLI no classpath do
+processo de geração. O core fica independente de Gradle.
 
 ### `tuprel-schema`
 
