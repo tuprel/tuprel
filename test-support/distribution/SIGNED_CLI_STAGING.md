@@ -16,10 +16,18 @@ The fixture installs versions side by side and switches the process PATH
 explicitly. It confirms the selected version and restores the previous PATH.
 Scoped removal checks the installed bytes and refuses unknown files before
 deleting. Each invocation assumes the private directory remains under the
-same user's exclusive control. An interrupted install can leave a reserved
-version directory that requires inspection. A failed removal can leave a
-partially removed version. No automatic cleanup or retry is part of the
-installer contract.
+same user's exclusive control. Install and removal cooperate through a lock
+in the private root. An install writes a temporary sibling and selects it with
+a same-filesystem atomic move after all writes finish. The fixture simulates
+an abandoned install and verifies a fresh attempt from the signed inputs. The
+abandoned sibling remains available for inspection. A failed removal can leave
+a partially removed version. Atomic visibility of the directory is separate
+from durability after power loss.
+
+The fixture packages a standalone verifier JAR and supplies the public key
+as a bounded Ed25519 SubjectPublicKeyInfo DER file. It requires a SHA-256
+fingerprint obtained separately from the bundle. The verifier authenticates
+the archive without installing it and rejects a mismatched fingerprint.
 
 This is staging evidence. A public installer still needs a trusted mechanism
 to distribute its verification key, a tested user-directory and ACL policy,
