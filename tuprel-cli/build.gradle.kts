@@ -24,6 +24,7 @@ tasks.named<Test>("integrationTest") {
     systemProperty("tuprel.test.env.file", rootProject.layout.projectDirectory
         .file("examples/tuprel-playground/.env").asFile.absolutePath)
     systemProperty("tuprel.cli.launcher", layout.buildDirectory.file("install/tuprel/bin/tuprel").get().asFile.absolutePath)
+    systemProperty("tuprel.cli.legacyLauncher", providers.gradleProperty("tuprelLegacyCliLauncher").getOrElse(""))
     outputs.upToDateWhen { false }
     outputs.doNotCacheIf("Integration tests use external database state") { true }
 }

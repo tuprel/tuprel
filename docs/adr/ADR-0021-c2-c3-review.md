@@ -211,6 +211,24 @@ ler novos ficheiros, mas não retiraria a sua capacidade de escrever com
 credenciais privilegiadas. O controlo de acesso continua obrigatório.
 [PostgreSQL REVOKE](https://www.postgresql.org/docs/17/sql-revoke.html).
 
+### Prova da via legada
+
+A CI compila a CLI anterior a partir de `48b08e6`. Num alvo PostgreSQL 17
+isolado, a prova aplica uma migration com a identidade legada, transfere
+ownership, retira os grants de escrita e confirma que nem um digest legado
+recalculado permite aplicar a migration seguinte. O status continua
+disponível durante a janela de leitura. A fixture Linux usa roles
+separadas, confirma a ausência de membership de ownership e testa NOLOGIN
+e a terminação de uma sessão anterior. Depois do corte, uma identidade
+independente com acesso read-only continua a consultar o status. O perfil local confirma a recusa
+do launcher com os grants de teste existentes. A conta local conserva
+a capacidade de assumir a role de fixture e, por isso, essa execução não
+demonstra a exclusão de todos os caminhos de escrita.
+
+Esta prova cobre a retirada da via legada. A via gerida ainda exige um
+executor fixado e um emissor que vincule a credencial ao artefacto e
+à versão do protocolo. O corte operacional exige autorização por alvo.
+
 ## Decisões para aprovação
 
 - Aprovisionamento separado com autorização de uso único, recibo

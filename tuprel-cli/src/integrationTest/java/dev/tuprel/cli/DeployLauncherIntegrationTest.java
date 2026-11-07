@@ -12,10 +12,12 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -26,6 +28,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.io.TempDir;
 import org.postgresql.ds.PGSimpleDataSource;
 
@@ -74,6 +77,178 @@ class DeployLauncherIntegrationTest {
         Result status = launch(true, false, "migrate", "status", "--target-schema", schema);
         assertEquals(0, status.exit()); assertTrue(status.output().contains("APPLIED"));
     }
+
+    @Test
+    @EnabledIfSystemProperty(named = "tuprel.cli.legacyLauncher", matches = ".+")
+    void pinnedLegacyExecutorLosesWriteAccessAfterFixtureCutover() throws Exception {
+        boolean isolatedRoles = System.getProperty("tuprel.test.database").equals("container");
+        String suffix = UUID.randomUUID().toString().replace("-", "");
+        String owner = isolatedRoles ? "cutover_owner_" + suffix : "tuprel_status_reader";
+        String legacyUser = isolatedRoles ? "cutover_legacy_" + suffix : source.getUser();
+        String credential = isolatedRoles ? UUID.randomUUID().toString() : source.getPassword();
+        PGSimpleDataSource legacy = fixtureLogin(legacyUser, credential);
+        String oldLauncher = System.getProperty("tuprel.cli.legacyLauncher");
+        String protectedSchema = schema + "_cut";
+        String namespace = quote(protectedSchema);
+        String history = namespace + ".\"_tuprel_migrations\"";
+        String items = namespace + ".\"items\"";
+        boolean ownerCreated = false;
+        boolean legacyCreated = false;
+        boolean protectedCreated = false;
+        try {
+            if (isolatedRoles) {
+                execute("CREATE ROLE " + quote(owner) + " NOLOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB");
+                ownerCreated = true;
+                execute("CREATE ROLE " + quote(legacyUser)
+                        + " LOGIN NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOBYPASSRLS PASSWORD '" + credential + "'");
+                legacyCreated = true;
+            }
+            execute("CREATE SCHEMA " + namespace + " AUTHORIZATION " + quote(owner));
+            protectedCreated = true;
+            asOwner(owner, "GRANT USAGE, CREATE ON SCHEMA " + namespace + " TO " + quote(legacyUser));
+            Path original = migration("20261031_120000_initial", "CREATE TABLE " + items + " (\"id\" INTEGER PRIMARY KEY);\n");
+            byte[] bytes = Files.readAllBytes(original);
+            Result initial = launch(legacy, oldLauncher, true, true, "migrate", "deploy", "--target-schema", protectedSchema, "--dry-run");
+            assertEquals(0, initial.exit(), initial::output);
+            Result applied = launch(legacy, oldLauncher, true, true,
+                    "migrate", "deploy", "--target-schema", protectedSchema, "--approve-digest", digest(initial));
+            assertEquals(0, applied.exit(), applied::output);
+            MigrationHistory before = new PostgresqlMigrationHistory(source).read(protectedSchema);
+            assertEquals(1, before.applied().size());
+
+            execute("ALTER TABLE " + items + " OWNER TO " + quote(owner));
+            execute("ALTER TABLE " + history + " OWNER TO " + quote(owner));
+            asOwner(owner, "REVOKE CREATE ON SCHEMA " + namespace + " FROM " + quote(legacyUser)
+                    + "; REVOKE ALL ON " + history + " FROM " + quote(legacyUser)
+                    + "; GRANT SELECT ON " + history + " TO " + quote(legacyUser));
+            try (Connection connection = legacy.getConnection();
+                    PreparedStatement probe = connection.prepareStatement("""
+                        SELECT pg_catalog.has_schema_privilege(?, 'CREATE'),
+                               pg_catalog.has_table_privilege(?, 'INSERT'),
+                               pg_catalog.has_table_privilege(?, 'SELECT'),
+                               pg_catalog.pg_has_role(?, 'MEMBER')
+                        """)) {
+                probe.setString(1, protectedSchema);
+                probe.setString(2, history);
+                probe.setString(3, history);
+                probe.setString(4, owner);
+                try (ResultSet rows = probe.executeQuery()) {
+                    assertTrue(rows.next());
+                    assertFalse(rows.getBoolean(1));
+                    assertFalse(rows.getBoolean(2));
+                    assertTrue(rows.getBoolean(3));
+                    if (isolatedRoles) { assertFalse(rows.getBoolean(4)); }
+                }
+            }
+
+            migration("20261031_120001_next", "CREATE TABLE " + namespace + ".\"blocked\" (\"id\" INTEGER);\n");
+            Result after = launch(legacy, oldLauncher, true, true,
+                    "migrate", "deploy", "--target-schema", protectedSchema, "--dry-run");
+            assertEquals(0, after.exit(), after::output);
+            Result refused = launch(legacy, oldLauncher, true, true,
+                    "migrate", "deploy", "--target-schema", protectedSchema, "--approve-digest", digest(after));
+            assertEquals(2, refused.exit(), refused::output);
+            assertTrue(refused.output().contains("PERMISSION"), refused::output);
+            Result status = launch(legacy, oldLauncher, true, true, "migrate", "status", "--target-schema", protectedSchema);
+            assertEquals(0, status.exit(), status::output);
+            assertEquals(before, new PostgresqlMigrationHistory(source).read(protectedSchema));
+            assertArrayEquals(bytes, Files.readAllBytes(original));
+            try (Connection connection = source.getConnection();
+                    PreparedStatement probe = connection.prepareStatement("SELECT pg_catalog.to_regclass(?) IS NULL")) {
+                probe.setString(1, namespace + ".\"blocked\"");
+                try (ResultSet rows = probe.executeQuery()) { assertTrue(rows.next()); assertTrue(rows.getBoolean(1)); }
+            }
+            if (isolatedRoles) {
+                closeLegacyAccess(legacy, legacyUser);
+                verifyReadOnlyIdentity(owner, "cutover_read_" + suffix, protectedSchema, history, oldLauncher);
+            }
+        } finally {
+            try {
+                if (protectedCreated) { asOwner(owner, "DROP SCHEMA " + namespace + " CASCADE"); }
+            } finally {
+                try {
+                    if (legacyCreated) { execute("DROP ROLE " + quote(legacyUser)); }
+                } finally {
+                    if (ownerCreated) { execute("DROP ROLE " + quote(owner)); }
+                }
+            }
+        }
+    }
+
+    private static void closeLegacyAccess(PGSimpleDataSource legacy, String role) throws Exception {
+        try (Connection existing = legacy.getConnection();
+                Statement session = existing.createStatement();
+                ResultSet backend = session.executeQuery("SELECT pg_catalog.pg_backend_pid()")) {
+            assertTrue(backend.next());
+            int pid = backend.getInt(1);
+            execute("ALTER ROLE " + quote(role) + " NOLOGIN");
+            try (Connection control = source.getConnection();
+                    PreparedStatement terminate = control.prepareStatement("SELECT pg_catalog.pg_terminate_backend(?, 5000)")) {
+                terminate.setQueryTimeout(10);
+                terminate.setInt(1, pid);
+                try (ResultSet result = terminate.executeQuery()) {
+                    assertTrue(result.next());
+                    assertTrue(result.getBoolean(1));
+                }
+            }
+            assertFalse(existing.isValid(5));
+        }
+        SQLException refused = assertThrows(SQLException.class, () -> {
+            try (Connection forbidden = legacy.getConnection()) { assertFalse(forbidden.isValid(5)); }
+        });
+        assertEquals("28000", refused.getSQLState());
+    }
+
+    private void verifyReadOnlyIdentity(String owner, String role, String schema, String history, String launcher)
+            throws Exception {
+        String credential = UUID.randomUUID().toString();
+        execute("CREATE ROLE " + quote(role)
+                + " LOGIN NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOBYPASSRLS PASSWORD '" + credential + "'");
+        try {
+            asOwner(owner, "GRANT USAGE ON SCHEMA " + quote(schema) + " TO " + quote(role)
+                    + "; GRANT SELECT ON " + history + " TO " + quote(role));
+            PGSimpleDataSource reader = fixtureLogin(role, credential);
+            Result status = launch(reader, launcher, true, true, "migrate", "status", "--target-schema", schema);
+            assertEquals(0, status.exit(), status::output);
+            try (Connection connection = reader.getConnection(); PreparedStatement probe = connection.prepareStatement("""
+                    SELECT pg_catalog.has_schema_privilege(?, 'CREATE'),
+                           pg_catalog.has_table_privilege(?, 'INSERT'),
+                           pg_catalog.pg_has_role(?, 'MEMBER')
+                    """)) {
+                probe.setString(1, schema);
+                probe.setString(2, history);
+                probe.setString(3, owner);
+                try (ResultSet rows = probe.executeQuery()) {
+                    assertTrue(rows.next());
+                    assertFalse(rows.getBoolean(1));
+                    assertFalse(rows.getBoolean(2));
+                    assertFalse(rows.getBoolean(3));
+                }
+            }
+        } finally {
+            asOwner(owner, "REVOKE USAGE ON SCHEMA " + quote(schema) + " FROM " + quote(role)
+                    + "; REVOKE SELECT ON " + history + " FROM " + quote(role));
+            execute("DROP ROLE " + quote(role));
+        }
+    }
+
+    private static PGSimpleDataSource fixtureLogin(String role, String password) {
+        PGSimpleDataSource login = new PGSimpleDataSource();
+        login.setURL(source.getURL());
+        login.setUser(role);
+        login.setPassword(password);
+        return login;
+    }
+
+    private static void asOwner(String owner, String sql) throws Exception {
+        try (Connection connection = source.getConnection(); Statement statement = connection.createStatement()) {
+            statement.setQueryTimeout(20);
+            statement.execute("SET ROLE " + quote(owner));
+            statement.execute(sql);
+        }
+    }
+
+    private static String quote(String value) { return "\"" + new dev.tuprel.sql.SqlIdentifier(value).name() + "\""; }
 
     @Test void changedArtifactsAndUnknownStatementsCannotBeApprovedOrPartiallyPreviewed() throws Exception {
         Path sql = migration("20261031_120000_initial", "CREATE TABLE " + table("items") + " (\"id\" INTEGER);\n");
@@ -236,8 +411,13 @@ class DeployLauncherIntegrationTest {
     }
 
     private Result launch(boolean configured, boolean platformShell, String... arguments) throws Exception {
+        return launch(source, System.getProperty("tuprel.cli.launcher"), configured, platformShell, arguments);
+    }
+
+    private Result launch(PGSimpleDataSource fixture, String launcherBase, boolean configured,
+            boolean platformShell, String... arguments) throws Exception {
         boolean windows = System.getProperty("os.name").startsWith("Windows");
-        String launcher = System.getProperty("tuprel.cli.launcher") + (windows ? ".bat" : "");
+        String launcher = launcherBase + (windows ? ".bat" : "");
         List<String> command = new ArrayList<>();
         if (windows && platformShell) {
             command.addAll(List.of("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command",
@@ -252,8 +432,8 @@ class DeployLauncherIntegrationTest {
         environment.remove("TUPREL_DATABASE_URL"); environment.remove("TUPREL_DATABASE_USER"); environment.remove("TUPREL_DATABASE_PASSWORD");
         if (configured) {
             // Fixture-only mapping. Production code never reads a test dotenv file.
-            environment.put("TUPREL_DATABASE_URL", "jdbc:postgresql://" + source.getServerNames()[0] + ":" + source.getPortNumbers()[0] + "/" + source.getDatabaseName());
-            environment.put("TUPREL_DATABASE_USER", source.getUser()); environment.put("TUPREL_DATABASE_PASSWORD", source.getPassword());
+            environment.put("TUPREL_DATABASE_URL", "jdbc:postgresql://" + fixture.getServerNames()[0] + ":" + fixture.getPortNumbers()[0] + "/" + fixture.getDatabaseName());
+            environment.put("TUPREL_DATABASE_USER", fixture.getUser()); environment.put("TUPREL_DATABASE_PASSWORD", fixture.getPassword());
         }
         environment.put("JAVA_HOME", System.getProperty("java.home"));
         if (windows && platformShell) {
@@ -268,7 +448,7 @@ class DeployLauncherIntegrationTest {
             assertTrue(process.waitFor(75, TimeUnit.SECONDS), "Packaged launcher timeout");
             String text = output.get(5, TimeUnit.SECONDS);
             // Fail without echoing output if a regression ever exposes a fixture password.
-            assertFalse(text.contains(source.getPassword()), "Packaged launcher exposed fixture credentials");
+            assertFalse(text.contains(fixture.getPassword()), "Packaged launcher exposed fixture credentials");
             assertFalse(text.contains("\u001b"), "Packaged launcher emitted ANSI colours");
             return new Result(process.exitValue(), text);
         } finally { process.destroyForcibly(); }
