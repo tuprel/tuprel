@@ -120,7 +120,7 @@ final class SignedCliBundle {
         for (Map.Entry<String, byte[]> entry : files.entrySet()) {
             Files.write(destination.resolve(entry.getKey()), entry.getValue(), StandardOpenOption.CREATE_NEW);
         }
-        if (Files.getFileStore(destination).supportsFileAttributeView("posix")) {
+        if (System.getProperty("os.name").equalsIgnoreCase("Linux")) {
             Files.setPosixFilePermissions(destination.resolve("bin/tuprel"),
                     PosixFilePermissions.fromString("rwx------"));
         }

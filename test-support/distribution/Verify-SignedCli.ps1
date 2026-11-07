@@ -28,13 +28,21 @@ try {
     if ($LASTEXITCODE -ne 0 -or $keyId -cnotmatch '^[a-f0-9]{64}$') { throw 'Signed bundle installation checks failed' }
 
     $launcherName = if ($IsWindows) { 'tuprel.bat' } else { 'tuprel' }
+    $bash = if (-not $IsWindows) { (Get-Command bash -CommandType Application | Select-Object -First 1).Source }
     Push-Location -LiteralPath $fixture
     try {
         foreach ($version in @($versions[0], $versions[1], $versions[0])) {
             $bin = Join-Path $fixture "$version/bin"
             $env:Path = $bin + [IO.Path]::PathSeparator + $before
-            $launcher = (Get-Command $launcherName -CommandType Application | Select-Object -First 1).Source
-            if ($launcher -ne (Join-Path $bin $launcherName)) { throw 'Session PATH did not select the expected installation' }
+            $expected = Join-Path $bin $launcherName
+            if ($IsWindows) {
+                $launcher = (Get-Command $launcherName -CommandType Application | Select-Object -First 1).Source
+            } else {
+                $mode = [IO.File]::GetUnixFileMode($expected)
+                if ($mode -ne [IO.UnixFileMode]448) { throw 'Linux launcher does not have private executable permissions' }
+                $launcher = & $bash --noprofile --norc -c 'command -v tuprel'
+            }
+            if ($launcher -ne $expected) { throw 'Session PATH did not select the expected installation' }
             $reported = & $launcher --version
             if ($LASTEXITCODE -ne 0 -or $reported -cne "tuprel $version") { throw 'Installed launcher reported the wrong version' }
         }
