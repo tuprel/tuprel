@@ -29,6 +29,13 @@ tasks.named<Test>("integrationTest") {
     outputs.doNotCacheIf("Integration tests use external database state") { true }
 }
 
+providers.gradleProperty("tuprelStagedCliVersion").orNull?.let { stagedVersion ->
+    require(stagedVersion in listOf("0.0.0-staging", "0.0.1-staging")) {
+        "Expected a fixture-only CLI version"
+    }
+    version = stagedVersion
+}
+
 tasks.jar {
     manifest.attributes["Implementation-Version"] =
         project.version.toString().takeUnless { it == "unspecified" } ?: "development"
