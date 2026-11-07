@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.SecureRandom;
@@ -564,6 +565,13 @@ class InitialBootstrapIntegrationTest {
         signer.initSign(key.getPrivate());
         signer.update(manifest);
         Files.write(installation.resolve("manifest.ed25519"), signer.sign());
+        Files.setPosixFilePermissions(installed, PosixFilePermissions.fromString("rwxr-xr-x"));
+        for (String metadata : java.util.List.of("manifest.txt", "manifest.ed25519")) {
+            Path path = installation.resolve(metadata);
+            Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-r--r--"));
+            assertTrue(pin.protectedFile(path), "Signed fixture metadata must be operator-controlled");
+        }
+        assertTrue(pin.protectedFile(installed), "The native fixture must be operator-controlled");
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         ManagedMigrationRole role = provisionSealedFixture(ledgerOwner);
         ManagedCredentialIssuer.CredentialSource credentials = this::issueFixtureCredential;
@@ -572,6 +580,10 @@ class InitialBootstrapIntegrationTest {
                 issuer(pin, ignored -> { throw new AssertionError("Credentials were requested"); }, provisioner, managedLogin, role)
                         .publish(catalog, schema, "initial", installation, key.getPublic(), proof, clock).state());
         Files.copy(binary, installed, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+        Files.setPosixFilePermissions(installed, PosixFilePermissions.fromString("rwxr-xr-x"));
+        assertTrue(pin.protectedFile(installed), "Restored native fixture must be operator-controlled");
+        NativeMigrationPublication recovery = new NativeMigrationPublication(catalog, installation, key.getPublic(), claims.generation(), clock);
+        assertFalse(recovery.hasUnresolvedAttempt());
         assertTrue(MigrationDirectory.discover(catalog).isEmpty());
         PostgresqlPhysicalApproval.Approval stale = issuer(pin, credentials, provisioner, managedLogin, role)
                 .inspect(catalog, proof).approval();
@@ -589,7 +601,6 @@ class InitialBootstrapIntegrationTest {
                 .deployReviewed(catalog, ManagedDeployApproval.format(stale), proof).failure());
         assertEquals(ManagedDevPublication.State.PUBLICATION_UNKNOWN, issuer(pin, credentials, provisioner, managedLogin, role)
                 .publish(catalog, schema, "second", installation, key.getPublic(), proof, clock).state());
-        NativeMigrationPublication recovery = new NativeMigrationPublication(catalog, installation, key.getPublic(), claims.generation(), clock);
         assertEquals(NativeMigrationPublication.State.PUBLISHED, recovery.reconcile());
         assertTrue(recovery.acknowledge(NativeMigrationPublication.State.PUBLISHED));
         assertEquals(ManagedDevPublication.State.REFUSED, issuer(pin, credentials, provisioner, managedLogin, role)
