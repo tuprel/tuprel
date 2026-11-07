@@ -2,7 +2,12 @@ plugins {
     id("tuprel.java-conventions")
 }
 
+val consumerTransactionFixtures by configurations.creating {
+    isCanBeConsumed = false
+}
+
 dependencies {
+    consumerTransactionFixtures("org.springframework:spring-jdbc:7.0.10")
     api(project(":tuprel-runtime"))
     implementation(project(":tuprel-postgresql"))
     implementation("org.springframework.boot:spring-boot-autoconfigure:4.1.2")
@@ -21,7 +26,7 @@ tasks.named<Test>("integrationTest") {
         .file("examples/tuprel-playground/.env").asFile.absolutePath)
     outputs.upToDateWhen { false }
     outputs.doNotCacheIf("Integration tests use external database state") { true }
-    val stagedClasspath = files(tasks.jar, configurations.runtimeClasspath)
+    val stagedClasspath = files(tasks.jar, configurations.runtimeClasspath, consumerTransactionFixtures)
     dependsOn(stagedClasspath)
     inputs.files(stagedClasspath).withNormalizer(ClasspathNormalizer::class)
     systemProperty("tuprel.spring.fixture.classpath", stagedClasspath.asPath)

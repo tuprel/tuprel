@@ -21,6 +21,10 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.annotation.Transactional;
 
 public final class ConsumerApplication {
     private ConsumerApplication() {}
@@ -74,12 +78,33 @@ public final class ConsumerApplication {
             require(inserted == 1, "Expected one inserted row");
             require(database.findById(new SqlCommand.FindById(table, column, id),
                     row -> row.int32("id")).orElseThrow() == 7, "Expected the committed row");
+
+            try {
+                context.getBean(RollbackProbe.class).writeThenFail();
+                throw new AssertionError("Expected the Spring rollback trigger");
+            } catch (RollbackTrigger expected) {
+                // The outer transaction must have rolled back before control returns here.
+            }
+            require(database.findById(new SqlCommand.FindById(table, column, new SqlValue.Int32(8)),
+                    row -> row.int32("id")).isEmpty(), "Spring JDBC must roll back");
+            require(database.findById(new SqlCommand.FindById(table, column, new SqlValue.Int32(9)),
+                    row -> row.int32("id")).orElseThrow() == 9,
+                    "The explicit Tuprel transaction currently commits independently");
         }
     }
 
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
+    @EnableTransactionManagement
     static class LivePostgresql {
+        @Bean DataSourceTransactionManager transactionManager(DataSource source) {
+            return new DataSourceTransactionManager(source);
+        }
+
+        @Bean RollbackProbe rollbackProbe(DataSource source, TuprelDatabase database) {
+            return new RollbackProbe(new JdbcTemplate(source), database);
+        }
+
         @Bean DataSource pool() throws IOException {
             PGSimpleDataSource source = new PGSimpleDataSource();
             try (DataInputStream pipe = new DataInputStream(System.in)) {
@@ -92,6 +117,27 @@ public final class ConsumerApplication {
             return source;
         }
     }
+
+    static class RollbackProbe {
+        private final JdbcTemplate jdbc;
+        private final TuprelDatabase database;
+
+        RollbackProbe(JdbcTemplate jdbc, TuprelDatabase database) {
+            this.jdbc = jdbc;
+            this.database = database;
+        }
+
+        @Transactional
+        public void writeThenFail() {
+            jdbc.update("INSERT INTO inventory (id) VALUES (?)", 8);
+            database.transaction(transaction -> transaction.create(new SqlCommand.Insert(
+                    new SqlIdentifier("inventory"),
+                    List.of(new SqlCommand.Assignment(new SqlIdentifier("id"), new SqlValue.Int32(9))))));
+            throw new RollbackTrigger();
+        }
+    }
+
+    private static final class RollbackTrigger extends RuntimeException {}
 
     private static ConfigurableApplicationContext start(Class<?> configuration) {
         return new SpringApplicationBuilder(configuration).web(WebApplicationType.NONE)
