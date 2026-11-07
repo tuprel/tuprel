@@ -65,3 +65,9 @@ properties or binds. Handle optimistic-lock conflicts explicitly.
 
 Continue with [CRUD and queries](crud-and-queries.md), [relations](relations.md)
 or the [Java API reference](../reference/java-api.md).
+
+## Spring Boot development integration
+
+The [source-built starter](../../tuprel-spring-boot-starter/README.md) can
+provide a TuprelDatabase from the application's DataSource. It is tested
+with a separate Spring Boot 4.1 application and remains in development.

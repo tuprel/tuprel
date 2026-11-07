@@ -31,8 +31,12 @@ const pages = [
   },
   {
     slug: 'integrations', title: 'Integration guides', summary: 'Explore the Gradle playground and current setup options.',
-    body: '<p>The playground is a runnable Java project with generated sources and a dedicated PostgreSQL setup. The Spring Boot starter, Gradle plugin and Maven distribution are under development.</p>',
-    links: [['Run the Java playground', 'examples/tuprel-playground/README.md'], ['Check supported features', 'docs/product/SUPPORTED_FEATURES.md']],
+    body: '<p>The playground is a runnable Java project with generated sources and a dedicated PostgreSQL setup. The source build includes development integrations for Spring Boot and Gradle. Maven artifact resolution is available as a staging test.</p>',
+    links: [['Run the Java playground', 'examples/tuprel-playground/README.md'],
+      ['Spring Boot development starter', 'tuprel-spring-boot-starter/README.md'],
+      ['Gradle development plugin', 'tuprel-gradle-plugin/README.md'],
+      ['Maven staging fixture', 'test-support/distribution/README.md'],
+      ['Check supported features', 'docs/product/SUPPORTED_FEATURES.md']],
   },
 ];
 

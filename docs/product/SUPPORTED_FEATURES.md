@@ -156,4 +156,15 @@ com o prefixo aplicado verificado, em leitura consistente e sob uma janela de
 controlo de DDL confirmada pelo operador.
 
 F6-005C1: `migrate dev` em modo preview, com referência verificada e
-comparação aditiva. Publicação e aprovação física permanecem propostas.
+comparação aditiva. A C3.3 comprovou publicação autenticada e aprovação
+física independente em staging Linux x86-64/ext4 e PostgreSQL 17.
+A CLI pública mantém `migrate dev` em preview. Cada activação gerida
+depende da instalação autenticada e da autorização do alvo.
+
+## Integrações em desenvolvimento
+
+O [starter Spring Boot](../../tuprel-spring-boot-starter/README.md)
+reutiliza o DataSource da aplicação. O [plugin Gradle](../../tuprel-gradle-plugin/README.md)
+liga a geração à compilação Java. O [consumidor Maven](../../test-support/distribution/README.md)
+resolve os artefactos em staging. Coordenadas e distribuição públicas
+permanecem pendentes.
