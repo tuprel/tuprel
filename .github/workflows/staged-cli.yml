@@ -40,9 +40,15 @@ jobs:
       - name: Verify runtime libraries in a temporary Maven repository
         shell: pwsh
         run: ./test-support/distribution/Verify-StagedMaven.ps1
-      - name: Compile and run an external Maven consumer
+      - name: Check out the Maven upgrade baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: 2b9ef01baa96633efc630cae1d288c061a94256b
+          path: build/maven-upgrade-fixture
+          persist-credentials: false
+      - name: Compile and upgrade an external Maven consumer
         shell: pwsh
-        run: ./test-support/distribution/Verify-MavenConsumer.ps1
+        run: ./test-support/distribution/Verify-MavenConsumer.ps1 -PreviousCheckout build/maven-upgrade-fixture
       - name: Exercise the signed staging installer and version switching
         shell: pwsh
         run: ./test-support/distribution/Verify-SignedCli.ps1
