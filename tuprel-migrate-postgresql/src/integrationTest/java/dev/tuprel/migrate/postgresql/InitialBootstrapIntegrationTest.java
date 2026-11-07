@@ -9,7 +9,10 @@ import dev.tuprel.migrate.MigrationDirectory;
 import dev.tuprel.migrate.MigrationFile;
 import dev.tuprel.migrate.NativeMigrationPublication;
 import dev.tuprel.sql.SqlIdentifier;
+import dev.tuprel.testsupport.StagedJavaConsumer;
 import dev.tuprel.testsupport.TestPostgresql;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
@@ -31,12 +34,14 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.AfterAll;
@@ -59,6 +64,7 @@ class InitialBootstrapIntegrationTest {
     private boolean targetCreated;
     private SqlIdentifier managedOwner;
     private SqlIdentifier managedLogin;
+    private SqlIdentifier consumerLogin;
     private KeyPair key;
     private InitialBootstrapAuthorization.Claims claims;
 
@@ -120,6 +126,7 @@ class InitialBootstrapIntegrationTest {
                 if (targetCreated) { execute("DROP SCHEMA " + quote(target) + " CASCADE"); }
             } finally {
                 try {
+                    if (consumerLogin != null) { execute("DROP ROLE " + quote(consumerLogin)); }
                     if (managedLogin != null) { execute("DROP ROLE " + quote(managedLogin)); }
                 } finally {
                     if (managedOwner != null) {
@@ -547,15 +554,27 @@ class InitialBootstrapIntegrationTest {
         }
         assertEquals("container", System.getProperty("tuprel.test.database"));
         Path binary = Path.of(fixtureBinary).toRealPath();
-        Path project = Files.createTempDirectory(Path.of(fixtureVolume), "managed-dev-").toRealPath();
+        assertTrue(jar.startsWith(binary.getParent().resolve("managed-cli/lib")), "Executor must load the staged adapter JAR");
+        Path workspace = Files.createTempDirectory(Path.of(fixtureVolume), "managed-dev-").toRealPath();
+        StagedJavaConsumer consumer = new StagedJavaConsumer(workspace);
+        consumer.generateAndCompile();
+        Path project = consumer.project();
         Path catalog = Files.createDirectories(project.resolve("tuprel/migrations"));
         Files.writeString(catalog.resolve(MigrationDirectory.FORMAT_FILE), MigrationDirectory.FORMAT_HEADER);
-        Path schema = Files.writeString(project.resolve("tuprel/schema.tuprel"), """
+        String initialSchema = """
                 model Product {
                   id Int @id
-                  label String
+                  name String
+                  stock Int
+                  @@index([stock])
                 }
-                """);
+                model Purchase {
+                  id Int @id
+                  productId Int
+                  quantity Int
+                }
+                """;
+        Path schema = Files.writeString(project.resolve("tuprel/physical.tuprel"), initialSchema);
         Path installation = Files.createTempDirectory(binary.getParent(), "signed-publisher-");
         Path installed = Files.copy(binary, installation.resolve("publisher"), StandardCopyOption.COPY_ATTRIBUTES);
         byte[] manifest = ("TUPREL-NATIVE-PUBLISHER 2\nos linux\narch x86_64\nsha256 "
@@ -575,6 +594,7 @@ class InitialBootstrapIntegrationTest {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         ManagedMigrationRole role = provisionSealedFixture(ledgerOwner);
         ManagedCredentialIssuer.CredentialSource credentials = this::issueFixtureCredential;
+        Supplier<ManagedCredentialIssuer> issuers = () -> issuer(pin, credentials, provisioner, managedLogin, role);
         Files.write(installed, new byte[]{0}, StandardOpenOption.APPEND);
         assertEquals(ManagedDevPublication.State.REFUSED,
                 issuer(pin, ignored -> { throw new AssertionError("Credentials were requested"); }, provisioner, managedLogin, role)
@@ -587,12 +607,15 @@ class InitialBootstrapIntegrationTest {
         assertTrue(MigrationDirectory.discover(catalog).isEmpty());
         PostgresqlPhysicalApproval.Approval stale = issuer(pin, credentials, provisioner, managedLogin, role)
                 .inspect(catalog, proof).approval();
-        ManagedDevPublication.Result publication = issuer(pin, credentials, provisioner, managedLogin, role)
-                .publish(catalog, schema, "initial", installation, key.getPublic(), proof, clock);
-        assertEquals(ManagedDevPublication.State.PUBLISHED, publication.state(), publication::toString);
-        MigrationFile artifact = publication.file().orElseThrow();
-        assertEquals(publication.proposal().orElseThrow().sql().orElseThrow(), artifact.sql());
-        assertEquals(artifact.checksum(), MigrationDirectory.discover(catalog).getFirst().checksum());
+        ManagedMigrationCommands commands = new ManagedMigrationCommands(project, target, installation, key.getPublic(), proof, issuers, clock);
+        CommandResult publication = command(commands, "migrate", "dev", "--target-schema", target.name(), "--name", "initial",
+                "--schema", "tuprel/physical.tuprel", "--write");
+        assertEquals(0, publication.code(), publication::error);
+        assertTrue(publication.output().contains("Publication: PUBLISHED"));
+        assertFalse(publication.output().contains("Physical approval:"));
+        MigrationFile artifact = MigrationDirectory.discover(catalog).getFirst();
+        assertTrue(publication.output().contains(artifact.sql()));
+        assertTrue(publication.output().contains(artifact.checksum().value()));
         assertTrue(historyInitialised());
         assertFalse(relationExists("Product"));
         assertEquals(MigrationExecutionResult.Failure.FILES, assertThrows(MigrationInspectionException.class,
@@ -612,12 +635,97 @@ class InitialBootstrapIntegrationTest {
         assertEquals(MigrationExecutionResult.Failure.APPROVAL,
                 issuer(pin, ignored -> { throw new AssertionError("Credentials were requested"); }, provisioner, managedLogin, role)
                         .deployReviewed(catalog, approved.plan().digest().value(), proof).failure());
-        assertEquals(MigrationExecutionResult.Outcome.APPLIED, issuer(pin, credentials, provisioner, managedLogin, role)
-                .deployReviewed(catalog, approved.token().orElseThrow(), proof).outcome());
+        String initialToken = reviewToken(commands);
+        assertEquals(approved.token().orElseThrow(), initialToken);
+        assertEquals(0, deploy(commands, initialToken).code());
         assertTrue(relationExists("Product"));
         assertEquals(artifact.checksum(), new PostgresqlMigrationHistory(settings.dataSource()).read(target.name())
                 .applied().getFirst().checksum());
+
+        PGSimpleDataSource application = provisionConsumerLogin();
+        consumer.exercise(application);
+        Files.writeString(schema, initialSchema.replace("  stock Int\n", "  stock Int\n  note String?\n"));
+        Clock next = Clock.fixed(NOW.plusSeconds(1), ZoneOffset.UTC);
+        ManagedMigrationCommands upgrade = new ManagedMigrationCommands(project, target, installation, key.getPublic(), proof, issuers, next);
+        CommandResult proposal = command(upgrade, "migrate", "dev", "--target-schema", target.name(), "--name", "product_note",
+                "--schema", "tuprel/physical.tuprel", "--write");
+        assertEquals(0, proposal.code(), proposal::error);
+        assertTrue(proposal.output().contains("Publication: PUBLISHED"));
+        assertFalse(columnExists("note"));
+        assertEquals(1, new PostgresqlMigrationHistory(settings.dataSource()).read(target.name()).applied().size());
+        consumer.exercise(application, "--verify-upgrade");
+        assertEquals(2, deploy(upgrade, initialToken).code());
+        assertEquals(NativeMigrationPublication.State.PUBLISHED, recovery.reconcile());
+        assertTrue(recovery.acknowledge(NativeMigrationPublication.State.PUBLISHED));
+        String beforeDrift = reviewToken(upgrade);
+        String namespace = quote(target);
+        execute("CREATE TABLE " + namespace + ".\"Unexpected\" (\"id\" INTEGER PRIMARY KEY)");
+        assertEquals(2, deploy(upgrade, beforeDrift).code());
+        assertFalse(columnExists("note"));
+        execute("DROP TABLE " + namespace + ".\"Unexpected\"");
+        execute("DROP INDEX " + namespace + ".\"Product_stock_idx\"");
+        execute("CREATE INDEX \"Product_stock_idx\" ON " + namespace + ".\"Product\" (\"stock\")");
+        assertEquals(2, deploy(upgrade, beforeDrift).code());
+        String reviewedUpgrade = reviewToken(upgrade);
+        assertNotEquals(beforeDrift, reviewedUpgrade);
+        assertEquals(0, deploy(upgrade, reviewedUpgrade).code());
+        assertTrue(columnExists("note"));
+        List<MigrationChecksum> exact = MigrationDirectory.discover(catalog).stream().map(MigrationFile::checksum).toList();
+        assertEquals(exact, new PostgresqlMigrationHistory(settings.dataSource()).read(target.name()).applied().stream()
+                .map(dev.tuprel.migrate.AppliedMigration::checksum).toList());
+        consumer.exercise(application, "--verify-upgrade");
     }
+
+    private PGSimpleDataSource provisionConsumerLogin() throws SQLException {
+        consumerLogin = new SqlIdentifier("consumer_" + UUID.randomUUID().toString().replace("-", ""));
+        execute("CREATE ROLE " + quote(consumerLogin) + " NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS");
+        PGSimpleDataSource source = new PGSimpleDataSource();
+        source.setURL(database.dataSource().getURL());
+        source.setCurrentSchema(target.name());
+        source.setUser(consumerLogin.name());
+        byte[] entropy = new byte[32];
+        new SecureRandom().nextBytes(entropy);
+        char[] password = Base64.getUrlEncoder().withoutPadding().encodeToString(entropy).toCharArray();
+        Arrays.fill(entropy, (byte) 0);
+        try (Connection connection = settings.dataSource().getConnection()) {
+            connection.unwrap(PGConnection.class).alterUserPassword(consumerLogin.name(), password, "scram-sha-256");
+            source.setPassword(new String(password));
+        } finally { Arrays.fill(password, '\0'); }
+        execute("ALTER ROLE " + quote(consumerLogin) + " LOGIN");
+        execute("GRANT USAGE ON SCHEMA " + quote(target) + " TO " + quote(consumerLogin));
+        execute("GRANT SELECT, INSERT, UPDATE, DELETE ON " + quote(target) + ".\"Product\", "
+                + quote(target) + ".\"Purchase\" TO " + quote(consumerLogin));
+        return source;
+    }
+
+    private boolean columnExists(String column) throws SQLException {
+        try (Connection connection = settings.dataSource().getConnection(); PreparedStatement query = connection.prepareStatement(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = 'Product' AND column_name = ?)")) {
+            query.setString(1, target.name());
+            query.setString(2, column);
+            try (ResultSet row = query.executeQuery()) { return row.next() && row.getBoolean(1); }
+        }
+    }
+
+    private String reviewToken(ManagedMigrationCommands commands) {
+        CommandResult result = command(commands, "migrate", "deploy", "--target-schema", target.name(), "--dry-run");
+        assertEquals(0, result.code(), result::error);
+        String prefix = "Physical approval: ";
+        return result.output().lines().filter(line -> line.startsWith(prefix)).findFirst().orElseThrow().substring(prefix.length());
+    }
+
+    private CommandResult deploy(ManagedMigrationCommands commands, String approval) {
+        return command(commands, "migrate", "deploy", "--target-schema", target.name(), "--approve-physical", approval);
+    }
+
+    private static CommandResult command(ManagedMigrationCommands commands, String... arguments) {
+        StringWriter output = new StringWriter();
+        StringWriter error = new StringWriter();
+        int code = commands.run(List.of(arguments), new PrintWriter(output), new PrintWriter(error));
+        return new CommandResult(code, output.toString(), error.toString());
+    }
+
+    private record CommandResult(int code, String output, String error) { }
 
     private boolean relationExists(String name) throws SQLException {
         try (Connection connection = settings.dataSource().getConnection(); PreparedStatement query = connection.prepareStatement(

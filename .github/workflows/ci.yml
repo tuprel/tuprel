@@ -61,9 +61,14 @@ jobs:
           test "$(findmnt -n -o FSTYPE --mountpoint "$fixture/volume")" = ext4
           sudo chown "$(id -u):$(id -g)" "$fixture/volume"
           bash native/migration-publisher/build-linux.sh "$fixture/publisher"
+          ./gradlew :tuprel-cli:installDist --no-daemon --dependency-verification strict
+          mkdir -m 0755 "$fixture/managed-cli"
+          cp -a tuprel-cli/build/install/tuprel/. "$fixture/managed-cli/"
+          chmod -R go-w "$fixture/managed-cli"
           if ! ./gradlew build --no-daemon --dependency-verification strict -PtuprelTestDatabase=container \
             "-PtuprelLegacyCliLauncher=$PWD/.legacy-executor-fixture/tuprel-cli/build/install/tuprel/bin/tuprel" \
-            "-PtuprelTestPublisher=$fixture/publisher" "-PtuprelTestPublicationVolume=$fixture/volume"; then
+            "-PtuprelTestPublisher=$fixture/publisher" "-PtuprelTestPublicationVolume=$fixture/volume" \
+            "-PtuprelTestManagedCli=$fixture/managed-cli"; then
             python3 - <<'PY'
           from pathlib import Path
           import re
