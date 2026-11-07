@@ -704,8 +704,9 @@ class InitialBootstrapIntegrationTest {
         char[] password = Base64.getUrlEncoder().withoutPadding().encodeToString(entropy).toCharArray();
         Arrays.fill(entropy, (byte) 0);
         try (Connection connection = settings.dataSource().getConnection()) {
-            connection.unwrap(PGConnection.class).alterUserPassword(consumerLogin.name(), password, "scram-sha-256");
+            // The driver clears the supplied password buffer after deriving the SCRAM verifier.
             source.setPassword(new String(password));
+            connection.unwrap(PGConnection.class).alterUserPassword(consumerLogin.name(), password, "scram-sha-256");
         } finally { Arrays.fill(password, '\0'); }
         execute("ALTER ROLE " + quote(consumerLogin) + " LOGIN");
         execute("GRANT USAGE ON SCHEMA " + quote(target) + " TO " + quote(consumerLogin));
