@@ -59,6 +59,11 @@ sourceSets.named("test") {
 }
 
 tasks.named<Test>("integrationTest") {
+    dependsOn(":tuprel-cli:installDist", ":tuprel-runtime:jar", tasks.jar)
+    systemProperty("tuprel.test.staged.cli", project(":tuprel-cli").layout.buildDirectory.dir("install/tuprel").get().asFile.absolutePath)
+    systemProperty("tuprel.test.staged.runtime", project(":tuprel-runtime").layout.buildDirectory.file("libs/tuprel-runtime.jar").get().asFile.absolutePath)
+    systemProperty("tuprel.test.staged.postgresql", tasks.jar.flatMap { it.archiveFile }.get().asFile.absolutePath)
+    systemProperty("tuprel.test.staged.example", rootProject.layout.projectDirectory.dir("examples/staged-consumer").asFile.absolutePath)
     // Local by default, including when configuration is missing. Never fall back to Docker.
     systemProperty("tuprel.test.database", providers.gradleProperty("tuprelTestDatabase").getOrElse("local"))
     systemProperty("tuprel.test.env.file", rootProject.layout.projectDirectory
