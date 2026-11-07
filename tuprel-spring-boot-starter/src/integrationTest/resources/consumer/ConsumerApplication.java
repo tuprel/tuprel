@@ -93,12 +93,11 @@ public final class ConsumerApplication {
                     row -> row.int32("id")).orElseThrow() == 9,
                     "The explicit Tuprel transaction currently commits independently");
 
-            probe.boundStatements(10, 11, false);
             try {
-                probe.boundStatements(12, 13, true);
-                throw new AssertionError("Expected a rollback for both bound writes");
-            } catch (RollbackTrigger expected) {
-                // Both statement adapters used the connection owned by Spring.
+                probe.tryImplicitParticipation();
+                throw new AssertionError("Expected the runtime to refuse the Spring-owned connection");
+            } catch (TuprelDatabaseException expected) {
+                require(expected.phase() == TuprelDatabaseException.Phase.CONNECTION, "Expected a connection refusal");
             }
         }
     }
@@ -150,17 +149,20 @@ public final class ConsumerApplication {
         }
 
         @Transactional
-        public void boundStatements(int jdbcId, int tuprelId, boolean fail) {
-            jdbc.update("INSERT INTO inventory (id) VALUES (?)", jdbcId);
+        public void tryImplicitParticipation() {
+            jdbc.update("INSERT INTO inventory (id) VALUES (?)", 10);
             SqlIdentifier table = new SqlIdentifier("inventory");
             SqlIdentifier column = new SqlIdentifier("id");
-            SqlValue id = new SqlValue.Int32(tuprelId);
-            require(statementAdapter.create(new SqlCommand.Insert(table,
-                    List.of(new SqlCommand.Assignment(column, id)))) == 1, "Expected one Tuprel insert");
-            require(jdbc.queryForList("SELECT id FROM inventory WHERE id IN (?, ?) ORDER BY id",
-                    Integer.class, jdbcId, tuprelId).equals(List.of(jdbcId, tuprelId)),
-                    "Spring JDBC should see both uncommitted statements");
-            if (fail) throw new RollbackTrigger();
+            SqlValue id = new SqlValue.Int32(11);
+            try {
+                statementAdapter.create(new SqlCommand.Insert(table,
+                        List.of(new SqlCommand.Assignment(column, id))));
+            } catch (TuprelDatabaseException failure) {
+                require(jdbc.queryForList("SELECT id FROM inventory WHERE id IN (?, ?) ORDER BY id",
+                        Integer.class, 10, 11).equals(List.of(10)),
+                        "Spring must retain its connection and only its own uncommitted write");
+                throw failure;
+            }
         }
     }
 

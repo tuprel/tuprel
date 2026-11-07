@@ -20,13 +20,12 @@ independently even if an enclosing Spring `@Transactional` method rolls back.
 The external PostgreSQL fixture verifies that boundary. Spring-managed
 transaction participation requires a separate contract.
 
-The external fixture also exercises a statement-only adapter over Spring's
-transaction-bound connection. Spring commits or rolls back its JDBC write and
-the Tuprel write together. The fixture wires the adapter explicitly. It
-supports evaluation of a future opt-in mode. Before exposing that mode, define
-which transaction manager owns the connection, reject explicit Tuprel
-transaction ownership in a Spring-bound scope, and verify propagation,
-read-only transactions, timeouts and failure translation.
+The external fixture also exercises a `TransactionAwareDataSourceProxy`.
+The runtime refuses the Spring-bound connection because ordinary operations
+require autocommit. Spring retains the connection and rolls back its pending
+JDBC write when the failure leaves the annotated method. The
+[proposed ownership contract](../docs/adr/ADR-0023-spring-jdbc-ownership.md)
+describes the separate opt-in mode needed for participation.
 
 Run `./gradlew :tuprel-spring-boot-starter:integrationTest --dependency-verification strict`
 to compile and launch a separate Spring Boot application against the starter
