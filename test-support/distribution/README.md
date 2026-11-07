@@ -11,5 +11,17 @@ pwsh -File test-support/distribution/Verify-StagedMaven.ps1
 ```
 
 The Maven fixture applies its publishing configuration only to the isolated
-test invocation. The next gate is to resolve the staged libraries from a
-separate Maven build and compile generated application sources.
+test invocation.
+
+The external Maven check uses a fresh Maven cache and file repository. It
+generates and compiles Java twice, using two fixture versions built from the
+same source revision and a changed consumer schema. Run it with Maven 3.9
+and Java 21 using:
+
+```powershell
+pwsh -File test-support/distribution/Verify-MavenConsumer.ps1
+```
+
+This proves version selection and transitive runtime resolution. Public
+coordinates and release distribution remain gated by the naming and release
+policies.

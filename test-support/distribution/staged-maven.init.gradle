@@ -14,11 +14,16 @@ Files.list(repository).withCloseable { entries ->
     if (entries.findAny().isPresent()) { throw new GradleException('The Maven staging repository must be empty') }
 }
 
+def fixtureVersion = System.getProperty('tuprel.test.maven.version', '0.0.0-fixture')
+if (!(fixtureVersion in ['0.0.0-fixture', '0.0.1-fixture'])) {
+    throw new GradleException('Expected a fixture-only Maven version')
+}
+
 gradle.beforeProject { library ->
     if (library.rootProject.name != 'tuprel'
             || !(library.name in ['tuprel-sql', 'tuprel-runtime', 'tuprel-postgresql'])) { return }
     library.group = 'dev.tuprel.staging'
-    library.version = '0.0.0-fixture'
+    library.version = fixtureVersion
     library.pluginManager.apply('maven-publish')
     library.pluginManager.withPlugin('java') {
         library.publishing {
