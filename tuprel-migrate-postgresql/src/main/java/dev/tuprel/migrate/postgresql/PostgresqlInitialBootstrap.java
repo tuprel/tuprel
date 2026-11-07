@@ -50,14 +50,7 @@ final class PostgresqlInitialBootstrap {
 
     private Outcome run(SqlIdentifier schema, InitialBootstrapAuthorization authorization, boolean readOnly) {
         InitialBootstrapAuthorization.Claims claims = authorization.claims();
-        try {
-            MigrationPlanTarget target = settings.planTarget(schema.name());
-            if (!target.supportedSchema() || schema.name().toLowerCase(Locale.ROOT).startsWith("_tuprel_")
-                    || schema.equals(ledger.schema()) || claims.ledger() != ledger.oid()
-                    || !audience.equals(claims.audience()) || !activeGeneration.equals(claims.generation())
-                    || !target.fingerprint().equals(claims.fingerprint())
-                    || (!readOnly && expired(claims)) || !authorization.verifies(issuer)) { return Outcome.REFUSED; }
-        } catch (GeneralSecurityException | MigrationHistoryException failure) { return Outcome.REFUSED; }
+        if (!trusted(schema, authorization, !readOnly)) { return Outcome.REFUSED; }
         MigrationSession session;
         try { session = MigrationSession.open(source, settings, schema.name()); }
         catch (MigrationSessionException failure) { return readOnly ? Outcome.OUTCOME_UNKNOWN : Outcome.REFUSED; }
@@ -66,6 +59,30 @@ final class PostgresqlInitialBootstrap {
             try { session.closeSettled(); }
             catch (MigrationSessionException ignored) { /* Close already discarded; the transaction result stands. */ }
         }
+    }
+
+    private boolean trusted(SqlIdentifier schema, InitialBootstrapAuthorization authorization, boolean requireUnexpired) {
+        InitialBootstrapAuthorization.Claims claims = authorization.claims();
+        try {
+            MigrationPlanTarget target = settings.planTarget(schema.name());
+            return target.supportedSchema() && !schema.name().toLowerCase(Locale.ROOT).startsWith("_tuprel_")
+                    && !schema.equals(ledger.schema()) && claims.ledger() == ledger.oid()
+                    && audience.equals(claims.audience()) && activeGeneration.equals(claims.generation())
+                    && target.fingerprint().equals(claims.fingerprint())
+                    && (!requireUnexpired || !expired(claims)) && authorization.verifies(issuer);
+        } catch (GeneralSecurityException | MigrationHistoryException failure) { return false; }
+    }
+
+    /** Verifies an already consumed provisioning authorization on the caller's live transaction. */
+    boolean verifiesHistory(Connection connection, MigrationPlanTarget planTarget, PostgresqlCatalogObserver.Target target,
+            long historyOid, InitialBootstrapAuthorization authorization) throws SQLException {
+        InitialBootstrapAuthorization.Claims claims = authorization.claims();
+        if (historyOid <= 0 || target.database() != claims.database() || target.namespace() != claims.namespace()
+                || !planTarget.fingerprint().equals(claims.fingerprint())
+                || !trusted(planTarget.schema(), authorization, false)
+                || !targetPolicy(connection, claims) || !ledger.lock(connection, true)) { return false; }
+        InitialBootstrapLedger.Receipt receipt = ledger.read(connection, claims);
+        return receipt.registered() && claims.nonce().equals(receipt.nonce()) && receipt.historyOid() == historyOid;
     }
 
     private Outcome transaction(MigrationSession session, SqlIdentifier schema,

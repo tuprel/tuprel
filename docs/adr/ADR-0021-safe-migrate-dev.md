@@ -171,6 +171,16 @@ com a mesma estrutura e confirma a mudança do digest físico, mantendo o
 digest interior. A autorização continua dependente da verificação de
 proveniência e da integração no runner.
 
+A C3.1b comprova o preview no perfil administrativo da C2.1. O adapter
+usa a sessão dedicada com o advisory lock e lê inventário, recibo e
+histórico numa só transacção read-only. Exige a assinatura do aprovisionador
+fixado, a geração activa, a identidade do alvo e a ligação entre o nonce
+consumido e o OID do histórico. Um histórico de estrutura equivalente sem
+recibo válido não é adoptado. O resultado interno associa a geração
+verificada ao digest. Uma falha de rollback não devolve aprovação.
+Esta via comprova o perfil da C2.1. O runner de escrita e a separação das
+credenciais do aprovisionador e do deploy continuam nos gates seguintes.
+
 Antes de bootstrap do histórico ou DDL, o runner deve adquirir o lock de
 sessão existente, validar identidade, redescobrir os ficheiros, ler história
 e catálogo em snapshot conjunto, exigir `NO_DRIFT`, recompilar e comparar

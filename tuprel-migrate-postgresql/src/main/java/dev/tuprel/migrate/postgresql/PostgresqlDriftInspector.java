@@ -85,7 +85,7 @@ public final class PostgresqlDriftInspector {
                 diagnostic -> Inspection.withoutReference(PhysicalDriftReport.catalogUnknown(List.of(diagnostic))));
     }
 
-    private static Inspection inspect(Connection connection, PostgresqlCatalogObserver.Target target,
+    static Inspection inspect(Connection connection, PostgresqlCatalogObserver.Target target,
             SqlIdentifier schema, long oid, CatalogObservation catalog, List<MigrationFile> files)
             throws SQLException {
         if (catalog.state() != CatalogObservation.State.COMPLETE) {
