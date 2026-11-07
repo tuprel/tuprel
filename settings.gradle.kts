@@ -26,6 +26,7 @@ include("tuprel-codegen-java")
 include("tuprel-sql")
 include("tuprel-runtime")
 include("tuprel-postgresql")
+include("tuprel-spring-boot-starter")
 include("tuprel-migrate")
 include("tuprel-migrate-postgresql")
 

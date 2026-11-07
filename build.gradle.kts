@@ -74,11 +74,12 @@ subprojects {
  * herda a mesma verificação.
  */
 tasks.named("check") {
-    dependsOn(gradle.includedBuild("build-logic").task(":check"))
+    dependsOn(gradle.includedBuild("build-logic").task(":check"), ":tuprel-spring-boot-starter:check")
     dependsOn(":tuprel-schema:check", ":tuprel-cli:check", ":tuprel-codegen-java:check", ":tuprel-sql:check", ":tuprel-runtime:check", ":tuprel-postgresql:check", ":tuprel-migrate:check", ":tuprel-migrate-postgresql:check")
 }
 
 tasks.named("assemble") {
+    dependsOn(":tuprel-spring-boot-starter:assemble")
     dependsOn(":tuprel-schema:assemble", ":tuprel-cli:assemble", ":tuprel-codegen-java:assemble", ":tuprel-sql:assemble", ":tuprel-runtime:assemble", ":tuprel-postgresql:assemble", ":tuprel-migrate:assemble", ":tuprel-migrate-postgresql:assemble")
 }
 

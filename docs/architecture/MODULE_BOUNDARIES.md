@@ -43,6 +43,13 @@ do driver de produção e da configuração Gradle.
 
 ## Responsabilidades
 
+### `tuprel-spring-boot-starter`
+
+Integração de desenvolvimento com Spring Boot 4.1. O módulo expõe o tipo
+de bean `TuprelDatabase` através da dependência API no runtime. Usa o adapter
+PostgreSQL e a auto-configuração Spring Boot internamente. O DataSource
+pertence à aplicação. Nenhum módulo central depende deste starter.
+
 ### `tuprel-schema`
 
 Lexer, parser, AST, source spans, diagnostics, validated schema model.
