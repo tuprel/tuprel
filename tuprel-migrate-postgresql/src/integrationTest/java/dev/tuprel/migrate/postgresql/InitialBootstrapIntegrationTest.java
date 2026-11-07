@@ -637,6 +637,16 @@ class InitialBootstrapIntegrationTest {
                         .deployReviewed(catalog, approved.plan().digest().value(), proof).failure());
         String initialToken = reviewToken(commands);
         assertEquals(approved.token().orElseThrow(), initialToken);
+        Files.write(installed, new byte[]{0}, StandardOpenOption.APPEND);
+        ManagedMigrationCommands untrusted = new ManagedMigrationCommands(project, target, installation, key.getPublic(), proof,
+                () -> issuer(pin, ignored -> { throw new AssertionError("Credentials were requested"); }, provisioner, managedLogin, role), clock);
+        CommandResult tampered = deploy(untrusted, initialToken);
+        assertEquals(2, tampered.code());
+        assertTrue(tampered.error().contains("TUPREL-MANAGED-DEPLOY: INSTALLATION"));
+        assertEquals(initialToken, reviewToken(commands));
+        assertTrue(historyInitialised());
+        Files.copy(binary, installed, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+        Files.setPosixFilePermissions(installed, PosixFilePermissions.fromString("rwxr-xr-x"));
         assertEquals(0, deploy(commands, initialToken).code());
         assertTrue(relationExists("Product"));
         assertEquals(artifact.checksum(), new PostgresqlMigrationHistory(settings.dataSource()).read(target.name())

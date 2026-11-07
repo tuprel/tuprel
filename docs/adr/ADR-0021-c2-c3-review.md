@@ -341,7 +341,9 @@ A instalação controlada da CI fornece o adapter empacotado e o manifesto
 assinado do helper fora do checkout. O dispatcher privado do supervisor
 recebe `migrate dev --write` para publicar e `migrate deploy --dry-run`
 para rever. O deploy aceita apenas `--approve-physical` com o token de uma
-revisão separada. A aplicação Java é compilada numa pasta externa ao checkout
+revisão separada. Antes de pedir uma sessão de escrita, o dispatcher volta
+a validar o perfil ext4 e a instalação autenticada do helper. A aplicação
+Java é compilada numa pasta externa ao checkout
 e usa uma identidade PostgreSQL com privilégios de dados nas tabelas da
 fixture. O login de migrations e a autoridade administrativa são distintos.
 

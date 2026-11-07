@@ -100,7 +100,12 @@ final class ManagedMigrationCommands {
             }
         }
         if (!options.keySet().equals(Set.of("--approve-physical"))) { return usage(err); }
-        MigrationExecutionResult result = issuers.get().deployReviewed(catalog, options.get("--approve-physical"), proof);
+        ManagedCredentialIssuer issuer = issuers.get();
+        if (!issuer.verifiedPublicationProfile(catalog, installation, publisherKey, proof, clock)) {
+            err.println("TUPREL-MANAGED-DEPLOY: INSTALLATION");
+            return 2;
+        }
+        MigrationExecutionResult result = issuer.deployReviewed(catalog, options.get("--approve-physical"), proof);
         out.println("Deployment: " + result.outcome());
         out.println("Confirmed this invocation: " + result.confirmed().size());
         if (result.outcome() == MigrationExecutionResult.Outcome.APPLIED
