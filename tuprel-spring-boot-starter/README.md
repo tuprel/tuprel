@@ -14,8 +14,11 @@ TuprelClient client = new TuprelClient(database);
 ```
 
 The starter has no JPA dependency and performs no migrations or queries
-during startup. Use Tuprel's explicit transaction API. Participation in
-Spring-managed transactions requires a separate contract.
+during startup. Use Tuprel's explicit transaction API for work owned by
+Tuprel. With a plain application `DataSource`, this transaction can commit
+independently even if an enclosing Spring `@Transactional` method rolls back.
+The external PostgreSQL fixture verifies that boundary. Spring-managed
+transaction participation requires a separate contract.
 
 Run `./gradlew :tuprel-spring-boot-starter:integrationTest --dependency-verification strict`
 to compile and launch a separate Spring Boot application against the starter
