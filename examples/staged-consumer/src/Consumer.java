@@ -30,7 +30,10 @@ public final class Consumer {
             }
             dataSource.setCurrentSchema(schema);
             dataSource.setConnectTimeout(5);
-            run(new TuprelClient(PostgresqlDatabase.using(dataSource)));
+            TuprelClient db = new TuprelClient(PostgresqlDatabase.using(dataSource));
+            if (List.of(arguments).equals(List.of("--verify-upgrade"))) { verifyUpgrade(db); }
+            else if (arguments.length == 0) { run(db); }
+            else { throw new IllegalArgumentException("Unknown fixture mode"); }
             System.out.println("Staged Java consumer passed");
         } catch (Exception failure) {
             System.err.println("Staged Java consumer failed. Inspect the fixture and installed libraries.");
@@ -65,6 +68,13 @@ public final class Consumer {
 
     private static ProductCreate product(int id, String name, int stock) {
         return ProductCreate.builder().id(id).name(name).stock(stock).build();
+    }
+
+    private static void verifyUpgrade(TuprelClient db) {
+        require(db.product().findById(1).orElseThrow().stock() == 1);
+        require(db.product().findById(2).isEmpty() && db.product().findById(9).isEmpty());
+        Purchase purchase = db.purchase().findById(1, query -> query.include(PurchaseInclude.product())).orElseThrow();
+        require(purchase.product().get().name().equals("Keyboard") && purchase.quantity() == 2);
     }
 
     private static void require(boolean condition) {
