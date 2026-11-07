@@ -40,6 +40,10 @@ jobs:
       - name: Verify runtime libraries in a temporary Maven repository
         shell: pwsh
         run: ./test-support/distribution/Verify-StagedMaven.ps1
+      - name: Sign and verify an offline Maven release envelope
+        if: runner.os == 'Linux'
+        shell: pwsh
+        run: ./test-support/distribution/Verify-StagedMaven.ps1 -Gpg /usr/bin/gpg
       - name: Check out the Maven upgrade baseline
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
