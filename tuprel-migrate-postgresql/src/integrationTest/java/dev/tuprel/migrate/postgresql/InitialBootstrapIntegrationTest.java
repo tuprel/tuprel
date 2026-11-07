@@ -646,7 +646,19 @@ class InitialBootstrapIntegrationTest {
         assertEquals(initialToken, reviewToken(commands));
         assertTrue(historyInitialised());
         Files.copy(binary, installed, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+        Files.setPosixFilePermissions(installed, PosixFilePermissions.fromString("rwxrwxr-x"));
+        CommandResult writableHelper = deploy(untrusted, initialToken);
+        assertEquals(2, writableHelper.code());
+        assertTrue(writableHelper.error().contains("TUPREL-MANAGED-DEPLOY: INSTALLATION"));
         Files.setPosixFilePermissions(installed, PosixFilePermissions.fromString("rwxr-xr-x"));
+        Path metadata = installation.resolve("manifest.txt");
+        Files.setPosixFilePermissions(metadata, PosixFilePermissions.fromString("rw-rw-r--"));
+        CommandResult writableManifest = deploy(untrusted, initialToken);
+        assertEquals(2, writableManifest.code());
+        assertTrue(writableManifest.error().contains("TUPREL-MANAGED-DEPLOY: INSTALLATION"));
+        assertFalse(relationExists("Product"));
+        assertTrue(historyInitialised());
+        Files.setPosixFilePermissions(metadata, PosixFilePermissions.fromString("rw-r--r--"));
         assertEquals(0, deploy(commands, initialToken).code());
         assertTrue(relationExists("Product"));
         assertEquals(artifact.checksum(), new PostgresqlMigrationHistory(settings.dataSource()).read(target.name())
@@ -718,6 +730,7 @@ class InitialBootstrapIntegrationTest {
             source.setPassword(new String(password));
             connection.unwrap(PGConnection.class).alterUserPassword(consumerLogin.name(), password, "scram-sha-256");
         } finally { Arrays.fill(password, '\0'); }
+        assertScramVerifier(consumerLogin);
         execute("ALTER ROLE " + quote(consumerLogin) + " LOGIN");
         execute("GRANT USAGE ON SCHEMA " + quote(target) + " TO " + quote(consumerLogin));
         execute("GRANT SELECT, INSERT, UPDATE, DELETE ON " + quote(target) + ".\"Product\", "
@@ -731,6 +744,19 @@ class InitialBootstrapIntegrationTest {
             assertFalse(row.getBoolean(3));
         }
         return source;
+    }
+
+    private void assertScramVerifier(SqlIdentifier login) throws SQLException {
+        try (Connection connection = settings.dataSource().getConnection();
+                PreparedStatement query = connection.prepareStatement("""
+                        SELECT rolpassword LIKE 'SCRAM-SHA-256$%' FROM pg_catalog.pg_authid WHERE rolname = ?
+                        """)) {
+            query.setString(1, login.name());
+            try (ResultSet result = query.executeQuery()) {
+                assertTrue(result.next());
+                assertTrue(result.getBoolean(1), "The consumer login must use a SCRAM verifier");
+            }
+        }
     }
 
     private boolean columnExists(String column) throws SQLException {
