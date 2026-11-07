@@ -20,12 +20,21 @@ sourceSets.named("integrationTest") {
 tasks.named<Test>("integrationTest") {
     // Exercise the installed adapter artifact as well as the PostgreSQL protocol.
     val adapterJar = tasks.jar.flatMap { it.archiveFile }
-    classpath = files(adapterJar) + (classpath - sourceSets.main.get().output)
+    val managedCli = providers.gradleProperty("tuprelTestManagedCli")
+    val installedJars = if (managedCli.isPresent) fileTree("${managedCli.get()}/lib") { include("*.jar") } else files(adapterJar)
+    classpath = files(installedJars, classpath - sourceSets.main.get().output)
     systemProperty("tuprel.test.database", providers.gradleProperty("tuprelTestDatabase").getOrElse("local"))
     systemProperty("tuprel.test.env.file", rootProject.layout.projectDirectory
         .file("examples/tuprel-playground/.env").asFile.absolutePath)
     systemProperty("tuprel.test.publisher", providers.gradleProperty("tuprelTestPublisher").getOrElse(""))
     systemProperty("tuprel.test.publicationVolume", providers.gradleProperty("tuprelTestPublicationVolume").getOrElse(""))
+    if (managedCli.isPresent) {
+        dependsOn(":tuprel-postgresql:jar", ":tuprel-runtime:jar")
+        systemProperty("tuprel.test.staged.cli", managedCli.get())
+        systemProperty("tuprel.test.staged.runtime", project(":tuprel-runtime").layout.buildDirectory.file("libs/tuprel-runtime.jar").get().asFile.absolutePath)
+        systemProperty("tuprel.test.staged.postgresql", project(":tuprel-postgresql").layout.buildDirectory.file("libs/tuprel-postgresql.jar").get().asFile.absolutePath)
+        systemProperty("tuprel.test.staged.example", rootProject.layout.projectDirectory.dir("examples/staged-consumer").asFile.absolutePath)
+    }
     outputs.upToDateWhen { false }
     outputs.doNotCacheIf("Integration tests use external database state") { true }
 }

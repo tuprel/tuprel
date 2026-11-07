@@ -335,6 +335,28 @@ revisão e a execução geridas. As consultas de status permanecem disponíveis
 em leitura. A distribuição e a interface da instalação controlada são
 validadas no consumidor da C3.3C.
 
+### Prova no consumidor em staging
+
+A instalação controlada da CI fornece o adapter empacotado e o manifesto
+assinado do helper fora do checkout. O dispatcher privado do supervisor
+recebe `migrate dev --write` para publicar e `migrate deploy --dry-run`
+para rever. O deploy aceita apenas `--approve-physical` com o token de uma
+revisão separada. Antes de pedir uma sessão de escrita, o dispatcher volta
+a validar o perfil ext4 e a instalação autenticada do helper. A aplicação
+Java é compilada numa pasta externa ao checkout
+e usa uma identidade PostgreSQL com privilégios de dados nas tabelas da
+fixture. O login de migrations e a autoridade administrativa são distintos.
+
+O schema físico da prova descreve apenas tabelas, scalars e índices
+admitidos. O schema usado pelo gerador inclui uma relação explícita para
+demonstrar o runtime. A prova mantém a chave de ligação escalar em ambas as
+representações. A gramática aprovada ainda não gera foreign keys.
+O teste executa o primeiro plano e uma adição posterior, compara os
+checksums com o histórico e volta a ler os dados através do cliente
+gerado após o upgrade. A prova opera apenas em Linux x86-64 com ext4 local
+e PostgreSQL 17 descartável. A activação por ambiente mantém os gates
+operacionais do ADR. A CLI padrão mantém o preview de `dev`.
+
 ## Decisões para aprovação
 
 - Aprovisionamento separado com autorização de uso único, recibo

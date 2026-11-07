@@ -19,4 +19,10 @@ the runtime over a private pipe and checks its output for accidental disclosure.
 The fixture exercises typed CRUD, filtering and ordering, an explicit relation,
 and transaction commit and rollback. The test creates and cleans up its own
 schema. It bootstraps two tables for this runtime check. The managed migration
-consumer proof will replace that setup in its own test.
+integration test uses the same application with tables created by the managed
+runner. It exercises initial deployment and an additive upgrade on a dedicated
+Linux ext4 volume and PostgreSQL 17. The physical input uses scalars and indexes.
+The client input includes the relation used by the generated runtime API.
+
+See the [managed fixture contract](../../docs/adr/ADR-0021-c2-c3-review.md#prova-no-consumidor-em-staging)
+for the installation boundary and the independent publication and approval steps.
