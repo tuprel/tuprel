@@ -40,6 +40,9 @@ jobs:
       - name: Verify runtime libraries in a temporary Maven repository
         shell: pwsh
         run: ./test-support/distribution/Verify-StagedMaven.ps1
+      - name: Compile and run an external Maven consumer
+        shell: pwsh
+        run: ./test-support/distribution/Verify-MavenConsumer.ps1
       - name: Exercise the signed staging installer and version switching
         shell: pwsh
         run: ./test-support/distribution/Verify-SignedCli.ps1
