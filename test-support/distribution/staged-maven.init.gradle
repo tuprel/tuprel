@@ -19,6 +19,8 @@ if (!(fixtureVersion in ['0.0.0-fixture', '0.0.1-fixture'])) {
     throw new GradleException('Expected a fixture-only Maven version')
 }
 
+def releaseEnvelope = Boolean.getBoolean('tuprel.test.maven.releaseEnvelope')
+
 gradle.beforeProject { library ->
     if (library.rootProject.name != 'tuprel'
             || !(library.name in ['tuprel-sql', 'tuprel-runtime', 'tuprel-postgresql'])) { return }
@@ -26,8 +28,38 @@ gradle.beforeProject { library ->
     library.version = fixtureVersion
     library.pluginManager.apply('maven-publish')
     library.pluginManager.withPlugin('java') {
+        if (releaseEnvelope) {
+            library.java.withSourcesJar()
+            library.java.withJavadocJar()
+        }
         library.publishing {
-            publications.create('fixture', MavenPublication) { from library.components.java }
+            publications.create('fixture', MavenPublication) {
+                from library.components.java
+                if (releaseEnvelope) {
+                    pom {
+                        name = library.name
+                        description = 'Tuprel Java persistence toolkit library'
+                        url = 'https://github.com/tuprel/tuprel'
+                        licenses {
+                            license {
+                                name = 'Apache License, Version 2.0'
+                                url = 'https://www.apache.org/licenses/LICENSE-2.0'
+                            }
+                        }
+                        developers {
+                            developer {
+                                id = 'tuprel'
+                                name = 'Tuprel contributors'
+                            }
+                        }
+                        scm {
+                            connection = 'scm:git:https://github.com/tuprel/tuprel.git'
+                            developerConnection = 'scm:git:ssh://git@github.com/tuprel/tuprel.git'
+                            url = 'https://github.com/tuprel/tuprel'
+                        }
+                    }
+                }
+            }
             repositories.maven { name = 'fixture'; url = repository.toUri() }
         }
     }

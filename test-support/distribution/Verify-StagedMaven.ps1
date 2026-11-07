@@ -1,3 +1,5 @@
+param([string]$Gpg)
+
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
 $repository = Join-Path ([IO.Path]::GetTempPath()) ("tuprel-maven-fixture-" + [guid]::NewGuid())
@@ -7,7 +9,9 @@ try {
     $gradle = if ($IsWindows) { '.\gradlew.bat' } else { './gradlew' }
     $libraries = @('tuprel-sql', 'tuprel-runtime', 'tuprel-postgresql')
     $tasks = $libraries | ForEach-Object { ":${_}:publishFixturePublicationToFixtureRepository" }
-    & $gradle @tasks --no-configuration-cache --dependency-verification strict -I "$PSScriptRoot/staged-maven.init.gradle" "-Dtuprel.test.maven.repository=$repository"
+    $publicationOptions = @("-Dtuprel.test.maven.repository=$repository")
+    if ($Gpg) { $publicationOptions += '-Dtuprel.test.maven.releaseEnvelope=true' }
+    & $gradle @tasks --no-configuration-cache --dependency-verification strict -I "$PSScriptRoot/staged-maven.init.gradle" @publicationOptions
     if ($LASTEXITCODE -ne 0) { throw 'Local Maven staging failed' }
 
     $coordinates = @{ group = 'dev.tuprel.staging'; version = '0.0.0-fixture' }
@@ -16,6 +20,7 @@ try {
         'tuprel-runtime' = @('tuprel-sql:compile')
         'tuprel-postgresql' = @('tuprel-runtime:compile', 'tuprel-sql:runtime', 'postgresql:runtime')
     }
+    $releaseFiles = @()
     foreach ($library in $libraries) {
         $directory = Join-Path $repository "dev/tuprel/staging/$library/$($coordinates.version)"
         $prefix = Join-Path $directory "$library-$($coordinates.version)"
@@ -33,8 +38,16 @@ try {
         if (($actual -join ',') -cne (($dependencies[$library] | Sort-Object) -join ',')) {
             throw "Unexpected dependency scopes for $library"
         }
+        if ($Gpg) {
+            if (-not $pom.name -or -not $pom.description -or -not $pom.url -or
+                    -not $pom.licenses.license.url -or -not $pom.developers.developer.id -or
+                    -not $pom.scm.connection) { throw 'Missing release POM metadata' }
+            $releaseFiles += @("$prefix.jar", "$prefix.pom", "$prefix.module",
+                "$prefix-sources.jar", "$prefix-javadoc.jar")
+        }
     }
     Write-Output 'Three staged libraries and their Maven dependency scopes verified'
+    if ($Gpg) { & "$PSScriptRoot/Verify-MavenReleaseEnvelope.ps1" -Gpg $Gpg -Fixture $repository -Files $releaseFiles }
 } finally {
     Pop-Location
     $resolved = (Resolve-Path -LiteralPath $repository).Path

@@ -13,6 +13,18 @@ pwsh -File test-support/distribution/Verify-StagedMaven.ps1
 The Maven fixture applies its publishing configuration only to the isolated
 test invocation.
 
+The Linux CI job also runs the fixture with an absolute GnuPG executable.
+
+```powershell
+pwsh -File test-support/distribution/Verify-StagedMaven.ps1 -Gpg /usr/bin/gpg
+```
+
+This mode stages the JARs, sources, Javadoc, POMs and Gradle module metadata.
+It checks SHA-256, produces detached OpenPGP signatures with an ephemeral
+key, verifies them with a separate public-only keyring, and rejects changed
+bytes. This verifies the release envelope locally. Central Portal namespace
+verification, signing identity, authentication and upload remain separate.
+
 The external Maven check uses a fresh Maven cache and file repository. It
 generates and compiles Java twice, using two fixture versions built from the
 same source revision and a changed consumer schema. Run it with Maven 3.9
