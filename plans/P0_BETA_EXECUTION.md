@@ -2,7 +2,7 @@
 
 Baseline verificado em 6 de novembro de 2026. A `main` estava em
 `48b08e61689cdc0678097b1419bf1b6f60b781b8`, com CI e CodeQL aprovados.
-O repositório não tinha uma release oficial nem um website configurado.
+O repositório não tinha uma release oficial. O frontend público está no repositório [tuprel/tuprel-website](https://github.com/tuprel/tuprel-website).
 A CLI é distribuída localmente pelo build e o playground usa um build
 composto. O plano de fases continua a definir os contratos técnicos.
 O P0 estabelece a ordem de entrega e os critérios da Beta pública.
@@ -16,7 +16,7 @@ O P0 estabelece a ordem de entrega e os critérios da Beta pública.
 | P0-05 | Maven e bibliotecas | Consumidor Maven externo aprovado em Windows e Linux com dois conjuntos de artefactos de staging | Coordenadas definitivas, titularidade de domínio, assinatura e distribuição pública | Consumidor Maven externo resolve bibliotecas, gera e compila fontes, testa dependências transitivas e atualização | [#71](https://github.com/tuprel/tuprel/pull/71) verifica POM e scopes. [#73](https://github.com/tuprel/tuprel/pull/73) integra compilação e execução Maven externas em `cd47d83` |
 | P0-06 | Projecto consumidor | Aplicação de vendas em staging valida geração, CRUD, queries, relações, transacções e migrations a partir dos artefactos instalados | Instalação distribuível e variantes de integração P0-03/04/05 | Validar schema, geração, CRUD, relações, queries, transacções, migrations, preservação de dados em upgrade e recuperação com artefactos distribuíveis | [#69](https://github.com/tuprel/tuprel/pull/69) prova o runtime fora do checkout. [#70](https://github.com/tuprel/tuprel/pull/70) prova o fluxo de migrations e a preservação dos dados durante o upgrade |
 | P0-07 | Segurança e qualidade | Verificação estrita de dependências, CodeQL Java/C e testes reais integrados | Cadeia de distribuição e cutover ainda incompletos. Política de atualização necessita de validação antes da Beta | Assinaturas verificadas, redacção, privilégios mínimos, recuperação exercitada, compatibilidade, política de segurança e checks aprovados | Trabalho transversal nos PRs funcionais. Primeiro `test(distribution): reject tampered bundles and manifests` junto à primeira via de instalação |
-| P0-08 | Website e documentação pública | Preview estático com homepage e cinco pontos de entrada. A instalação documentada parte do código-fonte | Domínio, hospedagem e canal de distribuição. Guias de integração dependem dos contratos entregues | Homepage, instalação testada, pesquisa, referências CLI/Java, guias Spring/Maven/Gradle e exemplos reais. Validar navegação e downloads contra artefactos da Beta | [PR #74](https://github.com/tuprel/tuprel/pull/74) gera o preview e valida a navegação. O domínio e os downloads continuam pendentes |
+| P0-08 | Website e documentação pública | Website independente Next.js com navegação, pesquisa e CI próprios. A instalação documentada parte do código-fonte | Domínio, hospedagem e canal de distribuição. Guias de integração dependem dos contratos entregues | Homepage, instalação testada, pesquisa, referências CLI/Java, guias Spring/Maven/Gradle e exemplos reais. Validar navegação e downloads contra artefactos da Beta | O repositório Java mantém as fontes técnicas. O website importa um commit fixado e valida navegação e exemplos. Domínio e downloads da Beta pendentes |
 
 ## Sequência e gates
 
