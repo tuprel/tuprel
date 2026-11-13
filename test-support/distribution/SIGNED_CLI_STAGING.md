@@ -41,7 +41,8 @@ durability after power loss.
 The fixture halts a separate JVM after simulating the first deletion. It also
 forces a Windows sharing violation or a Linux permission failure, restores
 access, and verifies recovery from a new verifier process. It selects the two
-versions and rolls back using the process PATH. An external project in a path
+versions and explicitly rolls back through a version-independent PowerShell
+or Bash launcher. An external project in a path
 with spaces runs the installed launcher for version, init, validate and
 generate.
 
@@ -84,8 +85,23 @@ handles. Publication and quarantine use native no-replace renames. The
 verifier compares directory identities across the rename and checks the signed
 bytes again after publication. The staging test checks that an unsafe root or
 missing native library is refused before the lock or payload is written.
-The staged version remains separate from the future active-version pointer
-and persistent PATH setup.
+
+Activation serializes with install, remove and launch. The private active
+record binds the selected version to its signed manifest digest and records the
+highest selected version. The launcher rechecks the selected release against a
+signed staging authorization list and verifies the installed files against the
+authenticated archive before invoking Java with an explicit classpath.
+Rollback requires a signed rollback grant. Revoked versions and removal of
+the active version are refused. The staging authorization list comes from the
+trusted fixture bootstrap. Metadata freshness and rollback resistance across
+key or policy rotations remain distribution work.
+
+The commit point is one file replacement using renameat2 on Linux or
+FileRenameInfo on NTFS. A refused Windows replacement can leave an inert
+candidate next to the previous pointer. A new process reads only the committed
+pointer and revalidates its target. Candidates are preserved. These tests cover
+atomic visibility and process-level recovery. Power-loss durability and
+persistent PATH are separate gates.
 
 A local Windows proof used jdeps and jlink to produce a 56.2 MiB JDK 21
 image, including a small fixture project. The image ran init, validate and

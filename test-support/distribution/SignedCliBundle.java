@@ -27,7 +27,7 @@ import java.util.zip.ZipInputStream;
 
 final class SignedCliBundle {
     private static final int LIMIT = 32 * 1024 * 1024;
-    private static final Pattern VERSION = Pattern.compile("[0-9]{1,4}\\.[0-9]{1,4}\\.[0-9]{1,4}-staging");
+    static final Pattern VERSION = Pattern.compile("(?:0|[1-9][0-9]{0,3})\\.(?:0|[1-9][0-9]{0,3})\\.(?:0|[1-9][0-9]{0,3})-staging");
     private static final Pattern LIBRARY = Pattern.compile("lib/[A-Za-z0-9][A-Za-z0-9_.+-]{0,150}\\.jar");
     private static final Pattern WINDOWS_DEVICE = Pattern.compile("(?i)(?:CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(?:\\..*)?");
     private static final Set<String> LAUNCHERS = Set.of("bin/tuprel", "bin/tuprel.bat");
@@ -178,6 +178,8 @@ final class SignedCliBundle {
         try (FileChannel channel = openLock(root); FileLock lock = channel.lock()) {
             if (!lock.isValid()) throw new IOException("Staging lock is invalid");
             if (present(destination)) {
+                StagedActivation.State state = StagedActivation.readState(guarded);
+                if (state != null && state.version().equals(version)) throw new IOException("Cannot remove active version");
                 if (present(removing)) throw new IOException("Conflicting installation and removal directories");
                 Object installed = guarded.identity(destination);
                 inspectVersion(guarded, destination, false);
@@ -202,15 +204,24 @@ final class SignedCliBundle {
         return root.resolve("." + version + "-removing");
     }
 
-    private static boolean present(Path path) throws IOException {
+    static boolean present(Path path) throws IOException {
         if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return true;
         if (Files.notExists(path, LinkOption.NOFOLLOW_LINKS)) return false;
         throw new IOException("Cannot determine installation state");
     }
 
-    private static FileChannel openLock(Path root) throws IOException {
+    static FileChannel openLock(Path root) throws IOException {
         return FileChannel.open(root.resolve(".tuprel-staging.lock"), StandardOpenOption.CREATE,
                 StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+    }
+
+    String digest() {
+        return new String(receipt, StandardCharsets.US_ASCII).strip();
+    }
+
+    List<String> checkedLibraries(StagingRoot guarded, Path installed) throws IOException {
+        inspectVersion(guarded, installed, false);
+        return files.keySet().stream().filter(name -> name.startsWith("lib/")).sorted().toList();
     }
 
     private List<Path> inspectVersion(StagingRoot guarded, Path directory, boolean allowMissing) throws IOException {
@@ -219,7 +230,7 @@ final class SignedCliBundle {
         Path marker = directory.resolve(RECEIPT);
         boolean hasReceipt = present(marker);
         if (hasReceipt) {
-            verifyInstalledBytes(marker, receipt);
+            verifyInstalledBytes(guarded, marker, receipt);
         }
         int fileCount = 0;
         try (DirectoryStream<Path> folders = Files.newDirectoryStream(directory)) {
@@ -234,7 +245,7 @@ final class SignedCliBundle {
                     for (Path entry : entries) {
                         byte[] expected = files.get(name + "/" + entry.getFileName());
                         if (expected == null) throw new IOException("Installation contains an unknown file");
-                        verifyInstalledBytes(entry, expected);
+                        verifyInstalledBytes(guarded, entry, expected);
                         verified.add(entry);
                         fileCount++;
                     }
@@ -250,7 +261,8 @@ final class SignedCliBundle {
         return verified;
     }
 
-    private static void verifyInstalledBytes(Path file, byte[] expected) throws IOException {
+    private static void verifyInstalledBytes(StagingRoot guarded, Path file, byte[] expected) throws IOException {
+        guarded.verifyFile(file);
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("Installation contains a non-regular file or link");
         }

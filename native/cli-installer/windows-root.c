@@ -57,7 +57,7 @@ static int trusted_sid(const installer_root *root, PSID sid) {
         || IsWellKnownSid(sid, WinLocalSystemSid) || IsWellKnownSid(sid, WinBuiltinAdministratorsSid));
 }
 
-static int trusted_acl(const installer_root *root, HANDLE handle, int private_object) {
+static int trusted_acl(const installer_root *root, HANDLE handle, int private_object, int file) {
     PSID owner = NULL;
     PACL acl = NULL;
     PSECURITY_DESCRIPTOR descriptor = NULL;
@@ -67,7 +67,7 @@ static int trusted_acl(const installer_root *root, HANDLE handle, int private_ob
         && (private_object ? EqualSid(owner, root->user) : trusted_sid(root, owner));
     DWORD unsafe = FILE_WRITE_DATA | FILE_WRITE_EA | FILE_DELETE_CHILD | FILE_WRITE_ATTRIBUTES
         | DELETE | WRITE_DAC | WRITE_OWNER | GENERIC_ALL | GENERIC_WRITE | MAXIMUM_ALLOWED;
-    if (private_object) unsafe |= FILE_APPEND_DATA;
+    if (private_object || file) unsafe |= FILE_APPEND_DATA;
     for (DWORD i = 0; valid && i < acl->AceCount; i++) {
         void *entry = NULL;
         if (!GetAce(acl, i, &entry)) { valid = 0; break; }
@@ -96,17 +96,17 @@ static int component(const wchar_t *name) {
     return 1;
 }
 
-static HANDLE open_relative(HANDLE parent, const wchar_t *name, int create, ACCESS_MASK additional) {
+static HANDLE open_relative(HANDLE parent, const wchar_t *name, int create, int file, ACCESS_MASK additional) {
     USHORT bytes = (USHORT)(wcslen(name) * sizeof(wchar_t));
     UNICODE_STRING object_name = {bytes, bytes, (PWSTR)name};
     OBJECT_ATTRIBUTES attributes = {sizeof attributes, parent, &object_name, NO_REPARSE, NULL, NULL};
     IO_STATUS_BLOCK result;
     HANDLE handle = INVALID_HANDLE_VALUE;
     ACCESS_MASK access = additional | FILE_READ_ATTRIBUTES | READ_CONTROL | SYNCHRONIZE
-        | (create ? FILE_WRITE_DATA : FILE_LIST_DIRECTORY | FILE_TRAVERSE);
+        | (create ? FILE_WRITE_DATA : file ? 0 : FILE_LIST_DIRECTORY | FILE_TRAVERSE);
     NTSTATUS status = NtCreateFile(&handle, access, &attributes, &result, NULL, FILE_ATTRIBUTE_NORMAL,
             create ? 0 : FILE_SHARE_READ | FILE_SHARE_WRITE, create ? CREATE_NEW_OBJECT : OPEN_OBJECT,
-            FILE_SYNCHRONOUS_IO_NONALERT | (create ? FILE_NON_DIRECTORY_FILE : FILE_DIRECTORY_FILE), NULL, 0);
+            FILE_SYNCHRONOUS_IO_NONALERT | (file ? FILE_NON_DIRECTORY_FILE : FILE_DIRECTORY_FILE), NULL, 0);
     if (status < 0) PROBE("Relative open refused: %08lx\n", (ULONG)status);
     return status >= 0 ? handle : INVALID_HANDLE_VALUE;
 }
@@ -117,7 +117,7 @@ static int directory(const installer_root *root, HANDLE handle, int private_obje
         && (attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT))
             == FILE_ATTRIBUTE_DIRECTORY
         && GetFileInformationByHandleEx(handle, FileIdInfo, id, sizeof *id)
-        && id->VolumeSerialNumber == root->volume && trusted_acl(root, handle, private_object);
+        && id->VolumeSerialNumber == root->volume && trusted_acl(root, handle, private_object, 0);
 }
 
 static int canonical(HANDLE handle, const wchar_t *path) {
@@ -169,7 +169,7 @@ installer_root *installer_open_root(const wchar_t *path) {
         wmemcpy(name, start, count);
         name[count] = L'\0';
         if (!component(name)) goto refused;
-        handle = open_relative(handle, name, 0, 0);
+        handle = open_relative(handle, name, 0, 0, 0);
         if (handle == INVALID_HANDLE_VALUE) goto refused;
         root->chain[root->count++] = handle;
         int last = start[count] == L'\0';
@@ -200,7 +200,7 @@ int installer_root_valid(const installer_root *root) {
 
 HANDLE installer_create_file(const installer_root *root, const wchar_t *name) {
     if (!component(name) || !installer_root_valid(root)) return INVALID_HANDLE_VALUE;
-    return open_relative(root->chain[root->count - 1], name, 1, 0);
+    return open_relative(root->chain[root->count - 1], name, 1, 1, 0);
 }
 
 int installer_root_identity(const installer_root *root, FILE_ID_INFO *id) {
@@ -209,22 +209,27 @@ int installer_root_identity(const installer_root *root, FILE_ID_INFO *id) {
     return 1;
 }
 
-int installer_rename_new(const installer_root *root, const wchar_t *source, const wchar_t *destination) {
+static int rename_entry(const installer_root *root, const wchar_t *source, const wchar_t *destination, int replace) {
     if (!component(source) || !component(destination) || !installer_root_valid(root)) return 0;
     HANDLE parent = root->chain[root->count - 1];
-    HANDLE handle = open_relative(parent, source, 0, DELETE);
+    HANDLE handle = open_relative(parent, source, 0, replace, DELETE);
     if (handle == INVALID_HANDLE_VALUE) return 0;
     int renamed = 0;
     FILE_ID_INFO id;
     wchar_t target[PATH_CAPACITY];
     DWORD prefix = GetFinalPathNameByHandleW(parent, target, PATH_CAPACITY, FILE_NAME_NORMALIZED | VOLUME_NAME_GUID);
-    if (directory(root, handle, 1, &id) && prefix && prefix < PATH_CAPACITY
+    BY_HANDLE_FILE_INFORMATION file;
+    int valid = replace ? (GetFileInformationByHandle(handle, &file)
+            && !(file.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT))
+            && file.nNumberOfLinks == 1 && trusted_acl(root, handle, 0, 1)) : directory(root, handle, 1, &id);
+    if (valid && prefix && prefix < PATH_CAPACITY
             && swprintf(target + prefix, PATH_CAPACITY - prefix, L"\\%ls", destination) >= 0
             && installer_root_valid(root)) {
         size_t length = wcslen(target) * sizeof *target;
         size_t capacity = FIELD_OFFSET(FILE_RENAME_INFO, FileName) + length + sizeof *target;
         FILE_RENAME_INFO *rename = calloc(1, capacity);
         if (rename) {
+            rename->ReplaceIfExists = replace ? TRUE : FALSE;
             rename->FileNameLength = (DWORD)length;
             memcpy(rename->FileName, target, length);
             renamed = SetFileInformationByHandle(handle, FileRenameInfo, rename, (DWORD)capacity) != 0;
@@ -233,4 +238,24 @@ int installer_rename_new(const installer_root *root, const wchar_t *source, cons
     }
     CloseHandle(handle);
     return renamed;
+}
+
+int installer_rename_new(const installer_root *root, const wchar_t *source, const wchar_t *destination) {
+    return rename_entry(root, source, destination, 0);
+}
+
+int installer_replace_file(const installer_root *root, const wchar_t *source, const wchar_t *destination) {
+    return rename_entry(root, source, destination, 1);
+}
+
+int installer_trusted_file(const installer_root *root, const wchar_t *name) {
+    if (!component(name) || !installer_root_valid(root)) return 0;
+    HANDLE handle = open_relative(root->chain[root->count - 1], name, 0, 1, 0);
+    if (handle == INVALID_HANDLE_VALUE) return 0;
+    BY_HANDLE_FILE_INFORMATION file;
+    int valid = GetFileInformationByHandle(handle, &file)
+        && !(file.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT))
+        && file.nNumberOfLinks == 1 && trusted_acl(root, handle, 0, 1);
+    CloseHandle(handle);
+    return valid;
 }

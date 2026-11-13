@@ -110,3 +110,28 @@ int installer_rename_new(int root, const char *source, const char *destination) 
             || !trusted_directory(root, geteuid(), 1) || !supported_mount(root)) return 0;
     return syscall(SYS_renameat2, root, source, root, destination, RENAME_NOREPLACE) == 0;
 }
+
+int installer_replace_file(int root, const char *source, const char *destination) {
+    if (!valid_component(source) || strchr(source, '/') || !valid_component(destination) || strchr(destination, '/')
+            || !trusted_directory(root, geteuid(), 1) || !supported_mount(root)) return 0;
+    struct stat info;
+    if (fstatat(root, source, &info, AT_SYMLINK_NOFOLLOW) != 0
+            || !S_ISREG(info.st_mode) || info.st_uid != geteuid() || info.st_nlink != 1
+            || (info.st_mode & 07777) != 0600) return 0;
+    return syscall(SYS_renameat2, root, source, root, destination, 0) == 0;
+}
+
+int installer_trusted_file(int root, const char *name) {
+    if (!valid_component(name) || strchr(name, '/')) return 0;
+    const struct open_how options = {
+        .flags = O_PATH | O_CLOEXEC,
+        .resolve = RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_XDEV
+    };
+    int file = (int)syscall(SYS_openat2, root, name, &options, sizeof options);
+    if (file < 0) return 0;
+    struct stat info;
+    int valid = fstat(file, &info) == 0 && S_ISREG(info.st_mode)
+        && info.st_uid == geteuid() && info.st_nlink == 1 && !(info.st_mode & 07022);
+    close(file);
+    return valid;
+}
