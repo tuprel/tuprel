@@ -124,6 +124,15 @@ try {
         if ($LASTEXITCODE -or $interactiveResult -cne "tuprel $($versions[0])") { throw 'New interactive Bash failed' }
         $loginResult = & /usr/bin/env "HOME=$fixtureHome" 'PATH=/usr/bin:/bin' /bin/bash -lc $bashCheck bash $launcher
         if ($LASTEXITCODE -or $loginResult -cne "tuprel $($versions[0])") { throw 'New login Bash failed' }
+        $bashConsumer = Join-Path $fixture 'Bash PATH consumer café'
+        [IO.Directory]::CreateDirectory($bashConsumer) | Out-Null
+        Push-Location -LiteralPath $bashConsumer
+        try {
+            & /usr/bin/env "HOME=$fixtureHome" 'PATH=/usr/bin:/bin' /bin/bash -lc 'tuprel init && tuprel validate && tuprel generate'
+            if ($LASTEXITCODE -or -not (Test-Path -LiteralPath 'tuprel/schema.tuprel' -PathType Leaf)) {
+                throw 'New login Bash did not initialize and generate the independent consumer'
+            }
+        } finally { Pop-Location }
         $userEdit = "# later user edit`n"
         [IO.File]::AppendAllText($interactiveProfile, $userEdit)
         foreach ($kind in @('interactive', 'login')) {
