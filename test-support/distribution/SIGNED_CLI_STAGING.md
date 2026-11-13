@@ -1,5 +1,8 @@
 # Signed CLI staging
 
+For tests across real system restarts and a disposable Windows user profile,
+see the [installer reboot proof](REBOOT_CLI_STAGING.md).
+
 Run with PowerShell 7, a Java 21 JDK and the platform C compiler in the
 source checkout. On Linux, pass an existing fixture parent on a local ext4
 or XFS filesystem if the home directory uses another filesystem.

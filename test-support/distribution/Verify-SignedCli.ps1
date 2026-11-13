@@ -1,4 +1,7 @@
-param([string]$FixtureParent = $(if ($IsWindows) { $env:LOCALAPPDATA } else { $HOME }))
+param(
+    [string]$FixtureParent = $(if ($IsWindows) { $env:LOCALAPPDATA } else { $HOME }),
+    [switch]$PrepareRebootFixture
+)
 
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
@@ -13,6 +16,7 @@ if ($IsWindows) {
 } else { [IO.File]::SetUnixFileMode($fixture, [IO.UnixFileMode]448) }
 $fixture = (Resolve-Path -LiteralPath $fixture).Path
 $before = $env:PATH
+$retain = $false
 try {
     $native = Join-Path $fixture $(if ($IsWindows) { 'tuprel-staging.dll' } else { 'libtuprel-staging.so' })
     $nativeSource = Join-Path $root 'native/cli-installer'
@@ -54,6 +58,17 @@ try {
 
     $secondArguments = @($versions[1], $archives[1], (Join-Path $fixture "$($versions[1]).manifest"),
         (Join-Path $fixture "$($versions[1]).ed25519"), (Join-Path $fixture 'public-key.bin'))
+    if ($PrepareRebootFixture) {
+        if ($IsWindows) {
+            & "$nativeSource/build-windows-path.cmd" (Join-Path $fixture 'tuprel-path.exe')
+            if ($LASTEXITCODE) { throw 'Real-profile PATH helper did not compile' }
+        }
+        [IO.File]::WriteAllText((Join-Path $fixture 'reboot-bootstrap.json'),
+            (@{java = $java; keyId = $keyId} | ConvertTo-Json))
+        $retain = $true
+        Write-Output "Reboot fixture: $fixture"
+        return
+    }
     $unsafe = Join-Path $fixture 'unsafe root'
     [IO.Directory]::CreateDirectory($unsafe) | Out-Null
     if ($IsWindows) {
@@ -304,5 +319,5 @@ try {
     if ($resolved -ne $fixture -or -not (Split-Path $resolved -Leaf).StartsWith('tuprel signed cli ')) {
         throw 'Refused cleanup outside the staging fixture'
     }
-    Remove-Item -LiteralPath $resolved -Recurse -Force
+    if (-not $retain) { Remove-Item -LiteralPath $resolved -Recurse -Force }
 }
