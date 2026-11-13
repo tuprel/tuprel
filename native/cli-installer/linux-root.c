@@ -120,3 +120,18 @@ int installer_replace_file(int root, const char *source, const char *destination
             || (info.st_mode & 07777) != 0600) return 0;
     return syscall(SYS_renameat2, root, source, root, destination, 0) == 0;
 }
+
+int installer_trusted_file(int root, const char *name) {
+    if (!valid_component(name) || strchr(name, '/')) return 0;
+    const struct open_how options = {
+        .flags = O_PATH | O_CLOEXEC,
+        .resolve = RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_XDEV
+    };
+    int file = (int)syscall(SYS_openat2, root, name, &options, sizeof options);
+    if (file < 0) return 0;
+    struct stat info;
+    int valid = fstat(file, &info) == 0 && S_ISREG(info.st_mode)
+        && info.st_uid == geteuid() && info.st_nlink == 1 && !(info.st_mode & 07022);
+    close(file);
+    return valid;
+}

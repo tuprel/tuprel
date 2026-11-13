@@ -57,7 +57,7 @@ static int trusted_sid(const installer_root *root, PSID sid) {
         || IsWellKnownSid(sid, WinLocalSystemSid) || IsWellKnownSid(sid, WinBuiltinAdministratorsSid));
 }
 
-static int trusted_acl(const installer_root *root, HANDLE handle, int private_object) {
+static int trusted_acl(const installer_root *root, HANDLE handle, int private_object, int file) {
     PSID owner = NULL;
     PACL acl = NULL;
     PSECURITY_DESCRIPTOR descriptor = NULL;
@@ -67,7 +67,7 @@ static int trusted_acl(const installer_root *root, HANDLE handle, int private_ob
         && (private_object ? EqualSid(owner, root->user) : trusted_sid(root, owner));
     DWORD unsafe = FILE_WRITE_DATA | FILE_WRITE_EA | FILE_DELETE_CHILD | FILE_WRITE_ATTRIBUTES
         | DELETE | WRITE_DAC | WRITE_OWNER | GENERIC_ALL | GENERIC_WRITE | MAXIMUM_ALLOWED;
-    if (private_object) unsafe |= FILE_APPEND_DATA;
+    if (private_object || file) unsafe |= FILE_APPEND_DATA;
     for (DWORD i = 0; valid && i < acl->AceCount; i++) {
         void *entry = NULL;
         if (!GetAce(acl, i, &entry)) { valid = 0; break; }
@@ -117,7 +117,7 @@ static int directory(const installer_root *root, HANDLE handle, int private_obje
         && (attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT))
             == FILE_ATTRIBUTE_DIRECTORY
         && GetFileInformationByHandleEx(handle, FileIdInfo, id, sizeof *id)
-        && id->VolumeSerialNumber == root->volume && trusted_acl(root, handle, private_object);
+        && id->VolumeSerialNumber == root->volume && trusted_acl(root, handle, private_object, 0);
 }
 
 static int canonical(HANDLE handle, const wchar_t *path) {
@@ -221,7 +221,7 @@ static int rename_entry(const installer_root *root, const wchar_t *source, const
     BY_HANDLE_FILE_INFORMATION file;
     int valid = replace ? (GetFileInformationByHandle(handle, &file)
             && !(file.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT))
-            && file.nNumberOfLinks == 1 && trusted_acl(root, handle, 0)) : directory(root, handle, 1, &id);
+            && file.nNumberOfLinks == 1 && trusted_acl(root, handle, 0, 1)) : directory(root, handle, 1, &id);
     if (valid && prefix && prefix < PATH_CAPACITY
             && swprintf(target + prefix, PATH_CAPACITY - prefix, L"\\%ls", destination) >= 0
             && installer_root_valid(root)) {
@@ -246,4 +246,16 @@ int installer_rename_new(const installer_root *root, const wchar_t *source, cons
 
 int installer_replace_file(const installer_root *root, const wchar_t *source, const wchar_t *destination) {
     return rename_entry(root, source, destination, 1);
+}
+
+int installer_trusted_file(const installer_root *root, const wchar_t *name) {
+    if (!component(name) || !installer_root_valid(root)) return 0;
+    HANDLE handle = open_relative(root->chain[root->count - 1], name, 0, 1, 0);
+    if (handle == INVALID_HANDLE_VALUE) return 0;
+    BY_HANDLE_FILE_INFORMATION file;
+    int valid = GetFileInformationByHandle(handle, &file)
+        && !(file.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT))
+        && file.nNumberOfLinks == 1 && trusted_acl(root, handle, 0, 1);
+    CloseHandle(handle);
+    return valid;
 }

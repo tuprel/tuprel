@@ -12,6 +12,7 @@ int installer_root_identity(const installer_root *root, FILE_ID_INFO *id);
 HANDLE installer_create_file(const installer_root *root, const wchar_t *name);
 int installer_rename_new(const installer_root *root, const wchar_t *source, const wchar_t *destination);
 int installer_replace_file(const installer_root *root, const wchar_t *source, const wchar_t *destination);
+int installer_trusted_file(const installer_root *root, const wchar_t *name);
 void installer_close_root(installer_root *root);
 
 #endif

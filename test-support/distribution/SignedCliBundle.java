@@ -178,7 +178,7 @@ final class SignedCliBundle {
         try (FileChannel channel = openLock(root); FileLock lock = channel.lock()) {
             if (!lock.isValid()) throw new IOException("Staging lock is invalid");
             if (present(destination)) {
-                StagedActivation.State state = StagedActivation.readState(root);
+                StagedActivation.State state = StagedActivation.readState(guarded);
                 if (state != null && state.version().equals(version)) throw new IOException("Cannot remove active version");
                 if (present(removing)) throw new IOException("Conflicting installation and removal directories");
                 Object installed = guarded.identity(destination);
@@ -230,7 +230,7 @@ final class SignedCliBundle {
         Path marker = directory.resolve(RECEIPT);
         boolean hasReceipt = present(marker);
         if (hasReceipt) {
-            verifyInstalledBytes(marker, receipt);
+            verifyInstalledBytes(guarded, marker, receipt);
         }
         int fileCount = 0;
         try (DirectoryStream<Path> folders = Files.newDirectoryStream(directory)) {
@@ -245,7 +245,7 @@ final class SignedCliBundle {
                     for (Path entry : entries) {
                         byte[] expected = files.get(name + "/" + entry.getFileName());
                         if (expected == null) throw new IOException("Installation contains an unknown file");
-                        verifyInstalledBytes(entry, expected);
+                        verifyInstalledBytes(guarded, entry, expected);
                         verified.add(entry);
                         fileCount++;
                     }
@@ -261,7 +261,8 @@ final class SignedCliBundle {
         return verified;
     }
 
-    private static void verifyInstalledBytes(Path file, byte[] expected) throws IOException {
+    private static void verifyInstalledBytes(StagingRoot guarded, Path file, byte[] expected) throws IOException {
+        guarded.verifyFile(file);
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("Installation contains a non-regular file or link");
         }

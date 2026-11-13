@@ -76,6 +76,24 @@ final class StagingRoot implements AutoCloseable {
         }
     }
 
+    void verifyFile(Path file) throws IOException {
+        verify();
+        Path relative = anchor().relativize(file);
+        if (relative.isAbsolute() || relative.startsWith("..")) throw new IOException("Path escapes staging");
+        Path parentPath = file.getParent();
+        if (parentPath.equals(anchor())) {
+            if (!trustedFile(handle, file.getFileName().toString())) throw new IOException("Unsafe staging file");
+            return;
+        }
+        try (StagingRoot parent = new StagingRoot(original.resolve(relative).getParent())) {
+            parent.verify();
+            if ((LINUX && !Files.isSameFile(parent.anchor(), parentPath))
+                    || !trustedFile(parent.handle, file.getFileName().toString())) {
+                throw new IOException("Unsafe staging file");
+            }
+        }
+    }
+
     void move(Path source, Path destination) throws IOException {
         verify();
         if (!anchor().equals(source.getParent()) || !anchor().equals(destination.getParent())
@@ -119,4 +137,5 @@ final class StagingRoot implements AutoCloseable {
     private static native String windowsIdentity(long handle);
     private static native boolean writeNew(long handle, String name, byte[] bytes, boolean executable);
     private static native boolean rename(long handle, String source, String destination, boolean replace);
+    private static native boolean trustedFile(long handle, String name);
 }

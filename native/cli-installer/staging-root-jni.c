@@ -148,3 +148,24 @@ JNIEXPORT jboolean JNICALL Java_StagingRoot_rename(JNIEnv *env, jclass type, jlo
 #endif
     return ok ? JNI_TRUE : JNI_FALSE;
 }
+
+JNIEXPORT jboolean JNICALL Java_StagingRoot_trustedFile(JNIEnv *env, jclass type, jlong handle, jstring name) {
+    (void)type;
+    int ok = 0;
+#ifdef _WIN32
+    wchar_t buffer[256];
+    jsize length = (*env)->GetStringLength(env, name);
+    if (length < 1 || length >= 256) return JNI_FALSE;
+    (*env)->GetStringRegion(env, name, 0, length, (jchar *)buffer);
+    if ((*env)->ExceptionCheck(env)) return JNI_FALSE;
+    buffer[length] = 0;
+    ok = installer_trusted_file((installer_root *)(intptr_t)handle, buffer);
+#else
+    const char *filename = (*env)->GetStringUTFChars(env, name, NULL);
+    if (filename) {
+        ok = installer_trusted_file((int)(handle - 1), filename);
+        (*env)->ReleaseStringUTFChars(env, name, filename);
+    }
+#endif
+    return ok ? JNI_TRUE : JNI_FALSE;
+}

@@ -56,7 +56,7 @@ public final class StagedActivation {
                         new X509EncodedKeySpec(VerifyCliBundle.read(metadata.anchor().resolve("public-key.bin"), 128)));
                 if (!SignedCliBundle.sha256(key.getEncoded()).equals(args[3])) throw new IOException("Untrusted key");
                 Map<String, Authorization> policy = readPolicy(metadata.anchor(), key);
-                State previous = readState(root.anchor());
+                State previous = readState(root);
                 if (launch && previous == null) throw new IOException("No active version");
                 String version = launch ? previous.version() : args[5];
                 Authorization allowed = policy.get(version);
@@ -82,7 +82,7 @@ public final class StagedActivation {
                     Path candidate = root.anchor().resolve(".tuprel-activation-" + UUID.randomUUID());
                     root.write(candidate, next.bytes(), false);
                     root.replaceFile(candidate, root.anchor().resolve(POINTER));
-                    if (!next.equals(readState(root.anchor()))) throw new IOException("Activation result is uncertain");
+                    if (!next.equals(readState(root))) throw new IOException("Activation result is uncertain");
                 }
                 return 0;
             }
@@ -153,9 +153,10 @@ public final class StagedActivation {
         return result;
     }
 
-    static State readState(Path root) throws IOException {
-        Path pointer = root.resolve(POINTER);
+    static State readState(StagingRoot root) throws IOException {
+        Path pointer = root.anchor().resolve(POINTER);
         if (!SignedCliBundle.present(pointer)) return null;
+        root.verifyFile(pointer);
         String[] fields = new String(VerifyCliBundle.read(pointer, 256), StandardCharsets.US_ASCII).split("\n", -1);
         if (fields.length != 5 || !fields[0].equals(HEADER) || !version(fields[1]) || !digest(fields[2])
                 || !version(fields[3]) || compare(fields[3], fields[1]) < 0 || !fields[4].isEmpty()) {
