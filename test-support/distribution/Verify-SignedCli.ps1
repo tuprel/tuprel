@@ -203,7 +203,7 @@ try {
                 if ($LASTEXITCODE -ne 1) { throw 'Rollback must refuse a revoked version' }
                 [IO.File]::WriteAllBytes($authorization, $originalPolicy)
                 [IO.File]::WriteAllBytes($signature, $originalSignature)
-            } elseif ([IO.File]::ReadAllText($pointer).Contains($versions[1])) {
+            } elseif ([IO.File]::ReadAllLines($pointer)[1] -ceq $versions[1]) {
                 & $java @control rollback $version
                 if ($LASTEXITCODE) { throw 'Authorized rollback failed' }
             }
