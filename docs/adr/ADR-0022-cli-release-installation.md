@@ -1,7 +1,10 @@
 # ADR-0022 — Perfil de instalação e confiança da distribuição da CLI
 
-Estado **Proposto**. Aplica-se ao P0-02 depois da prova de instalação em
-staging. O workflow de staging continua a usar a sua chave efémera.
+Estado **Aceite** para implementação e testes de P0-02 em Windows e Linux.
+A aprovação abrange bootstrap autenticado, identidade e confinamento,
+activação, PATH, recuperação e confiança da distribuição. A distribuição
+pública e a utilização de chaves de produção exigem aprovação separada.
+O workflow de staging continua a usar a sua chave efémera.
 
 ## Contexto
 
@@ -10,7 +13,7 @@ destino antes de colocar um executável no PATH do utilizador. Uma
 assinatura Ed25519 sobre um manifesto prova a origem apenas quando o
 verificador e a chave vêm de uma fronteira autenticada independente.
 
-## Proposta
+## Decisão
 
 - Distribuir um bootstrap versionado e autenticado por um canal de release
   controlado. Obter a âncora de confiança fora do pacote a verificar. Manter a
