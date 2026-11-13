@@ -39,6 +39,7 @@ final class SignedCliBundleFixture {
             Files.writeString(interrupted.resolve("partial"), "interrupted attempt");
             System.out.println(keyId);
         } else if (args[0].equals("test-refusal")) {
+            StagingRoot.load(Path.of(args[5]));
             PublicKey trustedKey = KeyFactory.getInstance("Ed25519").generatePublic(
                     new X509EncodedKeySpec(Files.readAllBytes(privateRoot.resolve("public-key.bin"))));
             SignedCliBundle first = verified(privateRoot, firstZip, trustedKey, args[4], FIRST);

@@ -48,7 +48,8 @@ jobs:
           ./gradlew -p examples/tuprel-playground classes --rerun-tasks --no-build-cache --no-daemon --dependency-verification strict
           mkdir -p "$RUNNER_TEMP/tuprel-installer-analysis"
           javac --release 21 -Xlint:all -Werror -d "$RUNNER_TEMP/tuprel-installer-analysis" \
-            test-support/distribution/SignedCliBundle.java test-support/distribution/VerifyCliBundle.java
+            test-support/distribution/SignedCliBundle.java test-support/distribution/VerifyCliBundle.java \
+            test-support/distribution/StagingRoot.java
       - name: Analyze
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
 
@@ -77,11 +78,17 @@ jobs:
         with:
           languages: c-cpp
           build-mode: manual
+      - name: Set up Java headers
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Build Linux helper
         if: runner.os == 'Linux'
         run: |
           bash native/migration-publisher/build-linux.sh "$RUNNER_TEMP/tuprel-publisher"
           bash native/cli-installer/build-linux-proof.sh "$RUNNER_TEMP/tuprel-installer-root-proof"
+          bash native/cli-installer/build-linux-staging.sh "$RUNNER_TEMP/libtuprel-staging.so"
       - name: Build Windows helper
         if: runner.os == 'Windows'
         shell: pwsh
@@ -89,6 +96,8 @@ jobs:
           & ./native/migration-publisher/build-windows.cmd (Join-Path $env:RUNNER_TEMP 'tuprel-publisher.exe')
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           & ./native/cli-installer/build-windows-proof.cmd (Join-Path $env:RUNNER_TEMP 'tuprel-installer-root-proof.exe')
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & ./native/cli-installer/build-windows-staging.cmd (Join-Path $env:RUNNER_TEMP 'tuprel-staging.dll')
           exit $LASTEXITCODE
       - name: Analyze native code
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1

@@ -24,6 +24,11 @@ int main(int argc, char **argv) {
         return 2;
     }
     name[length - 1] = '\0';
+    if (strcmp(name, "check-identity") == 0) {
+        int valid = installer_root_valid(root, argv[1]);
+        close(root);
+        return valid ? 0 : 2;
+    }
     int file = installer_create_file(root, name);
     close(root);
     if (file < 0) return 2;

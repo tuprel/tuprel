@@ -28,6 +28,7 @@ struct installer_root {
     PSID user;
     PSID servicing;
     ULONGLONG volume;
+    wchar_t path[PATH_CAPACITY];
 };
 
 static PSID process_user(void) {
@@ -95,13 +96,13 @@ static int component(const wchar_t *name) {
     return 1;
 }
 
-static HANDLE open_relative(HANDLE parent, const wchar_t *name, int create) {
+static HANDLE open_relative(HANDLE parent, const wchar_t *name, int create, ACCESS_MASK additional) {
     USHORT bytes = (USHORT)(wcslen(name) * sizeof(wchar_t));
     UNICODE_STRING object_name = {bytes, bytes, (PWSTR)name};
     OBJECT_ATTRIBUTES attributes = {sizeof attributes, parent, &object_name, NO_REPARSE, NULL, NULL};
     IO_STATUS_BLOCK result;
     HANDLE handle = INVALID_HANDLE_VALUE;
-    ACCESS_MASK access = FILE_READ_ATTRIBUTES | READ_CONTROL | SYNCHRONIZE
+    ACCESS_MASK access = additional | FILE_READ_ATTRIBUTES | READ_CONTROL | SYNCHRONIZE
         | (create ? FILE_WRITE_DATA : FILE_LIST_DIRECTORY | FILE_TRAVERSE);
     NTSTATUS status = NtCreateFile(&handle, access, &attributes, &result, NULL, FILE_ATTRIBUTE_NORMAL,
             create ? 0 : FILE_SHARE_READ | FILE_SHARE_WRITE, create ? CREATE_NEW_OBJECT : OPEN_OBJECT,
@@ -168,13 +169,14 @@ installer_root *installer_open_root(const wchar_t *path) {
         wmemcpy(name, start, count);
         name[count] = L'\0';
         if (!component(name)) goto refused;
-        handle = open_relative(handle, name, 0);
+        handle = open_relative(handle, name, 0, 0);
         if (handle == INVALID_HANDLE_VALUE) goto refused;
         root->chain[root->count++] = handle;
         int last = start[count] == L'\0';
         if (!directory(root, handle, last, &root->identities[root->count - 1])) goto refused;
         if (last) {
             if (!canonical(handle, full)) goto refused;
+            if (wcscpy_s(root->path, PATH_CAPACITY, full) != 0) goto refused;
             return root;
         }
         start += count + 1;
@@ -185,14 +187,50 @@ refused:
     return NULL;
 }
 
-HANDLE installer_create_file(const installer_root *root, const wchar_t *name) {
-    if (!component(name)) return INVALID_HANDLE_VALUE;
+int installer_root_valid(const installer_root *root) {
     for (size_t i = 0; i < root->count; i++) {
         FILE_ID_INFO current;
         if (!directory(root, root->chain[i], i + 1 == root->count, &current)
                 || memcmp(&current.FileId, &root->identities[i].FileId, sizeof current.FileId) != 0) {
-            return INVALID_HANDLE_VALUE;
+            return 0;
         }
     }
-    return open_relative(root->chain[root->count - 1], name, 1);
+    return canonical(root->chain[root->count - 1], root->path);
+}
+
+HANDLE installer_create_file(const installer_root *root, const wchar_t *name) {
+    if (!component(name) || !installer_root_valid(root)) return INVALID_HANDLE_VALUE;
+    return open_relative(root->chain[root->count - 1], name, 1, 0);
+}
+
+int installer_root_identity(const installer_root *root, FILE_ID_INFO *id) {
+    if (!installer_root_valid(root)) return 0;
+    *id = root->identities[root->count - 1];
+    return 1;
+}
+
+int installer_rename_new(const installer_root *root, const wchar_t *source, const wchar_t *destination) {
+    if (!component(source) || !component(destination) || !installer_root_valid(root)) return 0;
+    HANDLE parent = root->chain[root->count - 1];
+    HANDLE handle = open_relative(parent, source, 0, DELETE);
+    if (handle == INVALID_HANDLE_VALUE) return 0;
+    int renamed = 0;
+    FILE_ID_INFO id;
+    wchar_t target[PATH_CAPACITY];
+    DWORD prefix = GetFinalPathNameByHandleW(parent, target, PATH_CAPACITY, FILE_NAME_NORMALIZED | VOLUME_NAME_GUID);
+    if (directory(root, handle, 1, &id) && prefix && prefix < PATH_CAPACITY
+            && swprintf(target + prefix, PATH_CAPACITY - prefix, L"\\%ls", destination) >= 0
+            && installer_root_valid(root)) {
+        size_t length = wcslen(target) * sizeof *target;
+        size_t capacity = FIELD_OFFSET(FILE_RENAME_INFO, FileName) + length + sizeof *target;
+        FILE_RENAME_INFO *rename = calloc(1, capacity);
+        if (rename) {
+            rename->FileNameLength = (DWORD)length;
+            memcpy(rename->FileName, target, length);
+            renamed = SetFileInformationByHandle(handle, FileRenameInfo, rename, (DWORD)capacity) != 0;
+            free(rename);
+        }
+    }
+    CloseHandle(handle);
+    return renamed;
 }

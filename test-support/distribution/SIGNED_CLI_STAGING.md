@@ -1,6 +1,8 @@
 # Signed CLI staging
 
-Run with PowerShell 7 and a Java 21 JDK in the source checkout.
+Run with PowerShell 7, a Java 21 JDK and the platform C compiler in the
+source checkout. On Linux, pass an existing fixture parent on a local ext4
+or XFS filesystem if the home directory uses another filesystem.
 
 ```powershell
 pwsh -File test-support/distribution/Verify-SignedCli.ps1
@@ -43,10 +45,11 @@ versions and rolls back using the process PATH. An external project in a path
 with spaces runs the installed launcher for version, init, validate and
 generate.
 
-The staging root must already be canonical, private and controlled by the
-caller for the lifetime of the operation. A public installer also needs to
-verify ownership and ACLs, manage persistent PATH safely, and obtain an
-authenticated trust anchor and release channel. The archive currently uses
+The staging root must already exist. The verifier loads the native library
+built by the trusted staging bootstrap from an absolute path supplied
+independently of the archive. A release bootstrap still needs to authenticate
+that library and its own provenance. Install and removal require an
+OS-validated root and refuse unsupported profiles. The archive currently uses
 the installed Java runtime. Bundling Java also requires a security-update and
 redistribution policy.
 
@@ -74,8 +77,15 @@ TrustedInstaller. The installation root itself must belong to the current SID.
 The proof covers ACL and owner changes observed before creation. Administrators
 and processes with the same SID are within the trust boundary.
 
-Integration of the native primitives into the staging archive tool remains a
-separate P0-02A gate.
+The staging verifier keeps the validated root open during install and removal.
+Linux staging paths are anchored to the held descriptor via procfs. Windows
+retains the validated directory chain and creates payloads relative to checked
+handles. Publication and quarantine use native no-replace renames. The
+verifier compares directory identities across the rename and checks the signed
+bytes again after publication. The staging test checks that an unsafe root or
+missing native library is refused before the lock or payload is written.
+The staged version remains separate from the future active-version pointer
+and persistent PATH setup.
 
 A local Windows proof used jdeps and jlink to produce a 56.2 MiB JDK 21
 image, including a small fixture project. The image ran init, validate and

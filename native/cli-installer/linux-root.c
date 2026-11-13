@@ -77,6 +77,19 @@ refused:
     return -1;
 }
 
+int installer_root_valid(int fd, const char *path) {
+    int current = installer_open_root(path);
+    if (current < 0) return 0;
+    struct statx expected, observed;
+    unsigned int mask = STATX_MNT_ID | STATX_INO;
+    int matches = statx(fd, "", AT_EMPTY_PATH, mask, &expected) == 0
+        && statx(current, "", AT_EMPTY_PATH, mask, &observed) == 0
+        && (expected.stx_mask & mask) == mask && (observed.stx_mask & mask) == mask
+        && expected.stx_mnt_id == observed.stx_mnt_id && expected.stx_ino == observed.stx_ino;
+    close(current);
+    return matches;
+}
+
 int installer_create_file(int root, const char *name) {
     uid_t uid = geteuid();
     if (uid == 0 || getuid() != uid || !valid_component(name) || strchr(name, '/')
@@ -90,4 +103,10 @@ int installer_create_file(int root, const char *name) {
         .resolve = RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_XDEV
     };
     return (int)syscall(SYS_openat2, root, name, &options, sizeof options);
+}
+
+int installer_rename_new(int root, const char *source, const char *destination) {
+    if (!valid_component(source) || strchr(source, '/') || !valid_component(destination) || strchr(destination, '/')
+            || !trusted_directory(root, geteuid(), 1) || !supported_mount(root)) return 0;
+    return syscall(SYS_renameat2, root, source, root, destination, RENAME_NOREPLACE) == 0;
 }

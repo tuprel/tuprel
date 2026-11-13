@@ -7,9 +7,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.PublicKey;
@@ -123,7 +121,14 @@ final class SignedCliBundle {
     }
 
     Path install(Path privateRoot) throws IOException {
-        Path root = checkedRoot(privateRoot);
+        try (StagingRoot guarded = new StagingRoot(privateRoot)) {
+            return privateRoot.resolve(install(guarded).getFileName());
+        }
+    }
+
+    private Path install(StagingRoot guarded) throws IOException {
+        guarded.verify();
+        Path root = guarded.anchor();
         Path destination = root.resolve(version);
         try (FileChannel channel = openLock(root); FileLock lock = channel.lock()) {
             if (!lock.isValid()) throw new IOException("Staging lock is invalid");
@@ -131,47 +136,63 @@ final class SignedCliBundle {
                 throw new IOException("Resume the interrupted removal before installing this version");
             }
             if (present(destination)) {
-                inspectVersion(destination, false);
+                inspectVersion(guarded, destination, false);
+                guarded.verify();
                 return destination;
             }
             // Each attempt writes to a fresh sibling. Only a complete tree becomes selectable.
-            Path pending = Files.createTempDirectory(root, "." + version + "-pending-");
-            Files.createDirectory(pending.resolve("bin"));
-            Files.createDirectory(pending.resolve("lib"));
+            guarded.verify();
+            Path pending = guarded.createDirectory(root, "." + version + "-pending-", true);
+            guarded.createDirectory(pending, "bin", false);
+            guarded.createDirectory(pending, "lib", false);
             for (Map.Entry<String, byte[]> entry : files.entrySet()) {
                 Path output = pending.resolve(entry.getKey()).normalize();
                 if (!output.startsWith(pending)) {
                     throw new IOException("ZIP file path escapes the private staging directory");
                 }
-                Files.write(output, entry.getValue(), StandardOpenOption.CREATE_NEW);
+                guarded.write(output, entry.getValue(), entry.getKey().equals("bin/tuprel"));
             }
-            if (System.getProperty("os.name").equalsIgnoreCase("Linux")) {
-                Files.setPosixFilePermissions(pending.resolve("bin/tuprel"),
-                        PosixFilePermissions.fromString("rwx------"));
-            }
-            Files.write(pending.resolve(RECEIPT), receipt, StandardOpenOption.CREATE_NEW);
-            inspectVersion(pending, false);
-            return Files.move(pending, destination, StandardCopyOption.ATOMIC_MOVE);
+            guarded.write(pending.resolve(RECEIPT), receipt, false);
+            Object prepared = guarded.identity(pending);
+            inspectVersion(guarded, pending, false);
+            if (!prepared.equals(guarded.identity(pending))) throw new IOException("Staged directory changed");
+            guarded.move(pending, destination);
+            if (!prepared.equals(guarded.identity(destination))) throw new IOException("Publication identity is uncertain");
+            inspectVersion(guarded, destination, false);
+            guarded.verify();
+            return destination;
         }
     }
 
     void uninstall(Path privateRoot) throws IOException {
-        Path root = checkedRoot(privateRoot);
+        try (StagingRoot guarded = new StagingRoot(privateRoot)) {
+            uninstall(guarded);
+        }
+    }
+
+    private void uninstall(StagingRoot guarded) throws IOException {
+        guarded.verify();
+        Path root = guarded.anchor();
         Path destination = root.resolve(version);
         Path removing = removalPath(root);
         try (FileChannel channel = openLock(root); FileLock lock = channel.lock()) {
             if (!lock.isValid()) throw new IOException("Staging lock is invalid");
             if (present(destination)) {
                 if (present(removing)) throw new IOException("Conflicting installation and removal directories");
-                inspectVersion(destination, false);
-                Files.move(destination, removing, StandardCopyOption.ATOMIC_MOVE);
+                Object installed = guarded.identity(destination);
+                inspectVersion(guarded, destination, false);
+                if (!installed.equals(guarded.identity(destination))) throw new IOException("Installed directory changed");
+                guarded.move(destination, removing);
+                if (!installed.equals(guarded.identity(removing))) throw new IOException("Removal identity is uncertain");
             }
             if (present(removing)) {
                 // Validate every surviving entry before deleting any of them.
-                List<Path> verified = inspectVersion(removing, true);
+                List<Path> verified = inspectVersion(guarded, removing, true);
                 for (Path entry : verified) {
+                    guarded.verify();
                     Files.delete(entry);
                 }
+                guarded.verify();
                 Files.delete(removing);
             }
         }
@@ -192,8 +213,8 @@ final class SignedCliBundle {
                 StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
     }
 
-    private List<Path> inspectVersion(Path directory, boolean allowMissing) throws IOException {
-        checkedRoot(directory);
+    private List<Path> inspectVersion(StagingRoot guarded, Path directory, boolean allowMissing) throws IOException {
+        guarded.identity(directory);
         List<Path> verified = new ArrayList<>();
         Path marker = directory.resolve(RECEIPT);
         boolean hasReceipt = present(marker);
@@ -208,7 +229,7 @@ final class SignedCliBundle {
                 if (!hasReceipt || !Set.of("bin", "lib").contains(name)) {
                     throw new IOException("Installation contains an unknown directory or file");
                 }
-                checkedRoot(folder);
+                guarded.identity(folder);
                 try (DirectoryStream<Path> entries = Files.newDirectoryStream(folder)) {
                     for (Path entry : entries) {
                         byte[] expected = files.get(name + "/" + entry.getFileName());
@@ -240,11 +261,4 @@ final class SignedCliBundle {
         }
     }
 
-    private static Path checkedRoot(Path directory) throws IOException {
-        if (!directory.isAbsolute() || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)
-                || !directory.equals(directory.toRealPath())) {
-            throw new IOException("Expected an absolute private staging directory without aliases");
-        }
-        return directory;
-    }
 }
