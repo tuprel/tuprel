@@ -106,7 +106,7 @@ int wmain(int argc, wchar_t **argv) {
     installer_root *root = installer_open_root(argv[2]);
     if (!root) return 1;
     int ok = installer_trusted_file(root, L"tuprel.ps1");
-    HKEY machine;
+    HKEY machine = NULL;
     if (ok && add) {
         wchar_t *path = calloc(CAPACITY, sizeof *path);
         DWORD kind;
