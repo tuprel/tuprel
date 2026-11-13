@@ -53,6 +53,14 @@ try {
     if ($LASTEXITCODE -ne 0 -or $key.GetValue('Path', '', $raw) -cne "$later;$LauncherDirectory") {
         throw 'An unowned PATH entry was removed'
     }
+    $collision = Join-Path $LauncherDirectory 'conflicting path'
+    [IO.Directory]::CreateDirectory($collision) | Out-Null
+    [IO.File]::WriteAllText((Join-Path $collision 'tuprel.cmd'), '@exit /b 2')
+    $key.SetValue('Path', "$collision;$prior", $kind)
+    & $Binary add $LauncherDirectory commit
+    if ($LASTEXITCODE -ne 1 -or $key.GetValue('Path', '', $raw) -cne "$collision;$prior") {
+        throw 'Existing shadowing executable must be refused without changing PATH'
+    }
     'Windows registry staging PATH transaction and new PowerShell verified'
 } finally {
     $key.Dispose()
