@@ -79,9 +79,18 @@ final class StagingRoot implements AutoCloseable {
     void move(Path source, Path destination) throws IOException {
         verify();
         if (!anchor().equals(source.getParent()) || !anchor().equals(destination.getParent())
-                || !renameNew(handle, source.getFileName().toString(), destination.getFileName().toString())) {
+                || !rename(handle, source.getFileName().toString(), destination.getFileName().toString(), false)) {
             throw new IOException("Atomic staging rename refused or incomplete");
         }
+    }
+
+    void replaceFile(Path source, Path destination) throws IOException {
+        verify();
+        if (!anchor().equals(source.getParent()) || !anchor().equals(destination.getParent())
+                || !rename(handle, source.getFileName().toString(), destination.getFileName().toString(), true)) {
+            throw new IOException("Atomic activation refused or incomplete");
+        }
+        verify();
     }
 
     Path createDirectory(Path parent, String prefix, boolean temporary) throws IOException {
@@ -109,5 +118,5 @@ final class StagingRoot implements AutoCloseable {
     private static native void release(long handle);
     private static native String windowsIdentity(long handle);
     private static native boolean writeNew(long handle, String name, byte[] bytes, boolean executable);
-    private static native boolean renameNew(long handle, String source, String destination);
+    private static native boolean rename(long handle, String source, String destination, boolean replace);
 }

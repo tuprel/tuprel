@@ -118,8 +118,8 @@ JNIEXPORT jboolean JNICALL Java_StagingRoot_writeNew(JNIEnv *env, jclass type, j
     return ok ? JNI_TRUE : JNI_FALSE;
 }
 
-JNIEXPORT jboolean JNICALL Java_StagingRoot_renameNew(JNIEnv *env, jclass type, jlong handle,
-        jstring source, jstring destination) {
+JNIEXPORT jboolean JNICALL Java_StagingRoot_rename(JNIEnv *env, jclass type, jlong handle,
+        jstring source, jstring destination, jboolean replace) {
     (void)type;
     int ok = 0;
 #ifdef _WIN32
@@ -133,13 +133,15 @@ JNIEXPORT jboolean JNICALL Java_StagingRoot_renameNew(JNIEnv *env, jclass type, 
     if ((*env)->ExceptionCheck(env)) return JNI_FALSE;
     from[from_length] = 0;
     to[to_length] = 0;
-    ok = installer_rename_new((installer_root *)(intptr_t)handle, from, to);
+    installer_root *root = (installer_root *)(intptr_t)handle;
+    ok = replace ? installer_replace_file(root, from, to) : installer_rename_new(root, from, to);
 #else
     const char *from = (*env)->GetStringUTFChars(env, source, NULL);
     if (!from) return JNI_FALSE;
     const char *to = (*env)->GetStringUTFChars(env, destination, NULL);
     if (to) {
-        ok = installer_rename_new((int)(handle - 1), from, to);
+        int root = (int)(handle - 1);
+        ok = replace ? installer_replace_file(root, from, to) : installer_rename_new(root, from, to);
         (*env)->ReleaseStringUTFChars(env, destination, to);
     }
     (*env)->ReleaseStringUTFChars(env, source, from);

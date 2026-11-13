@@ -43,7 +43,7 @@ public final class VerifyCliBundle {
         }
     }
 
-    private static byte[] read(Path path, int limit) throws IOException {
+    static byte[] read(Path path, int limit) throws IOException {
         if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("Expected a regular verification input");
         }

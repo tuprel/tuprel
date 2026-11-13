@@ -28,6 +28,16 @@ final class SignedCliBundleFixture {
             String keyId = SignedCliBundle.sha256(publicKey);
             signBundle(privateRoot, firstZip, FIRST, fixtureKey);
             signBundle(privateRoot, secondZip, SECOND, fixtureKey);
+            Files.copy(firstZip, privateRoot.resolve(FIRST + ".zip"));
+            Files.copy(secondZip, privateRoot.resolve(SECOND + ".zip"));
+            String firstDigest = SignedCliBundle.sha256(Files.readAllBytes(privateRoot.resolve(FIRST + ".manifest")));
+            String secondDigest = SignedCliBundle.sha256(Files.readAllBytes(privateRoot.resolve(SECOND + ".manifest")));
+            byte[] policy = authorization(firstDigest, secondDigest, "rollback");
+            Files.write(privateRoot.resolve("authorization"), policy);
+            Files.write(privateRoot.resolve("authorization.ed25519"), sign(fixtureKey, policy));
+            byte[] revoked = authorization(firstDigest, secondDigest, "revoked");
+            Files.write(privateRoot.resolve("revoked-authorization"), revoked);
+            Files.write(privateRoot.resolve("revoked-authorization.ed25519"), sign(fixtureKey, revoked));
             assertRejectsUntrustedInputs(privateRoot, firstZip, secondZip, fixtureKey, keyId);
             byte[] archive = Files.readAllBytes(firstZip);
             Path alternate = Files.write(privateRoot.resolve("alternate.zip"),
@@ -94,6 +104,11 @@ final class SignedCliBundleFixture {
             reject(() -> SignedCliBundle.verify(traversal, hostile, sign(fixtureKey, hostile), publicKey, keyId, FIRST));
             Files.delete(traversal);
         }
+    }
+
+    private static byte[] authorization(String firstDigest, String secondDigest, String firstMode) {
+        return ("TUPREL-STAGING-AUTHORIZATION 1\n" + FIRST + " " + firstDigest + " " + firstMode
+                + "\n" + SECOND + " " + secondDigest + " allow\n").getBytes(java.nio.charset.StandardCharsets.US_ASCII);
     }
 
     private static void signBundle(Path directory, Path archive, String version, KeyPair fixtureKey) throws Exception {

@@ -49,7 +49,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/tuprel-installer-analysis"
           javac --release 21 -Xlint:all -Werror -d "$RUNNER_TEMP/tuprel-installer-analysis" \
             test-support/distribution/SignedCliBundle.java test-support/distribution/VerifyCliBundle.java \
-            test-support/distribution/StagingRoot.java
+            test-support/distribution/StagingRoot.java test-support/distribution/StagedActivation.java
       - name: Analyze
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
 
