@@ -79,7 +79,9 @@ jobs:
           build-mode: manual
       - name: Build Linux helper
         if: runner.os == 'Linux'
-        run: bash native/migration-publisher/build-linux.sh "$RUNNER_TEMP/tuprel-publisher"
+        run: |
+          bash native/migration-publisher/build-linux.sh "$RUNNER_TEMP/tuprel-publisher"
+          bash native/cli-installer/build-linux-proof.sh "$RUNNER_TEMP/tuprel-installer-root-proof"
       - name: Build Windows helper
         if: runner.os == 'Windows'
         shell: pwsh

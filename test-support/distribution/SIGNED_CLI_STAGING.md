@@ -50,6 +50,19 @@ authenticated trust anchor and release channel. The archive currently uses
 the installed Java runtime. Bundling Java also requires a security-update and
 redistribution policy.
 
+The Linux P0-02A proof exercises the native install-root primitive separately
+on disposable ext4 and XFS volumes in CI. It requires a non-root effective UID,
+an existing directory owned by that UID with mode 0700, and ancestors owned by
+root or that UID with no group or other write permissions. It refuses symlinks,
+dot components and unrecognised mount types. Creation uses an exclusive
+descriptor-relative operation. If the validated directory is renamed after
+opening, the write stays in the original directory. Activation will also have
+to verify that the configured name still identifies the expected directory.
+The proof assumes a trusted OS, mount namespace, administrator and current
+UID. It does not establish a boundary against processes with the same UID.
+This primitive is not wired into the staging archive tool. Windows identity
+validation and end-to-end installation remain separate P0-02 gates.
+
 A local Windows proof used jdeps and jlink to produce a 56.2 MiB JDK 21
 image, including a small fixture project. The image ran init, validate and
 generate offline. JDBC, TLS, native integration and runtime updates still

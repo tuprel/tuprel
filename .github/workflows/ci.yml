@@ -261,6 +261,8 @@ jobs:
           python3 native/migration-publisher/test_native.py "$fixture/publisher" "$fixture/volume" "$TEST_FILESYSTEM"
           java -cp "tuprel-migrate/build/classes/java/main:$RUNNER_TEMP/publication-proof" \
             dev.tuprel.migrate.PublicationProof "$fixture/publisher" "$fixture/volume"
+          bash native/cli-installer/build-linux-proof.sh "$fixture/installer-root-proof"
+          python3 native/cli-installer/test_linux_root.py "$fixture/installer-root-proof" "$fixture/volume"
 
   native-windows:
     name: Native Windows NTFS

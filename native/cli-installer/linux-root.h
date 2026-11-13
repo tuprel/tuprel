@@ -1,0 +1,8 @@
+#ifndef TUPREL_LINUX_INSTALL_ROOT_H
+#define TUPREL_LINUX_INSTALL_ROOT_H
+
+/* The caller owns the returned descriptor. Failure returns -1. */
+int installer_open_root(const char *path);
+int installer_create_file(int root, const char *name);
+
+#endif
