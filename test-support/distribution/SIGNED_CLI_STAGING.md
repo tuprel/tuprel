@@ -60,8 +60,22 @@ opening, the write stays in the original directory. Activation will also have
 to verify that the configured name still identifies the expected directory.
 The proof assumes a trusted OS, mount namespace, administrator and current
 UID. It does not establish a boundary against processes with the same UID.
-This primitive is not wired into the staging archive tool. Windows identity
-validation and end-to-end installation remain separate P0-02 gates.
+
+The Windows P0-02A proof uses the process token SID and holds each directory
+from a fixed local NTFS drive without delete sharing. It opens descendants and
+creates new files relative to those handles, refusing reparse points, aliases
+and unsafe access grants. It checks each held object's volume, file ID, owner
+and DACL again before creation. The ACL policy conservatively rejects unsafe
+allow entries even when a deny entry might override them. It permits creation
+of unrelated sibling directories by other principals on trusted ancestors
+when they lack rights to modify the held directory or delete its children.
+The trusted identities are the current SID, SYSTEM, Administrators and
+TrustedInstaller. The installation root itself must belong to the current SID.
+The proof covers ACL and owner changes observed before creation. Administrators
+and processes with the same SID are within the trust boundary.
+
+Integration of the native primitives into the staging archive tool remains a
+separate P0-02A gate.
 
 A local Windows proof used jdeps and jlink to produce a 56.2 MiB JDK 21
 image, including a small fixture project. The image ran init, validate and
