@@ -50,11 +50,11 @@ the guest desktop or console. Leave PATH inherited from the session.
 | `rollback` | Restart | Verify B. Refuse an ordinary downgrade and rollback to a revoked A. Restore the fixture policy and explicitly roll back to authorized A. |
 | `interrupt-removal` | Restart | Verify A. Refuse active removal, remove inactive B and reinstall it. Activate B and interrupt removal of inactive A. Add unknown and modified fixture files. |
 | `finish` | Restart | Verify B and refuse unsafe removal. Preserve both fixture files in the evidence directory, restore the original test bytes, resume the scoped removal and undo the PATH change. Verify original registry value and type or original startup file hashes. |
+| `verify-removal` | Same boot and session, open a new terminal via Explorer on Windows | Verify that neither command resolver finds Tuprel after PATH removal. |
 
-After `finish` on Windows, open a fresh terminal through Explorer and repeat
-`Get-Command tuprel -All` and `where.exe tuprel`. Both must show no Tuprel.
-Repeat after sign-out/sign-in and save the output. Capture the OS console
-restart events and attach them to the guest evidence when sharing results.
+On Windows, repeat `Get-Command tuprel -All` and `where.exe tuprel` after a
+final sign-out/sign-in and save the output. Capture the OS console restart
+events and attach them to the guest evidence when sharing results.
 
 Every step records an intent and creates a success record only after its
 assertions complete. Check records under `reboot-evidence` for the same machine

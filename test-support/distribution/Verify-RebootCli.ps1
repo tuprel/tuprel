@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory)][string]$Fixture,
-    [Parameter(Mandatory)][ValidateSet('install','configure','propagation','relogin','prepare-update','activate','rollback','interrupt-removal','finish')][string]$Step,
+    [Parameter(Mandatory)][ValidateSet('install','configure','propagation','relogin','prepare-update','activate','rollback','interrupt-removal','finish','verify-removal')][string]$Step,
     [Parameter(Mandatory)][switch]$DisposableGuest
 )
 
@@ -47,7 +47,7 @@ $first = '0.0.0-staging'
 $second = '0.0.1-staging'
 $pointer = Join-Path $Fixture '.tuprel-active'
 $launcher = Join-Path $Fixture $(if ($IsWindows) { 'tuprel.cmd' } else { 'tuprel' })
-$steps = @('install','configure','propagation','relogin','prepare-update','activate','rollback','interrupt-removal','finish')
+$steps = @('install','configure','propagation','relogin','prepare-update','activate','rollback','interrupt-removal','finish','verify-removal')
 $index = [Array]::IndexOf($steps, $Step)
 $evidence = Join-Path $Fixture 'reboot-evidence'
 if ($index -eq 0) { New-Item -ItemType Directory -Path $evidence | Out-Null }
@@ -76,6 +76,9 @@ function Invoke-Selection($operation, $version, $expected = 0) {
 
 function Assert-Version($version) {
     if ($IsWindows) {
+        if (@($env:Path.Split(';') | Where-Object { $_ -ieq $Fixture }).Count -ne 1) {
+            throw 'Expected exactly one inherited launcher PATH entry'
+        }
         $resolved = @(Get-Command tuprel -All -ErrorAction SilentlyContinue)
         $where = @(& "$env:SystemRoot/System32/where.exe" tuprel)
         if ($LASTEXITCODE -or $resolved.Count -ne 1 -or $resolved[0].Source -ne $launcher -or
@@ -89,7 +92,7 @@ function Assert-Version($version) {
         $observations.executionPolicy = [string](Get-ExecutionPolicy)
     } else {
         foreach ($mode in @('-ic','-ilc')) {
-            $reported = & /bin/bash $mode 'test "$(type -a -p tuprel)" = "$1" && tuprel --version' bash $launcher
+            $reported = & /bin/bash $mode 'test "$(type -a tuprel)" = "tuprel is $1" && tuprel --version' bash $launcher
             if ($LASTEXITCODE -or $reported -cne "tuprel $version") { throw "Bash $mode resolved an unexpected launcher or version" }
         }
     }
@@ -123,7 +126,7 @@ try {
     if ($index -gt 0) {
         $prior = Get-Content -Raw -LiteralPath (Join-Path $evidence "$($steps[$index - 1]).json") | ConvertFrom-Json
         if ($prior.machine -cne $machine -or $prior.account -cne $account) { throw 'Guest or account changed' }
-        if ($Step -eq 'propagation') {
+        if ($Step -in @('propagation','verify-removal')) {
             if ($prior.boot -cne $boot -or $prior.session -cne $session) { throw 'Use a new terminal in the original session' }
         } elseif ($Step -eq 'relogin') {
             if ($prior.boot -cne $boot -or ($IsWindows -and $prior.session -ceq $session)) {
@@ -265,6 +268,19 @@ try {
                         throw 'Bash startup content did not return to its original bytes'
                     }
                 }
+                foreach ($mode in @('-ic','-ilc')) {
+                    & /bin/bash $mode 'test -z "$(command -v tuprel)"'
+                    if ($LASTEXITCODE) { throw 'Bash still resolves Tuprel after PATH removal' }
+                }
+            }
+        }
+        'verify-removal' {
+            if ($IsWindows) {
+                $where = @(& "$env:SystemRoot/System32/where.exe" tuprel 2>$null)
+                if ($LASTEXITCODE -ne 1 -or $where.Count -or
+                        @(Get-Command tuprel -All -ErrorAction SilentlyContinue).Count -or
+                        $Fixture -iin $env:Path.Split(';')) { throw 'Tuprel remains available after PATH removal' }
+            } else {
                 foreach ($mode in @('-ic','-ilc')) {
                     & /bin/bash $mode 'test -z "$(command -v tuprel)"'
                     if ($LASTEXITCODE) { throw 'Bash still resolves Tuprel after PATH removal' }
