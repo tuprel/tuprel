@@ -4,6 +4,7 @@
 #include <aclapi.h>
 #include <sddl.h>
 #include <winternl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
@@ -13,6 +14,12 @@
 #define NO_REPARSE 0x1000L
 #define CREATE_NEW_OBJECT 2
 #define OPEN_OBJECT 1
+
+#ifdef INSTALLER_ROOT_PROOF
+#define PROBE(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define PROBE(...) ((void)0)
+#endif
 
 struct installer_root {
     HANDLE chain[MAX_ANCESTORS];
@@ -69,8 +76,12 @@ static int trusted_acl(const installer_root *root, HANDLE handle, int private_ob
         if (header->AceType != ACCESS_ALLOWED_ACE_TYPE
                 || header->AceSize < sizeof(ACCESS_ALLOWED_ACE)) { valid = 0; break; }
         const ACCESS_ALLOWED_ACE *allow = entry;
-        if ((allow->Mask & unsafe) && !trusted_sid(root, (PSID)&allow->SidStart)) valid = 0;
+        if ((allow->Mask & unsafe) && !trusted_sid(root, (PSID)&allow->SidStart)) {
+            PROBE("Unsafe ACL mask: %08lx\n", allow->Mask);
+            valid = 0;
+        }
     }
+    if (!valid) PROBE("ACL refused at depth %zu (security status %lu)\n", root->count, status);
     if (descriptor) LocalFree(descriptor);
     return valid;
 }
@@ -94,8 +105,8 @@ static HANDLE open_relative(HANDLE parent, const wchar_t *name, int create) {
         | (create ? FILE_WRITE_DATA : FILE_LIST_DIRECTORY | FILE_TRAVERSE);
     NTSTATUS status = NtCreateFile(&handle, access, &attributes, &result, NULL, FILE_ATTRIBUTE_NORMAL,
             create ? 0 : FILE_SHARE_READ | FILE_SHARE_WRITE, create ? CREATE_NEW_OBJECT : OPEN_OBJECT,
-            FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_REPARSE_POINT
-                | (create ? FILE_NON_DIRECTORY_FILE : FILE_DIRECTORY_FILE), NULL, 0);
+            FILE_SYNCHRONOUS_IO_NONALERT | (create ? FILE_NON_DIRECTORY_FILE : FILE_DIRECTORY_FILE), NULL, 0);
+    if (status < 0) PROBE("Relative open refused: %08lx\n", (ULONG)status);
     return status >= 0 ? handle : INVALID_HANDLE_VALUE;
 }
 
@@ -169,6 +180,7 @@ installer_root *installer_open_root(const wchar_t *path) {
         start += count + 1;
     } while (1);
 refused:
+    PROBE("Root refused at depth %zu (Win32 status %lu)\n", root->count, GetLastError());
     installer_close_root(root);
     return NULL;
 }

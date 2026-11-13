@@ -15,10 +15,12 @@ def run(*args):
     return subprocess.run(args, capture_output=True, timeout=15, check=True)
 
 
-def invoke(binary, root, name="probe"):
+def invoke(binary, root, name="probe", *, report=False):
     result = subprocess.run(
         [binary, str(root), name], input=b"\n", capture_output=True, timeout=15, check=False,
     )
+    if report and result.returncode:
+        print(result.stderr.decode("ascii", errors="replace"), file=sys.stderr)
     return result.returncode, result.stdout.splitlines()
 
 
@@ -45,7 +47,7 @@ def verify(binary, fixture):
     outside.mkdir()
     sentinel = outside / "sentinel"
     sentinel.write_bytes(b"preserve")
-    assert invoke(binary, root) == (0, [b"READY"])
+    assert invoke(binary, root, report=True) == (0, [b"READY"])
     for name in ("probe", "", ".", "..", r"..\outside\sentinel", str(sentinel), "probe:stream", "probe."):
         assert invoke(binary, root, name) == (2, [b"READY"]), name
     assert sentinel.read_bytes() == b"preserve"

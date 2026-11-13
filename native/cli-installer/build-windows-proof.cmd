@@ -7,7 +7,7 @@ if not defined VCToolsInstallDir (
     )
 )
 pushd "%~dp1" || exit /b 1
-cl /nologo /std:c17 /O2 /W4 /WX /MT /guard:cf "%~dp0windows-root.c" "%~dp0windows-root-proof.c" /Fe"%~f1" /link advapi32.lib ntdll.lib /Brepro /DYNAMICBASE /NXCOMPAT /guard:cf
+cl /nologo /std:c17 /O2 /W4 /WX /MT /guard:cf /DINSTALLER_ROOT_PROOF "%~dp0windows-root.c" "%~dp0windows-root-proof.c" /Fe"%~f1" /link advapi32.lib ntdll.lib /Brepro /DYNAMICBASE /NXCOMPAT /guard:cf
 set "result=%ERRORLEVEL%"
 popd
 exit /b %result%
