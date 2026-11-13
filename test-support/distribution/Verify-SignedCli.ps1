@@ -2,7 +2,7 @@ param([string]$FixtureParent = $(if ($IsWindows) { $env:LOCALAPPDATA } else { $H
 
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
-$fixture = Join-Path $FixtureParent ("tuprel signed cli " + [guid]::NewGuid())
+$fixture = Join-Path $FixtureParent ("tuprel signed cli café " + [guid]::NewGuid())
 [IO.Directory]::CreateDirectory($fixture) | Out-Null
 if ($IsWindows) {
     $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
@@ -174,7 +174,7 @@ try {
     if ($LASTEXITCODE -ne 1 -or [Convert]::ToHexString([IO.File]::ReadAllBytes($pointer)) -ne
             [Convert]::ToHexString($beforeActivation)) { throw 'Failed update changed the active pointer' }
     [IO.File]::WriteAllBytes($bundleJar, $authenticJar)
-    $project = Join-Path $fixture 'external Java project'
+    $project = Join-Path $fixture 'external Java project café'
     [IO.Directory]::CreateDirectory($project) | Out-Null
     Push-Location -LiteralPath $project
     try {
