@@ -99,9 +99,12 @@ key or policy rotations remain distribution work.
 The commit point is one file replacement using renameat2 on Linux or
 FileRenameInfo on NTFS. A refused Windows replacement can leave an inert
 candidate next to the previous pointer. A new process reads only the committed
-pointer and revalidates its target. Candidates are preserved. These tests cover
-atomic visibility and process-level recovery. Power-loss durability and
-persistent PATH are separate gates.
+pointer and revalidates its target. The fixture terminates the activation JVM
+before candidate creation, after candidate creation and immediately after the
+replacement. A fresh launcher must observe the prior committed version until
+replacement, then the new version. The staged candidate is preserved for
+inspection. The fixture exercises process recovery. Host restart and power-loss
+durability require separate evidence.
 
 The Windows PATH staging tool changes the user registry value and a Tuprel
 ownership marker in one registry transaction. It retains the PATH value type,

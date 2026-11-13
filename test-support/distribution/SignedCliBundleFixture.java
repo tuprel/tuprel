@@ -18,6 +18,13 @@ final class SignedCliBundleFixture {
     private SignedCliBundleFixture() {}
 
     public static void main(String[] args) throws Exception {
+        if (args[0].equals("interrupt-activation")) {
+            StagedActivation.CommitStage stop = StagedActivation.CommitStage.valueOf(args[1]);
+            StagedActivation.execute(java.util.Arrays.copyOfRange(args, 2, args.length), stage -> {
+                if (stage == stop) Runtime.getRuntime().halt(42);
+            });
+            throw new AssertionError("Activation did not reach its interruption checkpoint");
+        }
         Path privateRoot = Path.of(args[1]).toRealPath();
         Path firstZip = Path.of(args[2]);
         Path secondZip = Path.of(args[3]);
