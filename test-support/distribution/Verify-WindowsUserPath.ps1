@@ -25,20 +25,35 @@ try {
             throw 'Repeated PATH installation failed to preserve type, order or uniqueness'
         }
     }
-    $command = 'if ((Get-Command tuprel -ErrorAction Stop).Source -cne $env:TUPREL_EXPECTED_LAUNCHER) { exit 1 }; tuprel --version; exit $LASTEXITCODE'
+    $command = @'
+if ((Get-Command tuprel -ErrorAction Stop).Source -cne $env:TUPREL_EXPECTED_LAUNCHER) { exit 1 }
+$version = tuprel --version
+if ($LASTEXITCODE -ne 0 -or $version -cne 'tuprel 0.0.0-staging') { exit 1 }
+tuprel init
+if ($LASTEXITCODE -ne 0) { exit 1 }
+tuprel validate
+if ($LASTEXITCODE -ne 0) { exit 1 }
+tuprel generate
+exit $LASTEXITCODE
+'@
     $pwsh = (Get-Process -Id $PID).Path
     $start = [Diagnostics.ProcessStartInfo]::new($pwsh)
     foreach ($argument in '-NoProfile', '-NonInteractive', '-Command', $command) { $start.ArgumentList.Add($argument) }
     $start.UseShellExecute = $false
     $start.RedirectStandardOutput = $true
+    $start.WorkingDirectory = Join-Path $LauncherDirectory 'Windows PATH consumer café'
+    [IO.Directory]::CreateDirectory($start.WorkingDirectory) | Out-Null
     $start.Environment['Path'] = $key.GetValue('Path')
     $start.Environment['TUPREL_EXPECTED_LAUNCHER'] = Join-Path $LauncherDirectory 'tuprel.ps1'
     $child = [Diagnostics.Process]::Start($start)
     try {
         $output = $child.StandardOutput.ReadToEndAsync()
         if (-not $child.WaitForExit(30000)) { $child.Kill(); throw 'New PowerShell did not finish' }
-        $actual = $output.GetAwaiter().GetResult().Trim()
-        if ($child.ExitCode -ne 0 -or $actual -cne 'tuprel 0.0.0-staging') { throw 'New PowerShell did not run Tuprel' }
+        $output.GetAwaiter().GetResult()
+        if ($child.ExitCode -ne 0 -or -not (Test-Path -LiteralPath (
+                Join-Path $start.WorkingDirectory 'tuprel/schema.tuprel') -PathType Leaf)) {
+            throw 'New PowerShell did not initialize and generate the independent consumer'
+        }
     } finally { $child.Dispose() }
 
     $later = "$env:SystemRoot\System32\Wbem;$prior"

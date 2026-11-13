@@ -2,7 +2,7 @@ param([string]$FixtureParent = $(if ($IsWindows) { $env:LOCALAPPDATA } else { $H
 
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
-$fixture = Join-Path $FixtureParent ("tuprel signed cli " + [guid]::NewGuid())
+$fixture = Join-Path $FixtureParent ("tuprel signed cli café " + [guid]::NewGuid())
 [IO.Directory]::CreateDirectory($fixture) | Out-Null
 if ($IsWindows) {
     $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
@@ -42,7 +42,7 @@ try {
 
     $verifier = Join-Path $fixture 'verify-cli.jar'
     $jar = Join-Path $env:JAVA_HOME 'bin/jar'
-    & $jar --create --file $verifier --main-class VerifyCliBundle -C $classes SignedCliBundle.class -C $classes VerifyCliBundle.class -C $classes StagingRoot.class -C $classes StagedActivation.class -C $classes 'StagedActivation$State.class' -C $classes 'StagedActivation$Authorization.class'
+    & $jar --create --file $verifier --main-class VerifyCliBundle -C $classes SignedCliBundle.class -C $classes VerifyCliBundle.class -C $classes StagingRoot.class -C $classes StagedActivation.class -C $classes 'StagedActivation$State.class' -C $classes 'StagedActivation$Authorization.class' -C $classes 'StagedActivation$CommitStage.class'
     if ($LASTEXITCODE -ne 0) { throw 'Independent staging verifier packaging failed' }
     $verifyArguments = @($versions[0], $archives[0], (Join-Path $fixture "$($versions[0]).manifest"),
         (Join-Path $fixture "$($versions[0]).ed25519"), (Join-Path $fixture 'public-key.bin'))
@@ -124,6 +124,15 @@ try {
         if ($LASTEXITCODE -or $interactiveResult -cne "tuprel $($versions[0])") { throw 'New interactive Bash failed' }
         $loginResult = & /usr/bin/env "HOME=$fixtureHome" 'PATH=/usr/bin:/bin' /bin/bash -lc $bashCheck bash $launcher
         if ($LASTEXITCODE -or $loginResult -cne "tuprel $($versions[0])") { throw 'New login Bash failed' }
+        $bashConsumer = Join-Path $fixture 'Bash PATH consumer café'
+        [IO.Directory]::CreateDirectory($bashConsumer) | Out-Null
+        Push-Location -LiteralPath $bashConsumer
+        try {
+            & /usr/bin/env "HOME=$fixtureHome" 'PATH=/usr/bin:/bin' /bin/bash -lc 'tuprel init && tuprel validate && tuprel generate'
+            if ($LASTEXITCODE -or -not (Test-Path -LiteralPath 'tuprel/schema.tuprel' -PathType Leaf)) {
+                throw 'New login Bash did not initialize and generate the independent consumer'
+            }
+        } finally { Pop-Location }
         $userEdit = "# later user edit`n"
         [IO.File]::AppendAllText($interactiveProfile, $userEdit)
         foreach ($kind in @('interactive', 'login')) {
@@ -152,8 +161,22 @@ try {
                     [Convert]::ToHexString($beforeActivation)) { throw 'Sharing violation must preserve the active pointer' }
         } finally { $busy.Dispose() }
     }
-    $interrupted = Join-Path $fixture '.tuprel-activation-abandoned'
-    [IO.File]::WriteAllText($interrupted, 'incomplete candidate')
+    $activationInputs = @($fixture, $native, $fixture, $keyId, 'activate', $versions[1])
+    $existingCandidates = @(Get-ChildItem -LiteralPath $fixture -Force -Filter '.tuprel-activation-*').Count
+    foreach ($phase in @('BEFORE_PREPARATION', 'BEFORE_REPLACE', 'AFTER_REPLACE')) {
+        & $java -cp $classes SignedCliBundleFixture interrupt-activation $phase @activationInputs
+        if ($LASTEXITCODE -ne 42) { throw "Activation did not halt at $phase" }
+        $expected = if ($phase -eq 'AFTER_REPLACE') { $versions[1] } else { $versions[0] }
+        $reported = & $launcher --version
+        if ($LASTEXITCODE -or $reported -cne "tuprel $expected") {
+            throw "A fresh launcher did not observe the committed version after $phase"
+        }
+    }
+    $candidates = @(Get-ChildItem -LiteralPath $fixture -Force -Filter '.tuprel-activation-*')
+    if ($candidates.Count -ne ($existingCandidates + 1)) { throw 'Interrupted activation lost its staged candidate' }
+    & $java @control rollback $versions[0]
+    if ($LASTEXITCODE) { throw 'Rollback after activation recovery failed' }
+    $beforeActivation = [IO.File]::ReadAllBytes($pointer)
     $bundleJar = Join-Path $fixture "$($versions[1])/lib/tuprel-cli-$($versions[1]).jar"
     $authenticJar = [IO.File]::ReadAllBytes($bundleJar)
     [IO.File]::AppendAllText($bundleJar, 'tampered')
@@ -161,7 +184,7 @@ try {
     if ($LASTEXITCODE -ne 1 -or [Convert]::ToHexString([IO.File]::ReadAllBytes($pointer)) -ne
             [Convert]::ToHexString($beforeActivation)) { throw 'Failed update changed the active pointer' }
     [IO.File]::WriteAllBytes($bundleJar, $authenticJar)
-    $project = Join-Path $fixture 'external Java project'
+    $project = Join-Path $fixture 'external Java project café'
     [IO.Directory]::CreateDirectory($project) | Out-Null
     Push-Location -LiteralPath $project
     try {
@@ -181,7 +204,7 @@ try {
                 if ($LASTEXITCODE -ne 1) { throw 'Rollback must refuse a revoked version' }
                 [IO.File]::WriteAllBytes($authorization, $originalPolicy)
                 [IO.File]::WriteAllBytes($signature, $originalSignature)
-            } elseif ([IO.File]::ReadAllText($pointer).Contains($versions[1])) {
+            } elseif ([IO.File]::ReadAllLines($pointer)[1] -ceq $versions[1]) {
                 & $java @control rollback $version
                 if ($LASTEXITCODE) { throw 'Authorized rollback failed' }
             }
@@ -200,7 +223,9 @@ try {
         $env:PATH = $before
         Pop-Location
     }
-    if ([IO.File]::ReadAllText($interrupted) -ne 'incomplete candidate') { throw 'Activation lost interruption evidence' }
+    foreach ($candidate in $candidates) {
+        if (-not [IO.File]::Exists($candidate.FullName)) { throw 'Activation lost interruption evidence' }
+    }
     & $java @control activate $versions[1]
     if ($LASTEXITCODE) { throw 'Cannot reselect the authenticated latest version' }
     $launchJob = Start-Job -ArgumentList $launcher -ScriptBlock {

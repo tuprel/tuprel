@@ -25,7 +25,7 @@ public final class StagedActivation {
 
     public static void main(String[] args) {
         try {
-            System.exit(execute(args));
+            System.exit(execute(args, stage -> {}));
         } catch (IOException | GeneralSecurityException | IllegalArgumentException e) {
             System.err.println("Tuprel staging activation or launch refused. Check the active version and signed authorization.");
             System.exit(1);
@@ -35,7 +35,10 @@ public final class StagedActivation {
         }
     }
 
-    private static int execute(String[] args) throws IOException, GeneralSecurityException, InterruptedException {
+    enum CommitStage { BEFORE_PREPARATION, BEFORE_REPLACE, AFTER_REPLACE }
+
+    static int execute(String[] args, java.util.function.Consumer<CommitStage> checkpoint)
+            throws IOException, GeneralSecurityException, InterruptedException {
         if (args.length < 5 || !digest(args[3])) throw new IOException("Missing trusted staging configuration");
         String operation = args[4];
         boolean launch = operation.equals("launch");
@@ -79,9 +82,12 @@ public final class StagedActivation {
                         ? version : previous.highWater();
                 State next = new State(version, bundle.digest(), highWater);
                 if (!next.equals(previous)) {
+                    checkpoint.accept(CommitStage.BEFORE_PREPARATION);
                     Path candidate = root.anchor().resolve(".tuprel-activation-" + UUID.randomUUID());
                     root.write(candidate, next.bytes(), false);
+                    checkpoint.accept(CommitStage.BEFORE_REPLACE);
                     root.replaceFile(candidate, root.anchor().resolve(POINTER));
+                    checkpoint.accept(CommitStage.AFTER_REPLACE);
                     if (!next.equals(readState(root))) throw new IOException("Activation result is uncertain");
                 }
                 return 0;
