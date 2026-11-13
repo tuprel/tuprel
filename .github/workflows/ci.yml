@@ -308,3 +308,11 @@ jobs:
           java -cp "tuprel-migrate/build/classes/java/main;$env:RUNNER_TEMP/publication-proof" `
             dev.tuprel.migrate.PublicationProof $binary $fixture
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Prove Windows install root confinement on NTFS
+        shell: pwsh
+        run: |
+          $binary = Join-Path $env:RUNNER_TEMP 'tuprel-installer-root-proof.exe'
+          & ./native/cli-installer/build-windows-proof.cmd $binary
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python native/cli-installer/test_windows_root.py $binary
+          exit $LASTEXITCODE
