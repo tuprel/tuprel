@@ -199,7 +199,7 @@ try {
     if ($LASTEXITCODE -ne 1) { throw 'Installation must refuse while a removal is pending' }
     & $java -jar $verifier @secondArguments $keyId remove $fixture $native
     if ($LASTEXITCODE -ne 1) { throw 'Removing the active second version must be refused' }
-    Remove-Item -LiteralPath $pointer
+    [IO.File]::Delete($pointer)
     & $launcher --version
     if ($LASTEXITCODE -ne 1) { throw 'Launcher must refuse a missing active pointer' }
     & $java -jar $verifier @secondArguments $keyId remove $fixture $native
