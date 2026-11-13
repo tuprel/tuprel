@@ -176,6 +176,7 @@ try {
     if ($candidates.Count -ne ($existingCandidates + 1)) { throw 'Interrupted activation lost its staged candidate' }
     & $java @control rollback $versions[0]
     if ($LASTEXITCODE) { throw 'Rollback after activation recovery failed' }
+    $beforeActivation = [IO.File]::ReadAllBytes($pointer)
     $bundleJar = Join-Path $fixture "$($versions[1])/lib/tuprel-cli-$($versions[1]).jar"
     $authenticJar = [IO.File]::ReadAllBytes($bundleJar)
     [IO.File]::AppendAllText($bundleJar, 'tampered')
