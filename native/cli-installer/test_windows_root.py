@@ -38,6 +38,9 @@ def opened(binary, root, name):
 
 def verify(binary, fixture):
     sid = re.search(rb"S-1-[\d-]+", run("whoami", "/user", "/fo", "csv", "/nh").stdout)[0].decode()
+    run("icacls", str(fixture), "/setowner", "*" + sid)
+    run("icacls", str(fixture), "/grant:r", "*" + sid + ":(OI)(CI)F")
+    run("icacls", str(fixture), "/inheritance:r")
     root = fixture / "Tuprel caf\u00e9 \u65e5"
     root.mkdir()
     run("icacls", str(root), "/setowner", "*" + sid)
@@ -107,7 +110,7 @@ def verify(binary, fixture):
 
 
 if __name__ == "__main__":
-    directory = Path(os.environ["LOCALAPPDATA"]) / "Temp"
+    directory = Path(os.environ["LOCALAPPDATA"])
     with tempfile.TemporaryDirectory(prefix="tuprel-install-", dir=directory.resolve()) as path:
         verify(sys.argv[1], Path(path))
     print("Verified Windows install root identity and handle-relative writes")
