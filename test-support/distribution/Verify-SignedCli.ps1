@@ -97,7 +97,12 @@ try {
     }
     & $java @control activate $versions[0]
     if ($LASTEXITCODE) { throw 'First activation failed' }
-    if (-not $IsWindows) {
+    if ($IsWindows) {
+        $pathTool = Join-Path $fixture 'tuprel-path-fixture.exe'
+        & "$nativeSource/build-windows-path.cmd" $pathTool fixture
+        if ($LASTEXITCODE) { throw 'Windows PATH fixture did not compile' }
+        & "$PSScriptRoot/Verify-WindowsUserPath.ps1" -Binary $pathTool -LauncherDirectory $fixture
+    } else {
         $fixtureHome = Join-Path $fixture 'Bash home'
         [IO.Directory]::CreateDirectory($fixtureHome) | Out-Null
         [IO.File]::SetUnixFileMode($fixtureHome, [IO.UnixFileMode]448)
