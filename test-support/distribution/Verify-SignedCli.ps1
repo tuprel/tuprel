@@ -1,16 +1,29 @@
+param([string]$FixtureParent = $(if ($IsWindows) { $env:LOCALAPPDATA } else { $HOME }))
+
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
-$fixture = Join-Path ([IO.Path]::GetTempPath()) ("tuprel signed cli " + [guid]::NewGuid())
+$fixture = Join-Path $FixtureParent ("tuprel signed cli " + [guid]::NewGuid())
 [IO.Directory]::CreateDirectory($fixture) | Out-Null
-if (-not $IsWindows) { [IO.File]::SetUnixFileMode($fixture, [IO.UnixFileMode]448) }
+if ($IsWindows) {
+    $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    & icacls $fixture /setowner "*$sid" | Out-Null
+    if ($LASTEXITCODE) { throw 'Cannot assign the fixture owner' }
+    & icacls $fixture /grant:r "*${sid}:(OI)(CI)F" /inheritance:r | Out-Null
+    if ($LASTEXITCODE) { throw 'Cannot secure the fixture ACL' }
+} else { [IO.File]::SetUnixFileMode($fixture, [IO.UnixFileMode]448) }
 $fixture = (Resolve-Path -LiteralPath $fixture).Path
 $before = $env:PATH
 try {
+    $native = Join-Path $fixture $(if ($IsWindows) { 'tuprel-staging.dll' } else { 'libtuprel-staging.so' })
+    $nativeSource = Join-Path $root 'native/cli-installer'
+    if ($IsWindows) { & "$nativeSource/build-windows-staging.cmd" $native }
+    else { & bash "$nativeSource/build-linux-staging.sh" $native }
+    if ($LASTEXITCODE) { throw 'Staging native validator did not compile' }
     $classes = Join-Path $fixture 'classes'
     [IO.Directory]::CreateDirectory($classes) | Out-Null
     $java = Join-Path $env:JAVA_HOME 'bin/java'
     $javac = Join-Path $env:JAVA_HOME 'bin/javac'
-    & $javac --release 21 -Xlint:all -Werror -d $classes "$PSScriptRoot/SignedCliBundle.java" "$PSScriptRoot/SignedCliBundleFixture.java" "$PSScriptRoot/VerifyCliBundle.java"
+    & $javac --release 21 -Xlint:all -Werror -d $classes "$PSScriptRoot/SignedCliBundle.java" "$PSScriptRoot/SignedCliBundleFixture.java" "$PSScriptRoot/VerifyCliBundle.java" "$PSScriptRoot/StagingRoot.java"
     if ($LASTEXITCODE -ne 0) { throw 'Staging verifier did not compile' }
 
     $versions = @('0.0.0-staging', '0.0.1-staging')
@@ -29,7 +42,7 @@ try {
 
     $verifier = Join-Path $fixture 'verify-cli.jar'
     $jar = Join-Path $env:JAVA_HOME 'bin/jar'
-    & $jar --create --file $verifier --main-class VerifyCliBundle -C $classes SignedCliBundle.class -C $classes VerifyCliBundle.class
+    & $jar --create --file $verifier --main-class VerifyCliBundle -C $classes SignedCliBundle.class -C $classes VerifyCliBundle.class -C $classes StagingRoot.class
     if ($LASTEXITCODE -ne 0) { throw 'Independent staging verifier packaging failed' }
     $verifyArguments = @($versions[0], $archives[0], (Join-Path $fixture "$($versions[0]).manifest"),
         (Join-Path $fixture "$($versions[0]).ed25519"), (Join-Path $fixture 'public-key.bin'))
@@ -41,15 +54,33 @@ try {
 
     $secondArguments = @($versions[1], $archives[1], (Join-Path $fixture "$($versions[1]).manifest"),
         (Join-Path $fixture "$($versions[1]).ed25519"), (Join-Path $fixture 'public-key.bin'))
-    & $java -jar $verifier @verifyArguments $keyId install $fixture
+    $unsafe = Join-Path $fixture 'unsafe root'
+    [IO.Directory]::CreateDirectory($unsafe) | Out-Null
+    if ($IsWindows) {
+        & icacls $unsafe /setowner "*$sid" | Out-Null
+        if ($LASTEXITCODE) { throw 'Cannot assign the unsafe fixture owner' }
+        & icacls $unsafe /grant '*S-1-1-0:(WDAC)' | Out-Null
+        if ($LASTEXITCODE) { throw 'Cannot prepare the unsafe fixture ACL' }
+    } else { [IO.File]::SetUnixFileMode($unsafe, [IO.UnixFileMode]504) }
+    foreach ($operation in @('install', 'remove')) {
+        & $java -jar $verifier @verifyArguments $keyId $operation $unsafe $native
+        if ($LASTEXITCODE -ne 1 -or @(Get-ChildItem -LiteralPath $unsafe -Force).Count -ne 0) {
+            throw 'Unsafe root must be refused before any installation mutation'
+        }
+    }
+    & $java -jar $verifier @verifyArguments $keyId install $fixture (Join-Path $fixture 'missing-native-library')
+    if ($LASTEXITCODE -ne 1 -or (Test-Path -LiteralPath (Join-Path $fixture '.tuprel-staging.lock'))) {
+        throw 'Missing validator must be refused before creating the staging lock'
+    }
+    & $java -jar $verifier @verifyArguments $keyId install $fixture $native
     if ($LASTEXITCODE -ne 0) { throw 'First signed installation failed' }
-    & $java -jar $verifier @verifyArguments $keyId install $fixture
+    & $java -jar $verifier @verifyArguments $keyId install $fixture $native
     if ($LASTEXITCODE -ne 0) { throw 'An identical signed installation must be idempotent' }
     $abandoned = @(Get-ChildItem -LiteralPath $fixture -Force -Directory -Filter ".$($versions[0])-pending-*")
     if ($abandoned.Count -ne 1 -or (Get-Content -Raw -LiteralPath (Join-Path $abandoned[0].FullName 'partial')) -cne 'interrupted attempt') {
         throw 'Reinstall must preserve abandoned staging data'
     }
-    & $java -jar $verifier @secondArguments $keyId install $fixture
+    & $java -jar $verifier @secondArguments $keyId install $fixture $native
     if ($LASTEXITCODE -ne 0) { throw 'Second signed installation failed' }
 
     $launcherName = if ($IsWindows) { 'tuprel.bat' } else { 'tuprel' }
@@ -85,22 +116,22 @@ try {
         $env:PATH = $before
         Pop-Location
     }
-    & $java -cp $classes SignedCliBundleFixture test-refusal $fixture @archives $keyId
+    & $java -cp $classes SignedCliBundleFixture test-refusal $fixture @archives $keyId $native
     if ($LASTEXITCODE -ne 0) { throw 'Modified-file protection failed' }
     & $java -cp $classes SignedCliBundleFixture interrupt-removal $fixture @archives
     if ($LASTEXITCODE -ne 42) { throw 'Expected the removal fixture to halt after deleting one file' }
     $removing = Join-Path $fixture ".$($versions[0])-removing"
     $foreign = Join-Path $removing 'user-file.txt'
     [IO.File]::WriteAllText($foreign, 'preserve')
-    & $java -jar $verifier @verifyArguments $keyId remove $fixture
+    & $java -jar $verifier @verifyArguments $keyId remove $fixture $native
     if ($LASTEXITCODE -ne 1 -or (Get-Content -LiteralPath $foreign -Raw) -cne 'preserve' -or
             -not (Test-Path -LiteralPath (Join-Path $removing 'bin/tuprel.bat') -PathType Leaf)) {
         throw 'Interrupted removal did not preserve unknown files and verified siblings'
     }
     Remove-Item -LiteralPath $foreign
-    & $java -jar $verifier @verifyArguments $keyId install $fixture
+    & $java -jar $verifier @verifyArguments $keyId install $fixture $native
     if ($LASTEXITCODE -ne 1) { throw 'Installation must refuse while a removal is pending' }
-    & $java -jar $verifier @secondArguments $keyId remove $fixture
+    & $java -jar $verifier @secondArguments $keyId remove $fixture $native
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $removing -PathType Container)) {
         throw 'Removing the second version must not affect the pending removal'
     }
@@ -108,7 +139,7 @@ try {
     if ($IsWindows) {
         $locked = [IO.File]::Open($survivor, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
         try {
-            & $java -jar $verifier @verifyArguments $keyId remove $fixture
+            & $java -jar $verifier @verifyArguments $keyId remove $fixture $native
             if ($LASTEXITCODE -ne 1) { throw 'Expected a Windows sharing violation during removal' }
         } finally { $locked.Dispose() }
     } else {
@@ -116,18 +147,18 @@ try {
         $priorMode = [IO.File]::GetUnixFileMode($bin)
         [IO.File]::SetUnixFileMode($bin, [IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserExecute)
         try {
-            & $java -jar $verifier @verifyArguments $keyId remove $fixture
+            & $java -jar $verifier @verifyArguments $keyId remove $fixture $native
             if ($LASTEXITCODE -ne 1) { throw 'Expected Linux to refuse removal from a non-writable directory' }
         } finally { [IO.File]::SetUnixFileMode($bin, $priorMode) }
     }
     if (-not (Test-Path -LiteralPath $survivor -PathType Leaf)) {
         throw 'Removal failure lost the protected file'
     }
-    & $java -jar $verifier @verifyArguments $keyId remove $fixture
+    & $java -jar $verifier @verifyArguments $keyId remove $fixture $native
     if ($LASTEXITCODE -ne 0 -or (Test-Path -LiteralPath $removing)) {
         throw 'Restart did not finish scoped removal of the first version'
     }
-    & $java -jar $verifier @verifyArguments $keyId remove $fixture
+    & $java -jar $verifier @verifyArguments $keyId remove $fixture $native
     if ($LASTEXITCODE -ne 0) { throw 'Repeat removal must be idempotent' }
     'Signed installation, version switching, process interruption and scoped recovery verified'
 } finally {

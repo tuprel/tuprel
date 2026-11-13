@@ -58,5 +58,19 @@ jobs:
         shell: pwsh
         run: ./test-support/distribution/Verify-StagedGradlePlugin.ps1
       - name: Exercise signed installation, version switching and recovery
+        if: runner.os == 'Windows'
         shell: pwsh
         run: ./test-support/distribution/Verify-SignedCli.ps1
+      - name: Exercise signed installation on a dedicated ext4 volume
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          fixture="$(mktemp -d "$RUNNER_TEMP/tuprel-staging.XXXXXXXX")"
+          mkdir "$fixture/volume"
+          truncate -s 512M "$fixture/image"
+          mkfs.ext4 -F -q "$fixture/image"
+          sudo mount -t ext4 -o loop "$fixture/image" "$fixture/volume"
+          trap 'sudo umount -- "$fixture/volume"' EXIT
+          sudo chown "$(id -u):$(id -g)" "$fixture/volume"
+          pwsh -File ./test-support/distribution/Verify-SignedCli.ps1 -FixtureParent "$fixture/volume"

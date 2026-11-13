@@ -85,6 +85,7 @@ def verify(binary, fixture):
         process.communicate(b"\n", timeout=15)
         assert process.returncode == 0
     assert (root / "held").is_file()
+    assert invoke(binary, root, "check-identity") == (0, [b"READY"])
 
     for target in (root, fixture):
         with opened(binary, root, "after-acl-change") as process:

@@ -12,6 +12,11 @@ int wmain(int argc, wchar_t **argv) {
         installer_close_root(root);
         return 2;
     }
+    if (wcscmp(argv[2], L"check-identity") == 0) {
+        int valid = installer_root_valid(root);
+        installer_close_root(root);
+        return valid ? 0 : 2;
+    }
     HANDLE file = installer_create_file(root, argv[2]);
     installer_close_root(root);
     if (file == INVALID_HANDLE_VALUE) return 2;

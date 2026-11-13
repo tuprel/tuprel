@@ -16,6 +16,25 @@ def invoke(binary, root, name="probe"):
     )
 
 
+def substitute(binary, root, outside, name, expected):
+    retained = root.parent / "retained"
+    with subprocess.Popen([binary, str(root)], stdin=subprocess.PIPE,
+                          stdout=subprocess.PIPE, text=True) as process:
+        try:
+            assert process.stdout.readline() == "READY\n"
+            root.rename(retained)
+            root.symlink_to(outside, target_is_directory=True)
+            process.communicate(name + "\n", timeout=10)
+            assert process.returncode == expected
+        finally:
+            if process.poll() is None:
+                process.kill()
+            if retained.exists():
+                if root.is_symlink():
+                    root.unlink()
+                retained.rename(root)
+
+
 def verify(binary, workspace):
     root = workspace / "installation with spaces"
     root.mkdir(mode=0o700)
@@ -36,6 +55,7 @@ def verify(binary, workspace):
         assert (result.returncode, result.stdout) == (2, "READY\n"), name
     assert sentinel.read_bytes() == b"preserve"
     assert (root / "probe").read_bytes() == b"installer-root-proof\n"
+    assert invoke(binary, root, "check-identity").returncode == 0
 
     with ThreadPoolExecutor(max_workers=4) as workers:
         results = list(workers.map(lambda _: invoke(binary, root, "contended"), range(4)))
@@ -57,29 +77,19 @@ def verify(binary, workspace):
     workspace.chmod(0o700)
 
     # The held descriptor still identifies the validated object after pathname substitution.
-    retained = workspace / "retained"
-    with subprocess.Popen([binary, str(root)], stdin=subprocess.PIPE,
-                          stdout=subprocess.PIPE, text=True) as process:
-        try:
-            assert process.stdout.readline() == "READY\n"
-            root.rename(retained)
-            root.symlink_to(outside, target_is_directory=True)
-            process.communicate("held-descriptor\n", timeout=10)
-            assert process.returncode == 0
-        finally:
-            if process.poll() is None:
-                process.kill()
-    assert (retained / "held-descriptor").is_file()
+    substitute(binary, root, outside, "held-descriptor", 0)
+    assert (root / "held-descriptor").is_file()
     assert not (outside / "held-descriptor").exists()
+    substitute(binary, root, outside, "check-identity", 2)
 
-    root.unlink()
-    root.mkdir(mode=0o700)
-    subprocess.run(["sudo", "-n", "chown", "0", str(root)], check=True, timeout=10)
+    foreign = workspace / "foreign"
+    foreign.mkdir(mode=0o700)
+    subprocess.run(["sudo", "-n", "chown", "0", str(foreign)], check=True, timeout=10)
     try:
-        result = invoke(binary, root)
+        result = invoke(binary, foreign)
         assert (result.returncode, result.stdout) == (2, "")
     finally:
-        subprocess.run(["sudo", "-n", "chown", str(os.getuid()), str(root)], check=True, timeout=10)
+        subprocess.run(["sudo", "-n", "chown", str(os.getuid()), str(foreign)], check=True, timeout=10)
 
 
 if __name__ == "__main__":

@@ -9,15 +9,15 @@ import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 
-/** Verifies and applies a signed bundle within a caller-controlled private staging root. */
+/** Verifies and applies a signed bundle within an OS-validated private staging root. */
 public final class VerifyCliBundle {
     private VerifyCliBundle() {}
 
     public static void main(String[] args) {
-        if ((args.length != 6 && args.length != 8) || !args[5].matches("[0-9a-f]{64}")
-                || (args.length == 8 && !args[6].equals("install") && !args[6].equals("remove"))) {
+        if ((args.length != 6 && args.length != 9) || !args[5].matches("[0-9a-f]{64}")
+                || (args.length == 9 && !args[6].equals("install") && !args[6].equals("remove"))) {
             System.err.println("Usage: verify-cli <version> <archive> <manifest> <signature>"
-                    + " <public-key-der> <key-sha256> [install|remove <private-staging-root>]");
+                    + " <public-key-der> <key-sha256> [install|remove <private-staging-root> <trusted-native-library>]");
             System.exit(2);
         }
         try {
@@ -27,12 +27,15 @@ public final class VerifyCliBundle {
                     read(Path.of(args[3]), 64), key, args[5], args[0]);
             if (args.length == 6) {
                 System.out.println("Signed Tuprel staging bundle verified");
-            } else if (args[6].equals("install")) {
-                bundle.install(Path.of(args[7]));
-                System.out.println("Signed Tuprel staging version installed");
             } else {
-                bundle.uninstall(Path.of(args[7]));
-                System.out.println("Signed Tuprel staging version removed");
+                StagingRoot.load(Path.of(args[8]));
+                if (args[6].equals("install")) {
+                    bundle.install(Path.of(args[7]));
+                    System.out.println("Signed Tuprel staging version installed");
+                } else {
+                    bundle.uninstall(Path.of(args[7]));
+                    System.out.println("Signed Tuprel staging version removed");
+                }
             }
         } catch (IOException | GeneralSecurityException | InvalidPathException e) {
             System.err.println("Tuprel staging operation refused or incomplete. Inspect the private staging root.");
