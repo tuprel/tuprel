@@ -98,6 +98,8 @@ jobs:
           & ./native/cli-installer/build-windows-proof.cmd (Join-Path $env:RUNNER_TEMP 'tuprel-installer-root-proof.exe')
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           & ./native/cli-installer/build-windows-staging.cmd (Join-Path $env:RUNNER_TEMP 'tuprel-staging.dll')
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & ./native/cli-installer/build-windows-path.cmd (Join-Path $env:RUNNER_TEMP 'tuprel-path.exe')
           exit $LASTEXITCODE
       - name: Analyze native code
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1

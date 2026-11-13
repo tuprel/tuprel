@@ -103,6 +103,15 @@ pointer and revalidates its target. Candidates are preserved. These tests cover
 atomic visibility and process-level recovery. Power-loss durability and
 persistent PATH are separate gates.
 
+The Windows PATH staging tool changes the user registry value and a Tuprel
+ownership marker in one registry transaction. It retains the PATH value type,
+appends a single stable directory, and refuses pre-existing entries or
+detectable shadowing. Removal is limited to the exact owned suffix and
+preserves prior entries. A failed transaction is reported as refused or
+unconfirmed. The staging proof builds a variant scoped to a disposable HKCU
+key and starts PowerShell with the persisted value. Explorer propagation and
+startup after reboot still need a separate user-profile proof.
+
 A local Windows proof used jdeps and jlink to produce a 56.2 MiB JDK 21
 image, including a small fixture project. The image ran init, validate and
 generate offline. JDBC, TLS, native integration and runtime updates still

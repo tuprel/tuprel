@@ -97,6 +97,12 @@ try {
     }
     & $java @control activate $versions[0]
     if ($LASTEXITCODE) { throw 'First activation failed' }
+    if ($IsWindows) {
+        $pathTool = Join-Path $fixture 'tuprel-path-fixture.exe'
+        & "$nativeSource/build-windows-path.cmd" $pathTool fixture
+        if ($LASTEXITCODE) { throw 'Windows PATH fixture did not compile' }
+        & "$PSScriptRoot/Verify-WindowsUserPath.ps1" -Binary $pathTool -LauncherDirectory $fixture
+    }
     & $java @control activate '9.9.9-staging'
     if ($LASTEXITCODE -ne 1) { throw 'Unknown version must be refused' }
     & $java -jar $verifier @verifyArguments $keyId remove $fixture $native
