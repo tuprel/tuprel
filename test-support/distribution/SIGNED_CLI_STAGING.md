@@ -112,6 +112,15 @@ unconfirmed. The staging proof builds a variant scoped to a disposable HKCU
 key and starts PowerShell with the persisted value. Explorer propagation and
 startup after reboot still need a separate user-profile proof.
 
+The initial Bash PATH profile edits an existing mode-0600 startup file in a
+checked home. Add requires a profile containing comments and blank lines. This
+restriction keeps arbitrary Bash control flow out of automated edits. Use
+`interactive` for `.bashrc` and `login` for the first existing Bash login
+profile in Bash's startup order. An exact marked block adds the stable
+launcher directory only when Tuprel is unresolved. Removal checks the full
+block and preserves subsequent user edits outside it. Automated tests use a
+disposable home and newly started Bash processes.
+
 A local Windows proof used jdeps and jlink to produce a 56.2 MiB JDK 21
 image, including a small fixture project. The image ran init, validate and
 generate offline. JDBC, TLS, native integration and runtime updates still
