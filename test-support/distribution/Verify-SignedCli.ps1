@@ -23,7 +23,7 @@ try {
     [IO.Directory]::CreateDirectory($classes) | Out-Null
     $java = Join-Path $env:JAVA_HOME 'bin/java'
     $javac = Join-Path $env:JAVA_HOME 'bin/javac'
-    & $javac --release 21 -Xlint:all -Werror -d $classes "$PSScriptRoot/SignedCliBundle.java" "$PSScriptRoot/SignedCliBundleFixture.java" "$PSScriptRoot/VerifyCliBundle.java" "$PSScriptRoot/StagingRoot.java" "$PSScriptRoot/StagedActivation.java"
+    & $javac --release 21 -Xlint:all -Werror -d $classes "$PSScriptRoot/SignedCliBundle.java" "$PSScriptRoot/SignedCliBundleFixture.java" "$PSScriptRoot/VerifyCliBundle.java" "$PSScriptRoot/StagingRoot.java" "$PSScriptRoot/StagedActivation.java" "$PSScriptRoot/StagedBashPath.java"
     if ($LASTEXITCODE -ne 0) { throw 'Staging verifier did not compile' }
 
     $versions = @('0.0.0-staging', '0.0.1-staging')
@@ -97,6 +97,42 @@ try {
     }
     & $java @control activate $versions[0]
     if ($LASTEXITCODE) { throw 'First activation failed' }
+    if (-not $IsWindows) {
+        $fixtureHome = Join-Path $fixture 'Bash home'
+        [IO.Directory]::CreateDirectory($fixtureHome) | Out-Null
+        [IO.File]::SetUnixFileMode($fixtureHome, [IO.UnixFileMode]448)
+        $interactiveProfile = Join-Path $fixtureHome '.bashrc'
+        $loginProfile = Join-Path $fixtureHome '.bash_profile'
+        $profileText = "# user content`n"
+        foreach ($profileFile in @($interactiveProfile, $loginProfile)) {
+            [IO.File]::WriteAllText($profileFile, $profileText)
+            [IO.File]::SetUnixFileMode($profileFile, [IO.UnixFileMode]384)
+        }
+        foreach ($kind in @('interactive', 'login')) {
+            & $java -cp $classes StagedBashPath add $kind $fixtureHome $fixture $native
+            if ($LASTEXITCODE) { throw 'Bash PATH installation failed' }
+            & $java -cp $classes StagedBashPath add $kind $fixtureHome $fixture $native
+            if ($LASTEXITCODE) { throw 'Repeated Bash PATH installation failed' }
+        }
+        $bashCheck = 'test "$(command -v tuprel)" = "$1" && tuprel --version'
+        $interactiveResult = & /usr/bin/env "HOME=$fixtureHome" 'PATH=/usr/bin:/bin' /bin/bash -ic $bashCheck bash $launcher
+        if ($LASTEXITCODE -or $interactiveResult -cne "tuprel $($versions[0])") { throw 'New interactive Bash failed' }
+        $loginResult = & /usr/bin/env "HOME=$fixtureHome" 'PATH=/usr/bin:/bin' /bin/bash -lc $bashCheck bash $launcher
+        if ($LASTEXITCODE -or $loginResult -cne "tuprel $($versions[0])") { throw 'New login Bash failed' }
+        $userEdit = "# later user edit`n"
+        [IO.File]::AppendAllText($interactiveProfile, $userEdit)
+        foreach ($kind in @('interactive', 'login')) {
+            & $java -cp $classes StagedBashPath remove $kind $fixtureHome $fixture $native
+            if ($LASTEXITCODE) { throw 'Bash PATH reversal failed' }
+        }
+        if ([IO.File]::ReadAllText($interactiveProfile) -cne ($profileText + $userEdit) -or
+                [IO.File]::ReadAllText($loginProfile) -cne $profileText) { throw 'Bash PATH changed user content' }
+        & /usr/bin/env "HOME=$fixtureHome" 'PATH=/usr/bin:/bin' /bin/bash -ic 'test -z "$(command -v tuprel)"'
+        if ($LASTEXITCODE) { throw 'Bash still resolves Tuprel after reversal' }
+        [IO.File]::AppendAllText($interactiveProfile, "return`n")
+        & $java -cp $classes StagedBashPath add interactive $fixtureHome $fixture $native
+        if ($LASTEXITCODE -ne 1) { throw 'Unverifiable Bash startup code must be refused' }
+    }
     & $java @control activate '9.9.9-staging'
     if ($LASTEXITCODE -ne 1) { throw 'Unknown version must be refused' }
     & $java -jar $verifier @verifyArguments $keyId remove $fixture $native
