@@ -6,15 +6,19 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import dev.tuprel.schema.SchemaCompiler;
+import dev.tuprel.schema.SchemaCompletion;
 import dev.tuprel.schema.SchemaDiagnostic;
 import dev.tuprel.schema.SchemaFormatResult;
 import dev.tuprel.schema.SchemaFormatter;
 import dev.tuprel.schema.SourceText;
 import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 /** Standalone Tuprel language server entry point. */
@@ -23,12 +27,14 @@ public final class TuprelLanguageServer {
     private static final int MAX_DOCUMENT_UNITS = 64 * 1024;
     private static final int MAX_URI_UNITS = 4096;
     private static final int MAX_DIAGNOSTICS = 200;
+    private static final int MAX_COMPLETIONS = 200;
 
     private enum State { NEW, INITIALIZING, READY, SHUTDOWN }
 
     private record Snapshot(int version, String text) {}
 
     private final LspTransport transport;
+    private final SchemaCompletion completion = new SchemaCompletion();
     private final SchemaFormatter formatter = new SchemaFormatter();
     private final SchemaCompiler formattedSchemaCompiler = new SchemaCompiler();
     private final Function<SourceText, List<SchemaDiagnostic>> compile;
@@ -101,6 +107,11 @@ public final class TuprelLanguageServer {
             capabilities.add("textDocumentSync", sync);
             capabilities.addProperty("positionEncoding", "utf-16");
             capabilities.addProperty("documentFormattingProvider", true);
+            JsonObject completionProvider = new JsonObject();
+            JsonArray triggers = new JsonArray();
+            triggers.add("@");
+            completionProvider.add("triggerCharacters", triggers);
+            capabilities.add("completionProvider", completionProvider);
             JsonObject result = new JsonObject();
             result.add("capabilities", capabilities);
             state = State.INITIALIZING;
@@ -121,8 +132,84 @@ public final class TuprelLanguageServer {
             respond(id, JsonNull.INSTANCE);
         } else if ("textDocument/formatting".equals(method)) {
             formatDocument(id, object(params));
+        } else if ("textDocument/completion".equals(method)) {
+            completeDocument(id, object(params));
         } else {
             error(id, -32601, "Method not found");
+        }
+    }
+
+    private void completeDocument(JsonElement id, JsonObject params) throws IOException {
+        String uri = string(object(params.get("textDocument")).get("uri"));
+        JsonObject position = object(params.get("position"));
+        Integer line = version(position.get("line"));
+        Integer character = version(position.get("character"));
+        if (!validCompletionUri(uri) || line == null || character == null || line < 0 || character < 0) {
+            error(id, -32602, "Invalid params");
+            return;
+        }
+
+        Snapshot snapshot = documents.get(uri);
+        // CompletionParams has no version. The dispatcher sees updates and requests in wire order.
+        respond(id, snapshot == null || snapshot.text() == null
+                ? new JsonArray() : completionItems(snapshot.text(), line, character));
+    }
+
+    private JsonElement completionItems(String text, int line, int character) {
+        JsonArray items = new JsonArray();
+        DiagnosticRanges ranges = new DiagnosticRanges(text);
+        int offset = ranges.offset(line, character);
+        if (offset < 0) {
+            return items;
+        }
+        Optional<SchemaCompletion.Result> result;
+        try {
+            result = completion.complete(SourceText.of("editor.tuprel", text), offset);
+        } catch (StackOverflowError exhausted) {
+            // Completion uses the same recursive parser as diagnostics.
+            return items;
+        } catch (RuntimeException failure) {
+            System.err.println("TUPREL-LSP-COMPLETION: unexpected schema query exception.");
+            return items;
+        }
+        if (result.isEmpty()) {
+            return items;
+        }
+
+        SchemaCompletion.Result suggestions = result.orElseThrow();
+        JsonObject range = ranges.range(suggestions.replacement());
+        for (SchemaCompletion.Item suggestion : suggestions.items().stream().limit(MAX_COMPLETIONS).toList()) {
+            JsonObject edit = new JsonObject();
+            edit.add("range", range);
+            edit.addProperty("newText", suggestion.label());
+            JsonObject item = new JsonObject();
+            item.addProperty("label", suggestion.label());
+            item.addProperty("kind", switch (suggestion.kind()) {
+                case SCALAR, MODEL -> 7; // Class is the LSP kind for these named types.
+                case ATTRIBUTE -> 10; // Property
+                case ENUM -> 13;
+                case KEYWORD -> 14;
+            });
+            item.add("textEdit", edit);
+            items.add(item);
+        }
+        if (suggestions.items().size() <= MAX_COMPLETIONS) {
+            return items;
+        }
+        JsonObject list = new JsonObject();
+        list.addProperty("isIncomplete", true);
+        list.add("items", items);
+        return list;
+    }
+
+    private static boolean validCompletionUri(String uri) {
+        if (!validUri(uri)) {
+            return false;
+        }
+        try {
+            return new URI(uri).isAbsolute();
+        } catch (URISyntaxException invalid) {
+            return false;
         }
     }
 

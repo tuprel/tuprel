@@ -49,6 +49,16 @@ final class Lexer {
                     "true", TokenKind.TRUE,
                     "false", TokenKind.FALSE);
 
+    static List<String> declarationKeywords() {
+        return KEYWORDS.entrySet().stream()
+                .filter(entry -> switch (entry.getValue()) {
+                    case MODEL, ENUM, DATASOURCE, GENERATOR -> true;
+                    default -> false;
+                })
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
     private final SourceText source;
     private final List<Token> tokens = new ArrayList<>();
     private final List<SchemaDiagnostic> diagnostics = new ArrayList<>();

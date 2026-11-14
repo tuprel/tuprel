@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class Parser {
+    enum CompletionContext { DECLARATION, FIELD_TYPE, FIELD_ATTRIBUTE, MODEL_ATTRIBUTE }
+
     record Result(SchemaDocument document, List<SchemaDiagnostic> diagnostics) {
         Result {
             diagnostics = List.copyOf(diagnostics);
@@ -23,33 +25,50 @@ final class Parser {
     private final SourceText source;
     private final List<Token> tokens;
     private final List<SchemaDiagnostic> diagnostics = new ArrayList<>();
+    private final boolean completionProbe;
+    private CompletionContext completionContext;
+    private int declarationDiagnostics;
     private int current;
     private Token previous;
 
-    private Parser(SourceText source, List<Token> tokens) {
+    private Parser(SourceText source, List<Token> tokens, boolean completionProbe) {
         this.source = source;
+        this.completionProbe = completionProbe;
         this.tokens =
                 tokens.stream().filter(token -> token.kind() != TokenKind.COMMENT).toList();
         this.previous = this.tokens.getFirst();
     }
 
     static Result parse(SourceText source, List<Token> tokens) {
-        Parser parser = new Parser(source, tokens);
+        Parser parser = new Parser(source, tokens, false);
         return parser.parseDocument();
+    }
+
+    // The probe receives the real token prefix, followed by EOF at the editing position.
+    static CompletionContext completionContext(SourceText source, List<Token> prefix) {
+        Parser parser = new Parser(source, prefix, true);
+        parser.parseDocument();
+        return parser.completionContext;
     }
 
     private Result parseDocument() {
         List<Declaration> declarations = new ArrayList<>();
         while (!check(TokenKind.EOF)) {
+            declarationDiagnostics = diagnostics.size();
             int before = current;
             Declaration declaration = parseDeclaration();
             if (declaration != null) {
                 declarations.add(declaration);
+                if (completionProbe && previous.kind() == TokenKind.RIGHT_BRACE) {
+                    // A real closing brace re-establishes the declaration boundary after recovery.
+                    declarationDiagnostics = diagnostics.size();
+                }
             }
             if (current == before) {
                 advance();
             }
         }
+        offer(CompletionContext.DECLARATION);
         return new Result(
                 new SchemaDocument(declarations, source.span(0, source.length())), diagnostics);
     }
@@ -130,6 +149,7 @@ final class Parser {
             }
         }
 
+        offer(CompletionContext.MODEL_ATTRIBUTE);
         Token close = expect(TokenKind.RIGHT_BRACE, "TUPREL-SCHEMA-PARSE-004", "Expected '}' after model.");
         return new SchemaDocument.ModelDeclaration(
                 name.value(), fields, attributes, span(keyword.span(), close.span()));
@@ -137,6 +157,7 @@ final class Parser {
 
     private FieldDeclaration parseField() {
         Token name = advance();
+        offerOnSameLine(CompletionContext.FIELD_TYPE);
         Token typeName = expectIdentifier("Expected a type after field name '%s'.".formatted(name.value()));
         SchemaDocument.Cardinality cardinality = SchemaDocument.Cardinality.REQUIRED;
         SourceSpan typeSpan = typeName.span();
@@ -155,11 +176,13 @@ final class Parser {
         while (match(TokenKind.AT)) {
             attributes.add(parseFieldAttribute(previous));
         }
+        offerOnSameLine(CompletionContext.FIELD_ATTRIBUTE);
         SourceSpan end = attributes.isEmpty() ? type.span() : attributes.getLast().span();
         return new FieldDeclaration(name.value(), type, attributes, span(name.span(), end));
     }
 
     private FieldAttribute parseFieldAttribute(Token at) {
+        offer(CompletionContext.FIELD_ATTRIBUTE);
         Token name = expectIdentifier("Expected attribute name after '@'.");
         List<Argument> arguments = check(TokenKind.LEFT_PAREN) ? parseArguments() : List.of();
         SourceSpan end = argumentsEnd(name.span());
@@ -167,6 +190,7 @@ final class Parser {
     }
 
     private BlockAttribute parseBlockAttribute(Token atAt) {
+        offer(CompletionContext.MODEL_ATTRIBUTE);
         Token name = expectIdentifier("Expected model attribute name after '@@'.");
         List<Argument> arguments;
         if (check(TokenKind.LEFT_PAREN)) {
@@ -268,6 +292,21 @@ final class Parser {
             advance();
         }
         return new SchemaDocument.Symbol("<error>", unexpected.span());
+    }
+
+    private void offerOnSameLine(CompletionContext context) {
+        if (completionProbe && check(TokenKind.EOF)
+                && source.positionAt(previous.span().endOffset()).line()
+                        == source.positionAt(peek().span().startOffset()).line()) {
+            offer(context);
+        }
+    }
+
+    private void offer(CompletionContext context) {
+        if (completionProbe && check(TokenKind.EOF) && completionContext == null
+                && diagnostics.size() == declarationDiagnostics) {
+            completionContext = context;
+        }
     }
 
     private SourceSpan argumentsEnd(SourceSpan fallback) {

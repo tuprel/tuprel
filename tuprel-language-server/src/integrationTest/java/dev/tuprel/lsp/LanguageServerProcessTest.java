@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import dev.tuprel.schema.SchemaCompiler;
 import dev.tuprel.schema.SchemaDiagnostic;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -357,6 +359,124 @@ class LanguageServerProcessTest {
         }
     }
 
+    @Test
+    void completesFromTheLatestUnsavedSnapshotWithDeterministicUtf16Edits() throws Exception {
+        try (Client client = new Client()) {
+            client.initialize();
+            assertTrue(client.complete(FIRST, 0, 0).getAsJsonArray().isEmpty());
+            client.open(FIRST, 1, "");
+            client.diagnostics(FIRST, 1);
+            JsonArray top = client.complete(FIRST, 0, 0).getAsJsonArray();
+            assertEquals(List.of("datasource", "enum", "generator", "model"), labels(top));
+            assertEquals(14, top.get(0).getAsJsonObject().get("kind").getAsInt());
+
+            String line = "    /* \uD83E\uDDEA */ target Taill";
+            String text = "model Local {\r\n" + line + "\r\n}\r\nmodel Target {}\r\nenum Tag { One }";
+            client.change(FIRST, 2, text);
+            assertFalse(client.diagnostics(FIRST, 2).isEmpty());
+            client.open(SECOND, 90, "model Other { field Ta }\nmodel Tally {}");
+            client.diagnostics(SECOND, 90);
+
+            int start = line.indexOf("Taill");
+            JsonArray types = client.complete(FIRST, 1, start + 2).getAsJsonArray();
+            assertEquals(List.of("Tag", "Target"), labels(types));
+            assertEquals(types, client.complete(FIRST, 1, start + 2));
+            assertEquals(13, types.get(0).getAsJsonObject().get("kind").getAsInt());
+            assertEquals(7, types.get(1).getAsJsonObject().get("kind").getAsInt());
+            JsonObject edit = types.get(1).getAsJsonObject().getAsJsonObject("textEdit");
+            assertPosition(edit, "start", 1, start);
+            assertPosition(edit, "end", 1, line.length());
+            assertEquals("Target", edit.get("newText").getAsString());
+            assertEquals(List.of("Tally"), labels(client.complete(SECOND, 0, 22).getAsJsonArray()));
+            assertTrue(client.complete(FIRST, 1, line.length() + 1).getAsJsonArray().isEmpty());
+            assertTrue(client.complete(FIRST, 15, 0).getAsJsonArray().isEmpty());
+            assertTrue(client.complete(FIRST, 1, line.indexOf("\uD83E\uDDEA") + 1).getAsJsonArray().isEmpty());
+
+            client.change(FIRST, 2, "model Stale {}");
+            assertEquals(types, client.complete(FIRST, 1, start + 2));
+            client.change(FIRST, 3, "model Local { id Int @id }");
+            assertTrue(client.diagnostics(FIRST, 3).isEmpty());
+            assertEdit(client.format(FIRST), "model Local {\n    id Int @id\n}\n", 0, 26);
+            client.notify("textDocument/didClose", document(FIRST, null));
+            assertTrue(client.diagnostics(FIRST, null).isEmpty());
+            assertTrue(client.complete(FIRST, 0, 0).getAsJsonArray().isEmpty());
+            client.shutdown();
+        }
+    }
+
+    @Test
+    void handlesAttributeSlotsUnsafePositionsAndAnalysisLimits() throws Exception {
+        try (Client client = new Client()) {
+            client.initialize();
+            client.open(FIRST, 1, "model X {\n id Int @ver\n @@un\n}");
+            client.diagnostics(FIRST, 1);
+            JsonArray fields = client.complete(FIRST, 1, 12).getAsJsonArray();
+            assertEquals(List.of("@version"), labels(fields));
+            JsonObject attribute = fields.get(0).getAsJsonObject();
+            assertEquals(10, attribute.get("kind").getAsInt());
+            assertPosition(attribute.getAsJsonObject("textEdit"), "start", 1, 8);
+            assertPosition(attribute.getAsJsonObject("textEdit"), "end", 1, 12);
+
+            client.change(FIRST, 2, "model X {\n id Int @id\n @@un\n}");
+            client.diagnostics(FIRST, 2);
+            assertEquals(List.of("@@unique"), labels(client.complete(FIRST, 2, 5).getAsJsonArray()));
+            client.change(FIRST, 3, "model X {\n // model\n id String @default(\"model");
+            client.diagnostics(FIRST, 3);
+            assertTrue(client.complete(FIRST, 1, 9).getAsJsonArray().isEmpty());
+            assertTrue(client.complete(FIRST, 2, 26).getAsJsonArray().isEmpty());
+
+            client.change(FIRST, 4, " ".repeat(65_537));
+            assertUnavailable(client, FIRST, 4, "TUPREL-LSP-DOCUMENT-TOO-LARGE");
+            assertTrue(client.complete(FIRST, 0, 0).getAsJsonArray().isEmpty());
+            client.change(FIRST, 5, "model X { id Int @default(" + "[".repeat(20_000));
+            assertUnavailable(client, FIRST, 5, "TUPREL-LSP-ANALYSIS-STACK-LIMIT");
+            assertTrue(client.complete(FIRST, 0, 20_026).getAsJsonArray().isEmpty());
+            client.change(FIRST, 6, "en");
+            client.diagnostics(FIRST, 6);
+            assertEquals(List.of("enum"), labels(client.complete(FIRST, 0, 2).getAsJsonArray()));
+
+            for (String params : List.of("{}", "[]",
+                    "{\"textDocument\":{\"uri\":\"not a URI\"},\"position\":{\"line\":0,\"character\":0}}",
+                    "{\"textDocument\":{\"uri\":\"untitled:one\"},\"position\":{\"line\":-1,\"character\":0}}",
+                    "{\"textDocument\":{\"uri\":\"untitled:one\"},\"position\":{\"line\":0,\"character\":1.5}}")) {
+                client.requestCompletion(params);
+                assertError(client, -32602);
+            }
+            client.shutdown();
+        }
+    }
+
+    @Test
+    void boundsLargeCompletionListsAndLetsClientsRefineThePrefix() throws Exception {
+        StringBuilder schema = new StringBuilder("model Current { field Typ }\n");
+        for (int index = 100; index < 311; index++) {
+            schema.append("model Type").append(index).append(" {}\n");
+        }
+        try (Client client = new Client()) {
+            client.initialize();
+            client.open(FIRST, 1, schema.toString());
+            client.diagnostics(FIRST, 1);
+            JsonObject response = client.complete(FIRST, 0, 25).getAsJsonObject();
+            assertTrue(response.get("isIncomplete").getAsBoolean());
+            List<String> labels = labels(response.getAsJsonArray("items"));
+            assertEquals(200, labels.size());
+            assertEquals("Type100", labels.getFirst());
+            assertEquals("Type299", labels.getLast());
+
+            client.change(FIRST, 2, schema.toString().replace("field Typ ", "field Type30 "));
+            client.diagnostics(FIRST, 2);
+            List<String> refined = labels(client.complete(FIRST, 0, 28).getAsJsonArray());
+            assertEquals(10, refined.size());
+            assertEquals("Type300", refined.getFirst());
+            assertEquals("Type309", refined.getLast());
+            client.shutdown();
+        }
+    }
+
+    private static List<String> labels(JsonArray items) {
+        return items.asList().stream().map(item -> item.getAsJsonObject().get("label").getAsString()).toList();
+    }
+
     private static String assertEdit(JsonArray edits, String expected, int line, int character) {
         assertEquals(1, edits.size());
         JsonObject edit = edits.get(0).getAsJsonObject();
@@ -438,6 +558,9 @@ class LanguageServerProcessTest {
             JsonObject capabilities = response.getAsJsonObject("result").getAsJsonObject("capabilities");
             assertEquals("utf-16", capabilities.get("positionEncoding").getAsString());
             assertTrue(capabilities.get("documentFormattingProvider").getAsBoolean());
+            JsonObject completion = capabilities.getAsJsonObject("completionProvider");
+            assertEquals("@", completion.getAsJsonArray("triggerCharacters").get(0).getAsString());
+            assertFalse(completion.has("resolveProvider"));
             assertFalse(capabilities.has("documentRangeFormattingProvider"));
             JsonObject sync = capabilities.getAsJsonObject("textDocumentSync");
             assertTrue(sync.get("openClose").getAsBoolean());
@@ -494,6 +617,23 @@ class LanguageServerProcessTest {
             JsonObject response = read();
             assertEquals("format", response.get("id").getAsString());
             return response.getAsJsonArray("result");
+        }
+
+        JsonElement complete(String uri, int line, int character) throws IOException {
+            JsonObject params = document(uri, null);
+            JsonObject position = new JsonObject();
+            position.addProperty("line", line);
+            position.addProperty("character", character);
+            params.add("position", position);
+            requestCompletion(params.toString());
+            JsonObject response = read();
+            assertEquals("completion", response.get("id").getAsString());
+            return response.get("result");
+        }
+
+        void requestCompletion(String params) throws IOException {
+            send("{\"jsonrpc\":\"2.0\",\"id\":\"completion\",\"method\":\"textDocument/completion\",\"params\":"
+                    + params + "}");
         }
 
         void requestFormatting(String params) throws IOException {
