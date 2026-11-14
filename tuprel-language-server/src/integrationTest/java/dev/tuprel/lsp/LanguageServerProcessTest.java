@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
@@ -183,19 +184,31 @@ class LanguageServerProcessTest {
                 + frame("{\"jsonrpc\":\"2.0\",\"method\":\"initialized\"}")
                 + frame("""
                         {"jsonrpc":"2.0","method":"textDocument/didOpen","params":{
-                          "textDocument":{"uri":"untitled:test","version":1,"text":"synthetic"}}}
+                          "textDocument":{"uri":"untitled:test","version":1,"text":"model Synthetic { id UUID @id backup Synthetic? }"}}}
+                        """)
+                + frame("""
+                        {"jsonrpc":"2.0","id":2,"method":"textDocument/hover","params":{
+                          "textDocument":{"uri":"untitled:test"},"position":{"line":0,"character":6}}}
+                        """)
+                + frame("""
+                        {"jsonrpc":"2.0","id":3,"method":"textDocument/definition","params":{
+                          "textDocument":{"uri":"untitled:test"},"position":{"line":0,"character":37}}}
                         """)
                 + frame("""
                         {"jsonrpc":"2.0","method":"textDocument/didChange","params":{
                           "textDocument":{"uri":"untitled:test","version":2},
                           "contentChanges":[{"text":"model User { id UUID @id }"}]}}
+                        """)
+                + frame("""
+                        {"jsonrpc":"2.0","id":4,"method":"textDocument/hover","params":{
+                          "textDocument":{"uri":"untitled:test"},"position":{"line":0,"character":6}}}
                         """);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         SchemaCompiler compiler = new SchemaCompiler();
         TuprelLanguageServer server = new TuprelLanguageServer(
                 new LspTransport(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)), output),
                 source -> {
-                    if ("synthetic".equals(source.text())) {
+                    if (source.text().startsWith("model Synthetic")) {
                         throw new IllegalStateException("private/compiler/input");
                     }
                     return compiler.compile(source).diagnostics();
@@ -209,9 +222,17 @@ class LanguageServerProcessTest {
         assertEquals(1, diagnostics.size());
         assertEquals("TUPREL-LSP-ANALYSIS-FAILED", diagnostics.get(0).getAsJsonObject().get("code").getAsString());
         assertFalse(params.toString().contains("private/compiler/input"));
+        for (int id : List.of(2, 3)) {
+            JsonObject failure = response.parse(response.read()).getAsJsonObject();
+            assertEquals(id, failure.get("id").getAsInt());
+            assertTrue(failure.get("result").isJsonNull());
+        }
         JsonObject recovered = response.parse(response.read()).getAsJsonObject().getAsJsonObject("params");
         assertEquals(2, recovered.get("version").getAsInt());
         assertTrue(recovered.getAsJsonArray("diagnostics").isEmpty());
+        JsonObject hover = response.parse(response.read()).getAsJsonObject();
+        assertEquals(4, hover.get("id").getAsInt());
+        assertHover(hover.getAsJsonObject("result"), "Model: User\nType: TUPREL model\nFields: id: UUID");
         assertNull(response.read());
     }
 
@@ -473,6 +494,144 @@ class LanguageServerProcessTest {
         }
     }
 
+    @Test
+    void hoversAndNavigatesExactIdentifiersInUnsavedDocuments(@TempDir Path directory) throws Exception {
+        Path file = directory.resolve("schema.tuprel");
+        String onDisk = "model OnDisk { id Int @id }";
+        Files.writeString(file, onDisk);
+        String uri = file.toUri().toString();
+        String use = "    /* \uD83E\uDDEA */ customer Customer?";
+        String target = "model /* \uD83E\uDDEA */ Customer { id UUID @id name String }";
+        String text = String.join("\r\n", "model Order {", "    id UUID @id", use,
+                "    state Status", "}", target, "enum Status { New Paid }");
+        try (Client client = new Client()) {
+            client.initialize();
+            assertTrue(client.at("hover", uri, 0, 6).isJsonNull());
+            assertTrue(client.at("definition", SECOND, 0, 0).isJsonNull());
+            client.open(uri, 1, text);
+            client.diagnostics(uri, 1);
+
+            int cursor = use.indexOf("Customer");
+            JsonObject hover = client.at("hover", uri, 2, cursor + 2).getAsJsonObject();
+            assertHover(hover, "Model: Customer\nType: TUPREL model\nFields: id: UUID, name: String");
+            assertPosition(hover, "start", 2, cursor);
+            assertPosition(hover, "end", 2, cursor + 8);
+            assertLocation(client.at("definition", uri, 2, cursor), uri, 5, target.indexOf("Customer"), 8);
+            assertHover(client.at("hover", uri, 5, target.indexOf("Customer")).getAsJsonObject(),
+                    "Model: Customer\nType: TUPREL model\nFields: id: UUID, name: String");
+            assertTrue(client.at("definition", uri, 5, target.indexOf("Customer")).isJsonNull());
+
+            assertHover(client.at("hover", uri, 2, use.indexOf("customer")).getAsJsonObject(),
+                    "Field: Order.customer\nType: Customer\nCardinality: optional");
+            assertTrue(client.at("hover", uri, 2, use.indexOf("\uD83E\uDDEA") + 1).isJsonNull());
+            assertHover(client.at("hover", uri, 1, 7).getAsJsonObject(), "Type: UUID\nTUPREL scalar");
+            assertTrue(client.at("definition", uri, 1, 7).isJsonNull());
+            assertHover(client.at("hover", uri, 3, 10).getAsJsonObject(), "Enum: Status\nType: TUPREL enum\nValues: New, Paid");
+            assertHover(client.at("hover", uri, 6, 5).getAsJsonObject(), "Enum: Status\nType: TUPREL enum\nValues: New, Paid");
+            assertLocation(client.at("definition", uri, 3, 10), uri, 6, 5, 6);
+
+            client.open(SECOND, 1, "model Other { customer String[] }");
+            client.diagnostics(SECOND, 1);
+            assertHover(client.at("hover", SECOND, 0, 14).getAsJsonObject(),
+                    "Field: Other.customer\nType: String\nCardinality: list");
+            assertLocation(client.at("definition", uri, 2, cursor), uri, 5, target.indexOf("Customer"), 8);
+            assertTrue(client.at("hover", uri, 2, cursor + 8).isJsonNull());
+            assertTrue(client.at("definition", uri, 2, use.length() + 1).isJsonNull());
+            assertTrue(client.at("hover", uri, 7, 0).isJsonNull());
+            assertEquals(onDisk, Files.readString(file));
+            try (Stream<Path> entries = Files.list(directory)) {
+                assertEquals(List.of(file), entries.toList());
+            }
+            client.shutdown();
+        }
+    }
+
+    @Test
+    void symbolRequestsRespectSnapshotVersionAndRejectUncertainBindings() throws Exception {
+        String use = "model Use { item Target }";
+        int cursor = use.indexOf("Target");
+        String source = use + "\nmodel Bad { broken }\nmodel Target { id UUID @id }";
+        try (Client client = new Client()) {
+            client.initialize();
+            client.open(FIRST, 1, source);
+            assertFalse(client.diagnostics(FIRST, 1).isEmpty());
+            assertLocation(client.at("definition", FIRST, 0, cursor), FIRST, 2, 6, 6);
+            client.change(FIRST, 2, source + "\nenum Target { Ready }");
+            client.diagnostics(FIRST, 2);
+            assertTrue(client.at("definition", FIRST, 0, cursor).isJsonNull());
+            assertTrue(client.at("hover", FIRST, 2, 6).isJsonNull());
+
+            client.change(FIRST, 3, use);
+            client.diagnostics(FIRST, 3);
+            client.change(FIRST, 2, source);
+            assertTrue(client.at("hover", FIRST, 0, cursor).isJsonNull());
+            assertTrue(client.at("definition", FIRST, 0, cursor).isJsonNull());
+
+            client.change(FIRST, 4, "// Target\nmodel Target { value String @default(\"Target\") }");
+            client.diagnostics(FIRST, 4);
+            assertTrue(client.at("hover", FIRST, 0, 3).isJsonNull());
+            assertTrue(client.at("definition", FIRST, 0, 3).isJsonNull());
+            assertTrue(client.at("hover", FIRST, 1, 40).isJsonNull());
+            assertTrue(client.at("definition", FIRST, 1, 40).isJsonNull());
+            client.notify("textDocument/didClose", document(FIRST, null));
+            client.diagnostics(FIRST, null);
+            assertTrue(client.at("hover", FIRST, 1, 6).isJsonNull());
+            assertTrue(client.at("definition", FIRST, 1, 6).isJsonNull());
+            client.shutdown();
+        }
+    }
+
+    @Test
+    void symbolRequestsRecoverAfterAnalysisLimitsAndValidateParameters() throws Exception {
+        try (Client client = new Client()) {
+            client.initialize();
+            client.open(FIRST, 1, " ".repeat(65_537));
+            assertUnavailable(client, FIRST, 1, "TUPREL-LSP-DOCUMENT-TOO-LARGE");
+            assertTrue(client.at("definition", FIRST, 0, 0).isJsonNull());
+            assertTrue(client.at("hover", FIRST, 0, 0).isJsonNull());
+
+            client.change(FIRST, 2, "model X { id Int @default(" + "[".repeat(20_000));
+            assertUnavailable(client, FIRST, 2, "TUPREL-LSP-ANALYSIS-STACK-LIMIT");
+            assertTrue(client.at("hover", FIRST, 0, 6).isJsonNull());
+            assertTrue(client.at("definition", FIRST, 0, 13).isJsonNull());
+
+            for (String method : List.of("hover", "definition")) {
+                for (String params : List.of("{}", "[]",
+                        "{\"textDocument\":{\"uri\":\"relative.tuprel\"},\"position\":{\"line\":0,\"character\":0}}",
+                        "{\"textDocument\":{\"uri\":\"untitled:one\"},\"position\":{\"line\":0,\"character\":-1}}",
+                        "{\"textDocument\":{\"uri\":\"untitled:one\"},\"position\":{\"line\":0.1,\"character\":0}}",
+                        "{\"textDocument\":{\"uri\":\"" + "a".repeat(4097)
+                                + ":schema\"},\"position\":{\"line\":0,\"character\":0}}",
+                        "{\"textDocument\":{\"uri\":\"https://user:secret@example.invalid/x\"},"
+                                + "\"position\":{\"line\":0,\"character\":0}}")) {
+                    client.requestPosition(method, params);
+                    assertError(client, -32602);
+                }
+            }
+
+            client.change(FIRST, 3, VALID);
+            assertTrue(client.diagnostics(FIRST, 3).isEmpty());
+            assertHover(client.at("hover", FIRST, 0, 6).getAsJsonObject(),
+                    "Model: User\nType: TUPREL model\nFields: id: UUID");
+            assertEdit(client.format(FIRST), "model User {\n    id UUID @id\n}\n", 0, VALID.length());
+            assertEquals(List.of("UUID", "User"), labels(client.complete(FIRST, 0, 17).getAsJsonArray()));
+            client.shutdown();
+        }
+    }
+
+    private static void assertLocation(JsonElement response, String uri, int line, int start, int length) {
+        JsonObject location = response.getAsJsonObject();
+        assertEquals(uri, location.get("uri").getAsString());
+        assertPosition(location, "start", line, start);
+        assertPosition(location, "end", line, start + length);
+    }
+
+    private static void assertHover(JsonObject hover, String value) {
+        JsonObject contents = hover.getAsJsonObject("contents");
+        assertEquals("plaintext", contents.get("kind").getAsString());
+        assertEquals(value, contents.get("value").getAsString());
+    }
+
     private static List<String> labels(JsonArray items) {
         return items.asList().stream().map(item -> item.getAsJsonObject().get("label").getAsString()).toList();
     }
@@ -558,6 +717,8 @@ class LanguageServerProcessTest {
             JsonObject capabilities = response.getAsJsonObject("result").getAsJsonObject("capabilities");
             assertEquals("utf-16", capabilities.get("positionEncoding").getAsString());
             assertTrue(capabilities.get("documentFormattingProvider").getAsBoolean());
+            assertTrue(capabilities.get("hoverProvider").getAsBoolean());
+            assertTrue(capabilities.get("definitionProvider").getAsBoolean());
             JsonObject completion = capabilities.getAsJsonObject("completionProvider");
             assertEquals("@", completion.getAsJsonArray("triggerCharacters").get(0).getAsString());
             assertFalse(completion.has("resolveProvider"));
@@ -620,20 +781,28 @@ class LanguageServerProcessTest {
         }
 
         JsonElement complete(String uri, int line, int character) throws IOException {
+            return at("completion", uri, line, character);
+        }
+
+        JsonElement at(String method, String uri, int line, int character) throws IOException {
             JsonObject params = document(uri, null);
             JsonObject position = new JsonObject();
             position.addProperty("line", line);
             position.addProperty("character", character);
             params.add("position", position);
-            requestCompletion(params.toString());
+            requestPosition(method, params.toString());
             JsonObject response = read();
-            assertEquals("completion", response.get("id").getAsString());
+            assertEquals(method, response.get("id").getAsString());
             return response.get("result");
         }
 
         void requestCompletion(String params) throws IOException {
-            send("{\"jsonrpc\":\"2.0\",\"id\":\"completion\",\"method\":\"textDocument/completion\",\"params\":"
-                    + params + "}");
+            requestPosition("completion", params);
+        }
+
+        void requestPosition(String method, String params) throws IOException {
+            send("{\"jsonrpc\":\"2.0\",\"id\":\"" + method + "\",\"method\":\"textDocument/"
+                    + method + "\",\"params\":" + params + "}");
         }
 
         void requestFormatting(String params) throws IOException {
