@@ -84,10 +84,16 @@ test database. Tests start the actual server on a random port, use HTTP
 and clean up their isolated schema.
 
 The existing Gradle plugin can generate and register sources from a local
-fixture marker. A Gradle port can combine that plugin with the same staged
-starter coordinates and Spring Boot dependencies. This application exercises
-the Maven path. Public coordinates, plugin resolution without local staging
-and official installer downloads depend on publication.
+fixture marker. To port the build, stage the marker with
+`test-support/distribution/staged-gradle-plugin.init.gradle` and add that
+repository to `pluginManagement.repositories`. Apply
+`dev.tuprel.codegen` at `0.0.0-fixture`, set
+`tuprelCodegen.cliClasspath` to the JARs in the staged CLI's `lib`
+directory, and resolve the starter from the staged Maven repository.
+The plugin wires generation to Java compilation. The plugin and marker
+are tested separately in an external Gradle project. This REST application
+is tested with Maven. Public coordinates, plugin resolution without local
+staging and official installer downloads depend on publication.
 
 From the Tuprel checkout, `./test-support/distribution/Verify-SpringProductsApi.ps1`
 stages a temporary consumer and runs the HTTP test. It accepts the existing
