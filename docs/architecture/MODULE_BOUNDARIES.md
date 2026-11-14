@@ -5,6 +5,7 @@
 ```text
 tuprel/
 ├── tuprel-schema
+├── tuprel-language-server
 ├── tuprel-codegen-java
 ├── tuprel-runtime
 ├── tuprel-sql
@@ -32,7 +33,7 @@ A F6-001 acrescenta `tuprel-migrate`, com identificação, ficheiros e checksums
 puros (ADR-0012 aceite). F6-002B acrescenta o adapter PostgreSQL read-only
 (ADRs 0013/0014 aceites); F6-003B acrescenta o runner no mesmo adapter,
 conforme ADRs 0015–0017. O plugin Gradle e o starter Spring Boot são integrações de desenvolvimento.
-Os restantes módulos continuam planeados. `build-logic` é um included build de
+A Fase B1 acrescenta o adaptador local tuprel-language-server. `build-logic` é um included build de
 infraestrutura e não faz parte deste grafo de produto.
 
 `test-support/src/main/java` contém apenas suporte local partilhado pelas
@@ -62,6 +63,13 @@ processo de geração. O core fica independente de Gradle.
 Lexer, parser, AST, source spans, diagnostics, validated schema model.
 
 Não depende de runtime, JDBC, PostgreSQL ou frameworks.
+
+### `tuprel-language-server`
+
+Adaptador LSP executável por stdio que compila cópias de documentos em memória
+com o SchemaCompiler. Depende de tuprel-schema e usa Gson no transporte JSON.
+O compilador continua independente do servidor. Os editores consomem o
+protocolo, sem dependência Java entre repositórios.
 
 ### `tuprel-codegen-java`
 
