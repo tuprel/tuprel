@@ -23,11 +23,19 @@ or a protocol harness to send frames.
   can use the published version to ignore results for edits sent meanwhile.
 - Shutdown returns null. Exit after shutdown returns status 0. Exit before
   shutdown returns status 1. Clean EOF ends the process with status 0.
-- Limits are 8 KiB per header, 1 MiB per inbound frame, 64 open documents,
-  64 Ki UTF-16 units per document, 4,096 UTF-16 units per URI and 200 published
-  diagnostics per document. At capacity, new open notifications are ignored.
-  Oversized documents clear diagnostics and retain the version so a later
-  smaller edit can recover. Unrecoverable framing errors end the session.
+- Limits are 8 KiB per header, 1 MiB per inbound frame, 64 levels of JSON
+  nesting, 64 open documents, 64 Ki UTF-16 units per document, 4,096 UTF-16
+  units per URI and 200 published diagnostics per document. Unrecoverable
+  framing errors and invalid UTF-8 end the session. Invalid JSON within a
+  valid frame returns a JSON-RPC parse error and the session can continue.
+- A rejected open at capacity sends a generic warning once until a tracked
+  document closes. The client can then reopen the rejected document.
+- Versioned diagnostics from tuprel-language-server identify skipped or
+  interrupted analysis: TUPREL-LSP-DOCUMENT-TOO-LARGE,
+  TUPREL-LSP-ANALYSIS-STACK-LIMIT and TUPREL-LSP-ANALYSIS-FAILED. An oversized
+  snapshot retains only its version. Later edits that fit the budget can be
+  analysed. Runtime exceptions from the compiler emit a redacted stderr
+  message. Other JVM errors propagate.
 - No workspace file access, database, subprocess or network access is required.
   Operational errors go to stderr without schema text, URIs or stack traces.
   Compiler messages go to the client through the protocol.

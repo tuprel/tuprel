@@ -3,12 +3,16 @@ package dev.tuprel.lsp;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.Strictness;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.StringReader;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
@@ -16,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 final class LspTransport {
     static final int MAX_MESSAGE_BYTES = 1024 * 1024;
     private static final int MAX_HEADER_BYTES = 8192;
+    private static final int MAX_JSON_NESTING = 64;
     private static final Gson JSON = new GsonBuilder().setStrictness(Strictness.STRICT).serializeNulls().create();
 
     private final InputStream input;
@@ -55,7 +60,10 @@ final class LspTransport {
         int length = -1;
         for (String line : header.substring(0, header.length() - 4).split("\r\n", -1)) {
             int separator = line.indexOf(':');
-            if (separator <= 0) {
+            if (separator <= 0
+                    || !line.substring(0, separator).chars().allMatch(LspTransport::headerNameCharacter)
+                    || !line.substring(separator + 1).chars()
+                            .allMatch(value -> value == '\t' || (value >= ' ' && value <= '~'))) {
                 throw new IOException("Invalid header");
             }
             if (line.substring(0, separator).equalsIgnoreCase("Content-Length")) {
@@ -73,8 +81,23 @@ final class LspTransport {
         return length;
     }
 
+    private static boolean headerNameCharacter(int value) {
+        return (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z')
+                || (value >= '0' && value <= '9') || "!#$%&'*+-.^`_|~".indexOf(value) >= 0;
+    }
+
     JsonElement parse(String body) {
-        return JSON.fromJson(body, JsonElement.class);
+        JsonReader reader = new JsonReader(new StringReader(body));
+        reader.setNestingLimit(MAX_JSON_NESTING);
+        JsonElement value = JSON.fromJson(reader, JsonElement.class);
+        try {
+            if (reader.peek() != JsonToken.END_DOCUMENT) {
+                throw new JsonSyntaxException("Unexpected trailing JSON");
+            }
+        } catch (IOException invalid) {
+            throw new JsonSyntaxException(invalid);
+        }
+        return value;
     }
 
     void send(JsonElement message) throws IOException {

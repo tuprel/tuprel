@@ -11,6 +11,8 @@ import dev.tuprel.schema.SchemaCompiler;
 import dev.tuprel.schema.SchemaDiagnostic;
 import dev.tuprel.schema.SourceText;
 import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -100,7 +102,7 @@ class LanguageServerProcessTest {
             client.change(FIRST, 2, "$".repeat(65_537));
             client.change(FIRST, 1, "model");
             client.change(FIRST, 3, VALID);
-            assertTrue(client.diagnostics(FIRST, 2).isEmpty());
+            assertUnavailable(client, FIRST, 2, "TUPREL-LSP-DOCUMENT-TOO-LARGE");
             assertTrue(client.diagnostics(FIRST, 3).isEmpty());
 
             for (int i = 1; i < 64; i++) {
@@ -109,16 +111,23 @@ class LanguageServerProcessTest {
                 client.diagnostics(uri, 1);
             }
             client.open(SECOND, 1, VALID);
+            JsonObject warning = client.read();
+            assertEquals("window/showMessage", warning.get("method").getAsString());
+            assertEquals(2, warning.getAsJsonObject("params").get("type").getAsInt());
+            assertFalse(warning.toString().contains(SECOND));
+            client.open("untitled:capacity-extra", 1, VALID);
             client.notify("textDocument/didClose", document(FIRST, null));
             client.diagnostics(FIRST, null);
             client.open(SECOND, 1, VALID);
             client.diagnostics(SECOND, 1);
+            client.open("untitled:capacity-reached-again", 1, VALID);
+            assertEquals("window/showMessage", client.read().get("method").getAsString());
             client.shutdown();
         }
     }
 
     @Test
-    void exitsOnEofTruncationAndOversizedFrames() throws Exception {
+    void exitsOnEofAndUnrecoverableFrames() throws Exception {
         try (Client client = new Client()) {
             client.initialize();
             client.finish(0);
@@ -126,7 +135,15 @@ class LanguageServerProcessTest {
         for (String frame : new String[] {
             "Content-Length: 1048577\r\n\r\n",
             "Content-Length: 3\r\n\r\n{}",
-            "Content-Length: 2\r\nContent-Length: 2\r\n\r\n{}"
+            "Content-Length: 2\r\ncOnTeNt-LeNgTh: 2\r\n\r\n{}",
+            "Content-Length: -2\r\n\r\n",
+            "Content-Length: 2x\r\n\r\n",
+            "Content-Length: 0\r\n\r\n",
+            "Content-Length: 9999999999\r\n\r\n",
+            "Content-Type: application/vscode-jsonrpc\r\n\r\n{}",
+            "Content-Length : 2\r\n\r\n{}",
+            "X-Large: " + "a".repeat(8192) + "\r\nContent-Length: 2\r\n\r\n{}",
+            "Content-Length: 2\r\n"
         }) {
             try (Client client = new Client()) {
                 client.raw(frame);
@@ -139,6 +156,122 @@ class LanguageServerProcessTest {
             client.notify("exit", new JsonObject());
             client.finish(1);
         }
+    }
+
+    @Test
+    void reportsCompilerStackExhaustionAndRecoversOnLaterVersion() throws Exception {
+        try (Client client = new Client()) {
+            client.initialize();
+            String nested = "model User { id UUID @id @default(" + "[".repeat(20_000)
+                    + "0" + "]".repeat(20_000) + ") }";
+            client.open(FIRST, 1, nested);
+            assertUnavailable(client, FIRST, 1, "TUPREL-LSP-ANALYSIS-STACK-LIMIT");
+            client.change(FIRST, 2, VALID);
+            assertTrue(client.diagnostics(FIRST, 2).isEmpty());
+            client.shutdown();
+        }
+    }
+
+    @Test
+    void unexpectedCompilerExceptionIsVisibleAndLaterRequestsRecover() throws Exception {
+        String input = frame("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}")
+                + frame("{\"jsonrpc\":\"2.0\",\"method\":\"initialized\"}")
+                + frame("""
+                        {"jsonrpc":"2.0","method":"textDocument/didOpen","params":{
+                          "textDocument":{"uri":"untitled:test","version":1,"text":"synthetic"}}}
+                        """)
+                + frame("""
+                        {"jsonrpc":"2.0","method":"textDocument/didChange","params":{
+                          "textDocument":{"uri":"untitled:test","version":2},
+                          "contentChanges":[{"text":"model User { id UUID @id }"}]}}
+                        """);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        SchemaCompiler compiler = new SchemaCompiler();
+        TuprelLanguageServer server = new TuprelLanguageServer(
+                new LspTransport(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)), output),
+                source -> {
+                    if ("synthetic".equals(source.text())) {
+                        throw new IllegalStateException("private/compiler/input");
+                    }
+                    return compiler.compile(source).diagnostics();
+                });
+        assertEquals(0, server.run());
+        LspTransport response = new LspTransport(new ByteArrayInputStream(output.toByteArray()), output);
+        response.read();
+        JsonObject params = response.parse(response.read()).getAsJsonObject().getAsJsonObject("params");
+        assertEquals(1, params.get("version").getAsInt());
+        JsonArray diagnostics = params.getAsJsonArray("diagnostics");
+        assertEquals(1, diagnostics.size());
+        assertEquals("TUPREL-LSP-ANALYSIS-FAILED", diagnostics.get(0).getAsJsonObject().get("code").getAsString());
+        assertFalse(params.toString().contains("private/compiler/input"));
+        JsonObject recovered = response.parse(response.read()).getAsJsonObject().getAsJsonObject("params");
+        assertEquals(2, recovered.get("version").getAsInt());
+        assertTrue(recovered.getAsJsonArray("diagnostics").isEmpty());
+        assertNull(response.read());
+    }
+
+    @Test
+    void rejectsDeepJsonAndMalformedRequestsWithoutChangingState() throws Exception {
+        try (Client client = new Client()) {
+            client.initialize();
+            client.send("{\"nested\":" + "[".repeat(20_000) + "0" + "]".repeat(20_000) + "}");
+            assertError(client, -32700);
+            client.send("{} {}");
+            assertError(client, -32700);
+            for (String id : new String[] {"true", "{}", "[]", "null", "1.5", "2147483648"}) {
+                client.send("{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"method\":\"shutdown\"}");
+                assertError(client, -32600);
+            }
+            for (String params : new String[] {"[]", "true", "null", "{\"unexpected\":true}"}) {
+                client.send("{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"shutdown\",\"params\":" + params + "}");
+                assertError(client, -32602);
+            }
+            client.send("{\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":[]}");
+            client.open(FIRST, 1, VALID);
+            assertTrue(client.diagnostics(FIRST, 1).isEmpty());
+            client.shutdown();
+        }
+    }
+
+    @Test
+    void invalidUtf8TerminatesWithEmptyStdoutAndRedactedStderr() throws Exception {
+        try (Client client = new Client()) {
+            client.raw("Content-Length: 2\r\n\r\n");
+            client.process.getOutputStream().write(new byte[] {(byte) 0xc3, 0x28});
+            client.finish(1);
+            assertEquals("TUPREL language server session terminated.",
+                    new String(client.process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8).strip());
+        }
+    }
+
+    @Test
+    void eofDuringAnIncompleteExitAfterShutdownIsAProtocolFailure() throws Exception {
+        try (Client client = new Client()) {
+            client.initialize();
+            client.send("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"shutdown\"}");
+            assertTrue(client.read().get("result").isJsonNull());
+            client.raw("Content-Length: 50\r\n\r\n{\"jsonrpc\":\"2.0\"");
+            client.finish(1);
+        }
+    }
+
+    private static void assertError(Client client, int code) throws IOException {
+        assertEquals(code, client.read().getAsJsonObject("error").get("code").getAsInt());
+    }
+
+    private static void assertUnavailable(Client client, String uri, int version, String code) throws IOException {
+        JsonArray diagnostics = client.diagnostics(uri, version);
+        assertEquals(1, diagnostics.size());
+        JsonObject diagnostic = diagnostics.get(0).getAsJsonObject();
+        assertEquals(code, diagnostic.get("code").getAsString());
+        assertEquals("tuprel-language-server", diagnostic.get("source").getAsString());
+        assertEquals(2, diagnostic.get("severity").getAsInt());
+        assertPosition(diagnostic, "start", 0, 0);
+        assertPosition(diagnostic, "end", 0, 0);
+    }
+
+    private static String frame(String body) {
+        return "Content-Length: " + body.getBytes(StandardCharsets.UTF_8).length + "\r\n\r\n" + body;
     }
 
     private static void assertPosition(JsonObject diagnostic, String boundary, int line, int character) {
@@ -165,7 +298,7 @@ class LanguageServerProcessTest {
         Client() throws IOException {
             process = new ProcessBuilder(
                     Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                    "-cp", System.getProperty("tuprel.lsp.lib") + File.separator + "*",
+                    "-Xss512k", "-cp", System.getProperty("tuprel.lsp.lib") + File.separator + "*",
                     "dev.tuprel.lsp.TuprelLanguageServer").start();
             transport = new LspTransport(new BufferedInputStream(process.getInputStream()), process.getOutputStream());
         }
@@ -177,7 +310,7 @@ class LanguageServerProcessTest {
 
         void send(String body) throws IOException {
             // Independent byte count on the client side, including non-ASCII input.
-            raw("Content-Length: " + body.getBytes(StandardCharsets.UTF_8).length + "\r\n\r\n" + body);
+            raw(frame(body));
         }
 
         JsonObject read() throws IOException {

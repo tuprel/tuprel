@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /** Standalone Tuprel language server entry point. */
 public final class TuprelLanguageServer {
@@ -26,26 +27,30 @@ public final class TuprelLanguageServer {
     private record Snapshot(int version, String text) {}
 
     private final LspTransport transport;
-    private final SchemaCompiler compiler = new SchemaCompiler();
+    private final Function<SourceText, List<SchemaDiagnostic>> compile;
     private final Map<String, Snapshot> documents = new HashMap<>();
     private State state = State.NEW;
+    private boolean capacityWarningSent;
 
-    private TuprelLanguageServer(LspTransport transport) {
+    TuprelLanguageServer(LspTransport transport, Function<SourceText, List<SchemaDiagnostic>> compile) {
         this.transport = transport;
+        this.compile = compile;
     }
 
     /** Runs the stdio session and returns a process status through the Java launcher. */
     public static void main(String[] args) {
+        SchemaCompiler compiler = new SchemaCompiler();
         try {
             System.exit(new TuprelLanguageServer(
-                    new LspTransport(new BufferedInputStream(System.in), System.out)).run());
+                    new LspTransport(new BufferedInputStream(System.in), System.out),
+                    source -> compiler.compile(source).diagnostics()).run());
         } catch (IOException | RuntimeException failure) {
             System.err.println("TUPREL language server session terminated.");
             System.exit(1);
         }
     }
 
-    private int run() throws IOException {
+    int run() throws IOException {
         String body;
         while ((body = transport.read()) != null) {
             JsonElement input;
@@ -62,16 +67,18 @@ public final class TuprelLanguageServer {
             JsonObject message = input.getAsJsonObject();
             String method = string(message.get("method"));
             JsonElement id = message.get("id");
-            if (!"2.0".equals(string(message.get("jsonrpc"))) || method == null || !validId(id)) {
+            if (!"2.0".equals(string(message.get("jsonrpc"))) || method == null || method.isEmpty() || !validId(id)) {
                 error(JsonNull.INSTANCE, -32600, "Invalid Request");
                 continue;
             }
+            JsonElement params = message.get("params");
             if (id != null) {
-                request(id, method, message.get("params"));
-            } else if ("exit".equals(method)) {
-                return state == State.SHUTDOWN ? 0 : 1;
-            } else {
-                notification(method, message.get("params"));
+                request(id, method, params);
+            } else if (params == null || params.isJsonObject()) {
+                if ("exit".equals(method)) {
+                    return state == State.SHUTDOWN ? 0 : 1;
+                }
+                notification(method, params);
             }
         }
         return 0;
@@ -97,7 +104,13 @@ public final class TuprelLanguageServer {
             error(id, -32600, "Invalid Request");
         } else if (state != State.READY) {
             error(id, -32002, "Server not initialized");
+        } else if (params != null && !params.isJsonObject()) {
+            error(id, -32602, "Invalid params");
         } else if ("shutdown".equals(method)) {
+            if (params != null && !params.getAsJsonObject().isEmpty()) {
+                error(id, -32602, "Invalid params");
+                return;
+            }
             state = State.SHUTDOWN;
             documents.clear();
             respond(id, JsonNull.INSTANCE);
@@ -126,8 +139,13 @@ public final class TuprelLanguageServer {
             case "textDocument/didOpen" -> {
                 Integer version = version(document.get("version"));
                 String text = string(document.get("text"));
-                if (current == null && documents.size() < MAX_DOCUMENTS && version != null && text != null) {
-                    update(uri, version, text);
+                if (current == null && version != null && text != null) {
+                    if (documents.size() < MAX_DOCUMENTS) {
+                        update(uri, version, text);
+                    } else if (!capacityWarningSent) {
+                        capacityWarningSent = true;
+                        warnAtCapacity();
+                    }
                 }
             }
             case "textDocument/didChange" -> {
@@ -139,6 +157,7 @@ public final class TuprelLanguageServer {
             }
             case "textDocument/didClose" -> {
                 if (documents.remove(uri) != null) {
+                    capacityWarningSent = false;
                     publish(uri, null, new JsonArray());
                 }
             }
@@ -150,32 +169,74 @@ public final class TuprelLanguageServer {
         // Keep the latest version even when the content exceeds the analysis budget.
         Snapshot snapshot = new Snapshot(version, text.length() <= MAX_DOCUMENT_UNITS ? text : null);
         documents.put(uri, snapshot);
-        JsonArray diagnostics = new JsonArray();
-        if (snapshot.text() != null) {
-            try {
-                // The logical source name has no effect on diagnostics and never needs filesystem access.
-                List<SchemaDiagnostic> found =
-                        compiler.compile(SourceText.of("editor.tuprel", snapshot.text())).diagnostics();
-                DiagnosticRanges ranges = new DiagnosticRanges(snapshot.text());
-                for (SchemaDiagnostic diagnostic : found.stream().limit(MAX_DIAGNOSTICS).toList()) {
-                    JsonObject item = new JsonObject();
-                    item.add("range", ranges.range(diagnostic.span()));
-                    item.addProperty("severity", switch (diagnostic.severity()) {
-                        case ERROR -> 1;
-                        case WARNING -> 2;
-                    });
-                    item.addProperty("code", diagnostic.code());
-                    item.addProperty("source", "tuprel");
-                    item.addProperty("message", diagnostic.message());
-                    diagnostics.add(item);
-                }
-            } catch (StackOverflowError exhausted) {
-                // The schema parser descends recursively into expressions. Keep the session usable.
-                System.err.println("TUPREL schema nesting exceeds the analysis budget.");
-            }
-        }
         // Dispatch and publication run on the reader thread, in wire order, without queued analysis.
-        publish(uri, snapshot.version(), diagnostics);
+        publish(uri, snapshot.version(), analyze(snapshot.text()));
+    }
+
+    private JsonArray analyze(String text) {
+        if (text == null) {
+            return unavailable("TUPREL-LSP-DOCUMENT-TOO-LARGE",
+                    "Analysis skipped: document exceeds " + MAX_DOCUMENT_UNITS + " UTF-16 code units.");
+        }
+
+        List<SchemaDiagnostic> found;
+        try {
+            found = compile.apply(SourceText.of("editor.tuprel", text));
+        } catch (StackOverflowError exhausted) {
+            // The schema parser descends recursively into expressions.
+            return unavailable("TUPREL-LSP-ANALYSIS-STACK-LIMIT",
+                    "Analysis interrupted: the compiler exceeded its stack limit.");
+        } catch (RuntimeException failure) {
+            // Exception messages and stack traces can contain schema text or other local data.
+            System.err.println("TUPREL-LSP-ANALYSIS-FAILED: unexpected schema compiler exception.");
+            return unavailable("TUPREL-LSP-ANALYSIS-FAILED",
+                    "Analysis interrupted by an unexpected compiler error.");
+        }
+
+        JsonArray diagnostics = new JsonArray();
+        DiagnosticRanges ranges = new DiagnosticRanges(text);
+        for (SchemaDiagnostic diagnostic : found.stream().limit(MAX_DIAGNOSTICS).toList()) {
+            JsonObject item = new JsonObject();
+            item.add("range", ranges.range(diagnostic.span()));
+            item.addProperty("severity", switch (diagnostic.severity()) {
+                case ERROR -> 1;
+                case WARNING -> 2;
+            });
+            item.addProperty("code", diagnostic.code());
+            item.addProperty("source", "tuprel");
+            item.addProperty("message", diagnostic.message());
+            diagnostics.add(item);
+        }
+        return diagnostics;
+    }
+
+    private static JsonArray unavailable(String code, String description) {
+        JsonObject origin = new JsonObject();
+        origin.addProperty("line", 0);
+        origin.addProperty("character", 0);
+        JsonObject range = new JsonObject();
+        range.add("start", origin);
+        range.add("end", origin);
+        JsonObject diagnostic = new JsonObject();
+        diagnostic.add("range", range);
+        diagnostic.addProperty("severity", 2);
+        diagnostic.addProperty("code", code);
+        diagnostic.addProperty("source", "tuprel-language-server");
+        diagnostic.addProperty("message", description);
+        JsonArray diagnostics = new JsonArray();
+        diagnostics.add(diagnostic);
+        return diagnostics;
+    }
+
+    private void warnAtCapacity() throws IOException {
+        JsonObject params = new JsonObject();
+        params.addProperty("type", 2);
+        params.addProperty("message", "TUPREL analysis unavailable for additional documents: "
+                + MAX_DOCUMENTS + " document limit reached. Close a tracked document and reopen the skipped document.");
+        JsonObject message = envelope();
+        message.addProperty("method", "window/showMessage");
+        message.add("params", params);
+        transport.send(message);
     }
 
     private void publish(String uri, Integer version, JsonArray diagnostics) throws IOException {
@@ -220,7 +281,7 @@ public final class TuprelLanguageServer {
     }
 
     private static boolean validId(JsonElement id) {
-        return id == null || id.isJsonNull() || string(id) != null || version(id) != null;
+        return id == null || string(id) != null || version(id) != null;
     }
 
     private void error(JsonElement id, int code, String description) throws IOException {
