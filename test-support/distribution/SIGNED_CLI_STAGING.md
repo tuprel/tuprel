@@ -133,11 +133,12 @@ copied from the package repository cannot stand in for a fresh response.
 
 Require the authenticated floor and Root identity at first installation
 and after loss or corruption of local security state. Reject a floor below
-the persisted floor when a checkpoint exists. Recovery from a compromised
-trust anchor requires an independently authenticated replacement anchor
-and a new current checkpoint. A signature from the compromised key alone
-cannot authorize recovery. After recovery, the replacement policy must
-carry the applicable revocations and preserve immutable artifact identities.
+the persisted floor when a checkpoint exists. For Tuprel, recovery after a
+signing key compromise requires a replacement anchor authenticated through
+the independent channel and a new current checkpoint. This is stricter than
+routine TUF rotation. A signature from the compromised key alone cannot
+authorize recovery. The replacement policy must carry the applicable
+revocations and preserve immutable artifact identities.
 
 For staging, propose a maximum 24-hour Timestamp lifetime, with inclusive
 issue time and exclusive expiration. Other roles also require expiration
