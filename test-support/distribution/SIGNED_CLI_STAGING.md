@@ -96,6 +96,86 @@ the active version are refused. The staging authorization list comes from the
 trusted fixture bootstrap. Metadata freshness and rollback resistance across
 key or policy rotations remain distribution work.
 
+### P0-02D release metadata design for review
+
+Use the four top-level TUF roles as the baseline for the release design.
+The earlier single signed authorization document would give one key
+authority over trust changes, freshness and artifact selection. It would
+also need a custom mechanism to prevent mixing versions of metadata.
+Prefer an existing TUF client after evaluating its Java 21 integration,
+maintenance, dependency footprint and interoperability against a reference
+repository. The existing per-bundle manifest still binds the package ZIP.
+Use Targets to bind the exact ZIP and manifest bytes to the version and
+platform.
+
+| TUF role | Responsibility in the proposed distribution |
+|---|---|
+| Root | Establish trusted keys and signature thresholds. Routine rotation advances one version at a time and requires authorization from both the previous and successor Root thresholds. |
+| Timestamp | Give online refresh a short validity window and bind the current Snapshot. Its signer has no authority to add targets. |
+| Snapshot | Bind a consistent set of Targets metadata versions, lengths and hashes so an attacker cannot mix generations. |
+| Targets | Authenticate package and manifest bytes, including their release and platform mapping. Tuprel policy determines which authenticated versions may be installed or run. |
+
+See [TUF 1.0.37, roles and client workflow](https://theupdateframework.github.io/specification/v1.0.37/#detailed-client-workflow).
+
+#### Time, enrollment and recovery
+
+Proposed source of time and minimum Root version is an independent HTTPS
+bootstrap endpoint whose identity is provisioned outside the package
+repository. For each enrollment, recovery or metadata refresh, it returns
+UTC time, the current minimum Root version and authenticated Root identity,
+channel and profile, bound to a fresh request nonce. Verify the endpoint
+identity, exact nonce and requested scope, and enforce a short deadline
+measured with a monotonic clock. Use a single verified UTC sample for the
+update. If TLS validation fails because the local clock is invalid, stop
+and ask the operator to restore trustworthy time. An unavailable authority
+blocks enrollment, recovery and mutation. A signed time or epoch value
+copied from the package repository cannot stand in for a fresh response.
+
+Require the authenticated floor and Root identity at first installation
+and after loss or corruption of local security state. Reject a floor below
+the persisted floor when a checkpoint exists. For Tuprel, recovery after a
+signing key compromise requires a replacement anchor authenticated through
+the independent channel and a new current checkpoint. This is stricter than
+routine TUF rotation. A signature from the compromised key alone cannot
+authorize recovery. The replacement policy must carry the applicable
+revocations and preserve immutable artifact identities.
+
+For staging, propose a maximum 24-hour Timestamp lifetime, with inclusive
+issue time and exclusive expiration. Other roles also require expiration
+checks, with lifetimes to be validated separately. Reject authenticated time
+earlier than the last trusted time. A checkpoint binds the trusted time,
+Root and role versions, and authenticated metadata digests to the channel
+and profile. Within a Root trust generation, lower versions or changed
+bytes at the same version fail. Routine rotation and compromise recovery
+must follow explicit transition rules for the affected roles. Commit the
+checkpoint under the install lock before acting on the new authorization.
+After an interrupted write, revalidate the committed record and require
+fresh validation if it is missing, corrupt or ambiguous.
+
+#### Operation policy
+
+- Install, update and rollback require current authenticated metadata.
+  Rollback also requires an explicit grant for the installed target. No
+  operation may lower the metadata checkpoint.
+- Launch uses a separate policy for the active, previously verified version.
+  The offline experiment should check the installed bytes and committed
+  authorization and refuse known revocations or missing security state.
+  Measure the effect of an offline launch window before approving it. An
+  offline client cannot discover a revocation issued after its last refresh.
+
+#### Staging acceptance
+
+The first fixture tests the 24-hour boundary and clock regression with a
+deterministic, already authenticated time input. It neither provides the
+source of time nor changes the existing staging launcher. Next, test
+fresh enrollment and recovery with replayed responses, wrong scope or a
+stale minimum Root version. Exercise old signed metadata, mixed generations,
+revoked versions, rotation with insufficient signatures, compromise
+recovery, and process interruption before and after checkpoint publication.
+Measure offline launch behavior on Windows and Linux. Use ephemeral keys
+and isolated fixtures. Keep the release wire format open until these
+results and the selected client have been reviewed.
+
 The commit point is one file replacement using renameat2 on Linux or
 FileRenameInfo on NTFS. A refused Windows replacement can leave an inert
 candidate next to the previous pointer. A new process reads only the committed

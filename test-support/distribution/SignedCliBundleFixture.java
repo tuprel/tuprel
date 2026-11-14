@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -8,6 +9,8 @@ import java.security.KeyPairGenerator;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -29,6 +32,7 @@ final class SignedCliBundleFixture {
         Path firstZip = Path.of(args[2]);
         Path secondZip = Path.of(args[3]);
         if (args[0].equals("prepare")) {
+            assertMetadataFreshness();
             KeyPair fixtureKey = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
             byte[] publicKey = fixtureKey.getPublic().getEncoded();
             Files.write(privateRoot.resolve("public-key.bin"), publicKey);
@@ -45,6 +49,7 @@ final class SignedCliBundleFixture {
             byte[] revoked = authorization(firstDigest, secondDigest, "revoked");
             Files.write(privateRoot.resolve("revoked-authorization"), revoked);
             Files.write(privateRoot.resolve("revoked-authorization.ed25519"), sign(fixtureKey, revoked));
+            assertRejectsUntrustedAuthorization(privateRoot, fixtureKey, keyId, policy, revoked, firstDigest);
             assertRejectsUntrustedInputs(privateRoot, firstZip, secondZip, fixtureKey, keyId);
             byte[] archive = Files.readAllBytes(firstZip);
             Path alternate = Files.write(privateRoot.resolve("alternate.zip"),
@@ -116,6 +121,55 @@ final class SignedCliBundleFixture {
     private static byte[] authorization(String firstDigest, String secondDigest, String firstMode) {
         return ("TUPREL-STAGING-AUTHORIZATION 1\n" + FIRST + " " + firstDigest + " " + firstMode
                 + "\n" + SECOND + " " + secondDigest + " allow\n").getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+    }
+
+    private static void assertMetadataFreshness() throws Exception {
+        Instant issued = Instant.parse("2026-11-14T00:00:00Z");
+        Instant expires = issued.plus(24, ChronoUnit.HOURS);
+        StagedMetadataFreshness.verify(issued, issued, issued, expires);
+        StagedMetadataFreshness.verify(expires.minusNanos(1), issued, issued, expires);
+        reject(() -> StagedMetadataFreshness.verify(expires, issued, issued, expires));
+        reject(() -> StagedMetadataFreshness.verify(expires.plusSeconds(1), issued, issued, expires));
+        reject(() -> StagedMetadataFreshness.verify(issued.minusNanos(1), null, issued, expires));
+        reject(() -> StagedMetadataFreshness.verify(issued, issued.plusSeconds(1), issued, expires));
+        reject(() -> StagedMetadataFreshness.verify(issued, null, issued, expires.plusNanos(1)));
+        reject(() -> StagedMetadataFreshness.verify(issued, null, issued, issued));
+        reject(() -> StagedMetadataFreshness.verify(issued, null, issued, issued.minusSeconds(1)));
+        reject(() -> StagedMetadataFreshness.verify(null, issued, issued, expires));
+    }
+
+    private static void assertRejectsUntrustedAuthorization(Path directory, KeyPair fixtureKey, String keyId,
+            byte[] policy, byte[] revoked, String firstDigest) throws Exception {
+        PublicKey key = StagedAuthorization.readPinnedKey(directory, keyId);
+        reject(() -> StagedAuthorization.readPinnedKey(directory, "0".repeat(64)));
+        if (!new StagedAuthorization.Grant(firstDigest, "rollback")
+                .equals(StagedAuthorization.read(directory, key).get(FIRST))) {
+            throw new AssertionError("Authorized rollback grant did not verify");
+        }
+
+        Path hostile = Files.createDirectory(directory.resolve("authorization-fixtures"));
+        Path data = hostile.resolve("authorization");
+        Path signature = hostile.resolve("authorization.ed25519");
+        Files.write(data, revoked);
+        reject(() -> StagedAuthorization.read(hostile, key));
+        Files.write(signature, sign(fixtureKey, policy));
+        reject(() -> StagedAuthorization.read(hostile, key));
+        Files.write(signature, sign(KeyPairGenerator.getInstance("Ed25519").generateKeyPair(), revoked));
+        reject(() -> StagedAuthorization.read(hostile, key));
+        Files.write(signature, sign(fixtureKey, revoked));
+        if (!"revoked".equals(StagedAuthorization.read(hostile, key).get(FIRST).mode())) {
+            throw new AssertionError("Signed revocation was not retained");
+        }
+
+        String canonical = new String(policy, StandardCharsets.US_ASCII);
+        String duplicate = canonical + canonical.split("\n")[1] + "\n";
+        for (String malformed : java.util.List.of(duplicate, canonical.replace(" rollback", " unknown"),
+                canonical.replace("\n", "\r\n"), canonical.stripTrailing(), "x".repeat(8193))) {
+            byte[] bytes = malformed.getBytes(StandardCharsets.US_ASCII);
+            Files.write(data, bytes);
+            Files.write(signature, sign(fixtureKey, bytes));
+            reject(() -> StagedAuthorization.read(hostile, key));
+        }
     }
 
     private static void signBundle(Path directory, Path archive, String version, KeyPair fixtureKey) throws Exception {

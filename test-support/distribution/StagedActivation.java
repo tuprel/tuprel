@@ -4,13 +4,9 @@ import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
-import java.security.KeyFactory;
 import java.security.PublicKey;
-import java.security.Signature;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -19,7 +15,6 @@ import java.util.UUID;
 public final class StagedActivation {
     private static final String POINTER = ".tuprel-active";
     private static final String HEADER = "TUPREL-STAGING-ACTIVE 1";
-    private static final String POLICY = "TUPREL-STAGING-AUTHORIZATION 1";
 
     private StagedActivation() {}
 
@@ -55,14 +50,12 @@ public final class StagedActivation {
             try (FileChannel channel = SignedCliBundle.openLock(root.anchor()); FileLock lock = channel.lock()) {
                 if (!lock.isValid()) throw new IOException("Staging lock is invalid");
                 root.verify();
-                PublicKey key = KeyFactory.getInstance("Ed25519").generatePublic(
-                        new X509EncodedKeySpec(VerifyCliBundle.read(metadata.anchor().resolve("public-key.bin"), 128)));
-                if (!SignedCliBundle.sha256(key.getEncoded()).equals(args[3])) throw new IOException("Untrusted key");
-                Map<String, Authorization> policy = readPolicy(metadata.anchor(), key);
+                PublicKey key = StagedAuthorization.readPinnedKey(metadata.anchor(), args[3]);
+                Map<String, StagedAuthorization.Grant> policy = StagedAuthorization.read(metadata.anchor(), key);
                 State previous = readState(root);
                 if (launch && previous == null) throw new IOException("No active version");
                 String version = launch ? previous.version() : args[5];
-                Authorization allowed = policy.get(version);
+                StagedAuthorization.Grant allowed = policy.get(version);
                 if (allowed == null || allowed.mode().equals("revoked")) throw new IOException("Version is unauthorized");
                 if (!launch) validateTransition(previous, version, allowed, rollback);
                 SignedCliBundle bundle = SignedCliBundle.verify(metadata.anchor().resolve(version + ".zip"),
@@ -113,7 +106,7 @@ public final class StagedActivation {
         return process.start().waitFor();
     }
 
-    private static void validateTransition(State previous, String version, Authorization allowed, boolean rollback)
+    private static void validateTransition(State previous, String version, StagedAuthorization.Grant allowed, boolean rollback)
             throws IOException {
         if (rollback) {
             if (previous == null || compare(version, previous.version()) >= 0 || !allowed.mode().equals("rollback")) {
@@ -132,31 +125,6 @@ public final class StagedActivation {
             if (comparison != 0) return comparison;
         }
         return 0;
-    }
-
-    private static Map<String, Authorization> readPolicy(Path catalogue, PublicKey key)
-            throws IOException, GeneralSecurityException {
-        byte[] policy = VerifyCliBundle.read(catalogue.resolve("authorization"), 8192);
-        Signature verifier = Signature.getInstance("Ed25519");
-        verifier.initVerify(key);
-        verifier.update(policy);
-        if (!verifier.verify(VerifyCliBundle.read(catalogue.resolve("authorization.ed25519"), 64))) {
-            throw new IOException("Invalid staging authorization signature");
-        }
-        String[] lines = new String(policy, StandardCharsets.US_ASCII).split("\n", -1);
-        if (lines.length < 3 || !lines[0].equals(POLICY) || !lines[lines.length - 1].isEmpty()) {
-            throw new IOException("Invalid staging authorization");
-        }
-        Map<String, Authorization> result = new HashMap<>();
-        for (int i = 1; i < lines.length - 1; i++) {
-            String[] fields = lines[i].split(" ", -1);
-            if (fields.length != 3 || !version(fields[0]) || !digest(fields[1])
-                    || !List.of("allow", "rollback", "revoked").contains(fields[2])
-                    || result.putIfAbsent(fields[0], new Authorization(fields[1], fields[2])) != null) {
-                throw new IOException("Invalid staging authorization entry");
-            }
-        }
-        return result;
     }
 
     static State readState(StagingRoot root) throws IOException {
@@ -184,6 +152,4 @@ public final class StagedActivation {
             return (HEADER + "\n" + version + "\n" + digest + "\n" + highWater + "\n").getBytes(StandardCharsets.US_ASCII);
         }
     }
-
-    private record Authorization(String digest, String mode) {}
 }
