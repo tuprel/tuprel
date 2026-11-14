@@ -57,6 +57,23 @@ jobs:
         if: runner.os == 'Linux'
         shell: pwsh
         run: ./test-support/distribution/Verify-StagedGradlePlugin.ps1
+      - name: Verify the external Spring products API over HTTP and PostgreSQL 17
+        if: runner.os == 'Linux'
+        shell: bash
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          export POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+          echo "::add-mask::$POSTGRES_PASSWORD"
+          database="$(docker run -d --publish 127.0.0.1::5432 --env POSTGRES_PASSWORD --env POSTGRES_DB=tuprel_devtest postgres:17.11-trixie)"
+          trap 'docker rm -f "$database" >/dev/null' EXIT
+          timeout 45 bash -c 'until docker exec "$1" pg_isready -h 127.0.0.1 -q; do sleep 1; done' bash "$database"
+          endpoint="$(docker port "$database" 5432/tcp)"
+          export TUPREL_TEST_JDBC_URL="jdbc:postgresql://$endpoint/tuprel_devtest"
+          export TUPREL_TEST_DB_USER=postgres
+          export TUPREL_TEST_DB_PASSWORD="$POSTGRES_PASSWORD"
+          unset POSTGRES_PASSWORD
+          pwsh -NoProfile -File ./test-support/distribution/Verify-SpringProductsApi.ps1
       - name: Exercise signed installation, version switching and recovery
         if: runner.os == 'Windows'
         shell: pwsh

@@ -1,0 +1,10 @@
+generator java {
+  package = "example.products.generated"
+}
+
+model Product {
+  id UUID @id
+  name String
+  price Decimal
+  stock Int
+}
