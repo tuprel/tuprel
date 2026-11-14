@@ -23,7 +23,7 @@ try {
     [IO.Directory]::CreateDirectory($classes) | Out-Null
     $java = Join-Path $env:JAVA_HOME 'bin/java'
     $javac = Join-Path $env:JAVA_HOME 'bin/javac'
-    & $javac --release 21 -Xlint:all -Werror -d $classes "$PSScriptRoot/SignedCliBundle.java" "$PSScriptRoot/SignedCliBundleFixture.java" "$PSScriptRoot/VerifyCliBundle.java" "$PSScriptRoot/StagingRoot.java" "$PSScriptRoot/StagedActivation.java" "$PSScriptRoot/StagedBashPath.java"
+    & $javac --release 21 -Xlint:all -Werror -d $classes "$PSScriptRoot/SignedCliBundle.java" "$PSScriptRoot/SignedCliBundleFixture.java" "$PSScriptRoot/VerifyCliBundle.java" "$PSScriptRoot/StagingRoot.java" "$PSScriptRoot/StagedActivation.java" "$PSScriptRoot/StagedAuthorization.java" "$PSScriptRoot/StagedBashPath.java"
     if ($LASTEXITCODE -ne 0) { throw 'Staging verifier did not compile' }
 
     $versions = @('0.0.0-staging', '0.0.1-staging')
@@ -42,7 +42,7 @@ try {
 
     $verifier = Join-Path $fixture 'verify-cli.jar'
     $jar = Join-Path $env:JAVA_HOME 'bin/jar'
-    & $jar --create --file $verifier --main-class VerifyCliBundle -C $classes SignedCliBundle.class -C $classes VerifyCliBundle.class -C $classes StagingRoot.class -C $classes StagedActivation.class -C $classes 'StagedActivation$State.class' -C $classes 'StagedActivation$Authorization.class' -C $classes 'StagedActivation$CommitStage.class'
+    & $jar --create --file $verifier --main-class VerifyCliBundle -C $classes SignedCliBundle.class -C $classes VerifyCliBundle.class -C $classes StagingRoot.class -C $classes StagedActivation.class -C $classes 'StagedActivation$State.class' -C $classes StagedAuthorization.class -C $classes 'StagedAuthorization$Grant.class' -C $classes 'StagedActivation$CommitStage.class'
     if ($LASTEXITCODE -ne 0) { throw 'Independent staging verifier packaging failed' }
     $verifyArguments = @($versions[0], $archives[0], (Join-Path $fixture "$($versions[0]).manifest"),
         (Join-Path $fixture "$($versions[0]).ed25519"), (Join-Path $fixture 'public-key.bin'))

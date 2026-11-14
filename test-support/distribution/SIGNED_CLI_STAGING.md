@@ -96,6 +96,52 @@ the active version are refused. The staging authorization list comes from the
 trusted fixture bootstrap. Metadata freshness and rollback resistance across
 key or policy rotations remain distribution work.
 
+### P0-02D release metadata design for review
+
+Keep the existing per-bundle manifest and its SHA-256 binding to the ZIP.
+The proposed update metadata would be a separate, signed authorization
+document with a versioned ASCII format. Use LF, fixed field order, canonical
+unsigned decimal integers, sorted unique version entries and detached
+Ed25519 signatures. Bind the document to the channel and platform profile.
+Include key epoch, document sequence, issue and expiration times in UTC, and
+the manifest digest and grant for each version. Put explicit size and entry
+count bounds on verification. A valid signature over ambiguous or
+non-canonical bytes must still fail.
+
+- **Validity.** Use a trusted UTC clock from the bootstrap environment and a
+  configured maximum validity period. Use an inclusive start and exclusive
+  expiry. Reject missing metadata, invalid time, and clock regression below
+  the last trusted time recorded by the installer. Define how the bootstrap
+  establishes trustworthy time before first use. A local time checkpoint
+  detects regression from a previously recorded observation, with limits when
+  the clock or state is controlled by an attacker.
+- **Rotation.** Start from the independently authenticated bootstrap anchor.
+  A delegation signed by the current key binds the successor key digest,
+  next epoch, channel, profiles and validity interval. Reject gaps, cycles,
+  out-of-scope grants and expired delegations. A compromised signing key
+  requires an independently authenticated replacement anchor, as specified in
+  ADR-0022.
+- **Rollback and revocation.** Store the accepted epoch, sequence, document
+  digest and trusted time in the validated install root. Reject lower epochs
+  or sequences and reject different bytes at the same epoch and sequence.
+  Persist advancement under the install lock before the authorization can be
+  used. A failed or uncertain state write blocks use until reconciled.
+  Preserve version digest bindings and revocations across rotations. An
+  explicit artifact rollback still requires a current grant and cannot lower
+  the metadata checkpoint. This model relies on the install root and its
+  writers being inside the ADR-0022 trust boundary.
+
+Before implementing the new format, confirm the clock source and maximum
+lifetimes, how revocation survives key compromise and state loss, and how a
+first installation obtains a current minimum epoch. Options for that minimum
+include authenticated bootstrap metadata with an expiry or a live response
+from an independent trust service. A saved local checkpoint only helps after
+initial enrollment. Exercise expiry boundaries, missing metadata, rotation
+with scope escalation, replay of valid pre-revocation bytes, equal-sequence
+equivocation and interruption around checkpoint publication. Use ephemeral
+test keys throughout. The current staging fixtures exercise the existing
+format only.
+
 The commit point is one file replacement using renameat2 on Linux or
 FileRenameInfo on NTFS. A refused Windows replacement can leave an inert
 candidate next to the previous pointer. A new process reads only the committed
