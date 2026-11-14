@@ -162,6 +162,13 @@ exec /opt/tuprel-pwsh/pwsh -NoProfile -File test-support/distribution/Verify-Reb
 GUEST
     then
         echo "FAIL: harness step $step" | tee "$evidence/harness-status.txt"
+        grep -oF -e 'Bash still resolves Tuprel after PATH removal' \
+            -e 'Bash startup content did not return to its original bytes' \
+            -e 'Removal changed unknown or modified data' \
+            -e 'Explicit removal recovery did not complete' \
+            -e 'Bash interactive PATH change failed' -e 'Bash login PATH change failed' \
+            -e 'remove returned an unexpected status' -e 'resolved an unexpected launcher or version' \
+            "$work/step.log" | sort -u || true
         return 1
     fi
     # Copy only allowlisted proof fields. Guest paths, account and machine IDs stay private.

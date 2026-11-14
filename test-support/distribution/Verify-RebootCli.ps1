@@ -291,10 +291,6 @@ try {
                         throw 'Bash startup content did not return to its original bytes'
                     }
                 }
-                foreach ($mode in @('-ic','-ilc')) {
-                    & /bin/bash $mode 'test -z "$(command -v tuprel)"'
-                    if ($LASTEXITCODE) { throw 'Bash still resolves Tuprel after PATH removal' }
-                }
                 $observations.pathRestored = @{ originalProfiles = $initial.originalProfiles }
             }
         }
@@ -306,7 +302,7 @@ try {
                         $Fixture -iin $env:Path.Split(';')) { throw 'Tuprel remains available after PATH removal' }
             } else {
                 foreach ($mode in @('-ic','-ilc')) {
-                    & /bin/bash $mode 'test -z "$(command -v tuprel)"'
+                    & /bin/bash $mode 'case ":$PATH:" in *":$1:"*) exit 1 ;; esac; test -z "$(command -v tuprel)"' bash $Fixture
                     if ($LASTEXITCODE) { throw 'Bash still resolves Tuprel after PATH removal' }
                 }
             }
