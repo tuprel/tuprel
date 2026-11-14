@@ -882,20 +882,25 @@ final class SemanticValidator {
     }
 
     private Optional<ResolvedType> resolve(String name) {
-        if (SCALARS.contains(name)) {
-            return Optional.of(new ResolvedType(name, TypeKind.SCALAR));
-        }
-        if (enums.containsKey(name)) {
-            return Optional.of(new ResolvedType(name, TypeKind.ENUM));
-        }
-        if (models.containsKey(name)) {
-            return Optional.of(new ResolvedType(name, TypeKind.MODEL));
-        }
-        return Optional.empty();
+        return resolve(name, declared -> {
+            if (enums.containsKey(declared)) {
+                return TypeKind.ENUM;
+            }
+            return models.containsKey(declared) ? TypeKind.MODEL : null;
+        });
+    }
+
+    static Optional<ResolvedType> resolve(String name, Function<String, TypeKind> declaredType) {
+        TypeKind kind = SCALARS.contains(name) ? TypeKind.SCALAR : declaredType.apply(name);
+        return kind == null ? Optional.empty() : Optional.of(new ResolvedType(name, kind));
+    }
+
+    static boolean isAllowedName(String name) {
+        return !JAVA_RESERVED.contains(name);
     }
 
     private void validateName(String name, String kind, SourceSpan span) {
-        if (JAVA_RESERVED.contains(name)) {
+        if (!isAllowedName(name)) {
             add(
                     "TUPREL-SCHEMA-SEM-003",
                     "%s name '%s' is reserved by Java.".formatted(capitalize(kind), name),

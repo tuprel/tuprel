@@ -10,6 +10,8 @@ import dev.tuprel.schema.SchemaCompletion;
 import dev.tuprel.schema.SchemaDiagnostic;
 import dev.tuprel.schema.SchemaFormatResult;
 import dev.tuprel.schema.SchemaFormatter;
+import dev.tuprel.schema.SchemaSymbols;
+import dev.tuprel.schema.SourceSpan;
 import dev.tuprel.schema.SourceText;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -20,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /** Standalone Tuprel language server entry point. */
 public final class TuprelLanguageServer {
@@ -31,10 +34,15 @@ public final class TuprelLanguageServer {
 
     private enum State { NEW, INITIALIZING, READY, SHUTDOWN }
 
-    private record Snapshot(int version, String text) {}
+    private enum PositionQuery { COMPLETION, HOVER, DEFINITION }
+
+    private record Snapshot(int version, String text, boolean analysisFailed) {}
+
+    private record Analysis(JsonArray diagnostics, boolean failed) {}
 
     private final LspTransport transport;
     private final SchemaCompletion completion = new SchemaCompletion();
+    private final SchemaSymbols symbols = new SchemaSymbols();
     private final SchemaFormatter formatter = new SchemaFormatter();
     private final SchemaCompiler formattedSchemaCompiler = new SchemaCompiler();
     private final Function<SourceText, List<SchemaDiagnostic>> compile;
@@ -107,6 +115,8 @@ public final class TuprelLanguageServer {
             capabilities.add("textDocumentSync", sync);
             capabilities.addProperty("positionEncoding", "utf-16");
             capabilities.addProperty("documentFormattingProvider", true);
+            capabilities.addProperty("hoverProvider", true);
+            capabilities.addProperty("definitionProvider", true);
             JsonObject completionProvider = new JsonObject();
             JsonArray triggers = new JsonArray();
             triggers.add("@");
@@ -132,36 +142,50 @@ public final class TuprelLanguageServer {
             respond(id, JsonNull.INSTANCE);
         } else if ("textDocument/formatting".equals(method)) {
             formatDocument(id, object(params));
-        } else if ("textDocument/completion".equals(method)) {
-            completeDocument(id, object(params));
         } else {
-            error(id, -32601, "Method not found");
+            switch (method) {
+                case "textDocument/completion" -> queryDocument(id, object(params), PositionQuery.COMPLETION);
+                case "textDocument/hover" -> queryDocument(id, object(params), PositionQuery.HOVER);
+                case "textDocument/definition" -> queryDocument(id, object(params), PositionQuery.DEFINITION);
+                default -> error(id, -32601, "Method not found");
+            }
         }
     }
 
-    private void completeDocument(JsonElement id, JsonObject params) throws IOException {
+    private void queryDocument(JsonElement id, JsonObject params, PositionQuery query) throws IOException {
         String uri = string(object(params.get("textDocument")).get("uri"));
         JsonObject position = object(params.get("position"));
         Integer line = version(position.get("line"));
         Integer character = version(position.get("character"));
-        if (!validCompletionUri(uri) || line == null || character == null || line < 0 || character < 0) {
+        if (!validPositionUri(uri, query) || line == null || character == null || line < 0 || character < 0) {
             error(id, -32602, "Invalid params");
             return;
         }
 
         Snapshot snapshot = documents.get(uri);
-        // CompletionParams has no version. The dispatcher sees updates and requests in wire order.
-        respond(id, snapshot == null || snapshot.text() == null
-                ? new JsonArray() : completionItems(snapshot.text(), line, character));
-    }
-
-    private JsonElement completionItems(String text, int line, int character) {
-        JsonArray items = new JsonArray();
-        DiagnosticRanges ranges = new DiagnosticRanges(text);
+        // Position requests have no version. The dispatcher sees updates and requests in wire order.
+        if (snapshot == null || snapshot.text() == null
+                || (query != PositionQuery.COMPLETION && snapshot.analysisFailed())) {
+            respond(id, emptyPositionResult(query));
+            return;
+        }
+        DiagnosticRanges ranges = new DiagnosticRanges(snapshot.text());
         int offset = ranges.offset(line, character);
         if (offset < 0) {
-            return items;
+            respond(id, emptyPositionResult(query));
+            return;
         }
+        respond(id, query == PositionQuery.COMPLETION
+                ? completionItems(snapshot.text(), ranges, offset)
+                : symbolResult(query, uri, snapshot.text(), ranges, offset));
+    }
+
+    private static JsonElement emptyPositionResult(PositionQuery query) {
+        return query == PositionQuery.COMPLETION ? new JsonArray() : JsonNull.INSTANCE;
+    }
+
+    private JsonElement completionItems(String text, DiagnosticRanges ranges, int offset) {
+        JsonArray items = new JsonArray();
         Optional<SchemaCompletion.Result> result;
         try {
             result = completion.complete(SourceText.of("editor.tuprel", text), offset);
@@ -202,12 +226,76 @@ public final class TuprelLanguageServer {
         return list;
     }
 
-    private static boolean validCompletionUri(String uri) {
+    private JsonElement symbolResult(PositionQuery query, String uri, String text, DiagnosticRanges ranges, int offset) {
+        Optional<SchemaSymbols.Match> result;
+        try {
+            result = symbols.lookup(SourceText.of("editor.tuprel", text), offset);
+        } catch (StackOverflowError exhausted) {
+            return JsonNull.INSTANCE;
+        } catch (RuntimeException failure) {
+            System.err.println("TUPREL-LSP-SYMBOLS: unexpected schema query exception.");
+            return JsonNull.INSTANCE;
+        }
+        if (result.isEmpty()) {
+            return JsonNull.INSTANCE;
+        }
+        SchemaSymbols.Match match = result.orElseThrow();
+        if (query == PositionQuery.DEFINITION) {
+            return match.definition().<JsonElement>map(span -> location(uri, ranges, span)).orElse(JsonNull.INSTANCE);
+        }
+
+        JsonObject contents = new JsonObject();
+        contents.addProperty("kind", "plaintext");
+        contents.addProperty("value", hoverText(match.symbol()));
+        JsonObject hover = new JsonObject();
+        hover.add("contents", contents);
+        hover.add("range", ranges.range(match.occurrence()));
+        return hover;
+    }
+
+    private static JsonObject location(String uri, DiagnosticRanges ranges, SourceSpan span) {
+        JsonObject location = new JsonObject();
+        location.addProperty("uri", uri);
+        location.add("range", ranges.range(span));
+        return location;
+    }
+
+    private static String hoverText(SchemaSymbols.Symbol symbol) {
+        return switch (symbol) {
+            case SchemaSymbols.Model model -> {
+                String fields = model.fields().stream()
+                        .map(field -> field.name() + ": " + field.type().name() + switch (field.cardinality()) {
+                            case REQUIRED -> "";
+                            case OPTIONAL -> "?";
+                            case LIST -> "[]";
+                        })
+                        .collect(Collectors.joining(", "));
+                yield "Model: " + model.name() + "\nType: TUPREL model"
+                        + (fields.isEmpty() ? "" : "\nFields: " + fields);
+            }
+            case SchemaSymbols.Enumeration enumeration ->
+                    "Enum: " + enumeration.name() + "\nType: TUPREL enum"
+                            + (enumeration.values().isEmpty() ? "" : "\nValues: " + String.join(", ", enumeration.values()));
+            case SchemaSymbols.Field field ->
+                    "Field: " + field.model() + "." + field.name() + "\nType: " + field.type().name()
+                            + "\nCardinality: " + switch (field.cardinality()) {
+                                case REQUIRED -> "required";
+                                case OPTIONAL -> "optional";
+                                case LIST -> "list";
+                            };
+            case SchemaSymbols.Scalar scalar -> "Type: " + scalar.name() + "\nTUPREL scalar";
+        };
+    }
+
+    private static boolean validPositionUri(String uri, PositionQuery query) {
         if (!validUri(uri)) {
             return false;
         }
         try {
-            return new URI(uri).isAbsolute();
+            URI parsed = new URI(uri);
+            String authority = parsed.getRawAuthority();
+            return parsed.isAbsolute()
+                    && (query == PositionQuery.COMPLETION || authority == null || !authority.contains("@"));
         } catch (URISyntaxException invalid) {
             return false;
         }
@@ -318,13 +406,14 @@ public final class TuprelLanguageServer {
 
     private void update(String uri, int version, String text) throws IOException {
         // Keep the latest version even when the content exceeds the analysis budget.
-        Snapshot snapshot = new Snapshot(version, text.length() <= MAX_DOCUMENT_UNITS ? text : null);
-        documents.put(uri, snapshot);
+        String retained = text.length() <= MAX_DOCUMENT_UNITS ? text : null;
+        Analysis analysis = analyze(retained);
+        documents.put(uri, new Snapshot(version, retained, analysis.failed()));
         // Dispatch and publication run on the reader thread, in wire order, without queued analysis.
-        publish(uri, snapshot.version(), analyze(snapshot.text()));
+        publish(uri, version, analysis.diagnostics());
     }
 
-    private JsonArray analyze(String text) {
+    private Analysis analyze(String text) {
         if (text == null) {
             return unavailable("TUPREL-LSP-DOCUMENT-TOO-LARGE",
                     "Analysis skipped: document exceeds " + MAX_DOCUMENT_UNITS + " UTF-16 code units.");
@@ -358,10 +447,10 @@ public final class TuprelLanguageServer {
             item.addProperty("message", diagnostic.message());
             diagnostics.add(item);
         }
-        return diagnostics;
+        return new Analysis(diagnostics, false);
     }
 
-    private static JsonArray unavailable(String code, String description) {
+    private static Analysis unavailable(String code, String description) {
         JsonObject origin = new JsonObject();
         origin.addProperty("line", 0);
         origin.addProperty("character", 0);
@@ -376,7 +465,7 @@ public final class TuprelLanguageServer {
         diagnostic.addProperty("message", description);
         JsonArray diagnostics = new JsonArray();
         diagnostics.add(diagnostic);
-        return diagnostics;
+        return new Analysis(diagnostics, true);
     }
 
     private void warnAtCapacity() throws IOException {

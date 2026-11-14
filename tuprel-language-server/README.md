@@ -1,8 +1,8 @@
 # Tuprel Language Server
 
-The Java 21 server provides official diagnostics, whole-document formatting and
-contextual completion over local stdin and stdout. Start it from an installed
-distribution.
+The Java 21 server provides official diagnostics, whole-document formatting,
+contextual completion, Hover and Go to Definition over local stdin and stdout.
+Start it from an installed distribution.
 
 ```powershell
 .\gradlew.bat :tuprel-language-server:installDist
@@ -109,6 +109,48 @@ Framing headers are omitted.
 <<< {"jsonrpc":"2.0","id":2,"result":[{"label":"Status","kind":13,"textEdit":{"range":{"start":{"line":1,"character":10},"end":{"line":1,"character":12}},"newText":"Status"}},{"label":"String","kind":7,"textEdit":{"range":{"start":{"line":1,"character":10},"end":{"line":1,"character":12}},"newText":"String"}}]}
 ```
 
+## Hover and Go to Definition
+
+The server advertises `hoverProvider: true` and `definitionProvider: true`.
+Send `textDocument/hover` or `textDocument/definition` with the URI of an open
+document and a zero-based UTF-16 position inside an identifier. Ranges are
+half-open and work with LF, CRLF and supplementary Unicode characters.
+
+Hover returns plaintext for model and enum declarations, references to named
+types in field declarations, field names and official scalar types. Models show
+fields with unambiguous names and resolved types. Field hover also shows the
+owning model and cardinality. Definition returns the exact identifier span of
+the target model or enum for a field type reference. The Location uses the
+request document's URI.
+
+Both queries use the official lexer, recovered syntax and compiler type
+resolution. Independent errors can coexist with a reliable result. Incomplete
+model or enum bodies are eligible when the declaration has a real name and
+opening brace. The server returns `null` when a symbol is unknown or ambiguous,
+a position is outside a supported identifier, a snapshot is unavailable, or
+analysis was interrupted. Comments, strings, declarations queried for
+Definition, and scalar or field names queried for Definition return `null`.
+Field references in `@relation` arguments, symbols in other attributes, enum
+value navigation, configuration and cross-file resolution are outside this
+scope. Malformed URIs or positions receive JSON-RPC error `-32602`.
+
+Queries see the latest accepted in-memory version in wire order, including
+unsaved edits. Closed and unknown documents return `null`. The requests and
+responses carry no document version. A client issuing asynchronous requests
+must capture the document identity and version and discard the response if the
+document was edited, closed or reopened while the request was pending.
+
+The following exchange was captured from the installed server with an unsaved
+CRLF document containing `customer Customer` on line 2 and the corresponding
+`model Customer` on line 5, counting from zero. Framing headers are omitted.
+
+```text
+>>> {"jsonrpc":"2.0","id":2,"method":"textDocument/hover","params":{"textDocument":{"uri":"untitled:orders.tuprel"},"position":{"line":2,"character":15}}}
+<<< {"jsonrpc":"2.0","id":2,"result":{"contents":{"kind":"plaintext","value":"Model: Customer\nType: TUPREL model\nFields: id: UUID, name: String"},"range":{"start":{"line":2,"character":13},"end":{"line":2,"character":21}}}}
+>>> {"jsonrpc":"2.0","id":3,"method":"textDocument/definition","params":{"textDocument":{"uri":"untitled:orders.tuprel"},"position":{"line":2,"character":15}}}
+<<< {"jsonrpc":"2.0","id":3,"result":{"uri":"untitled:orders.tuprel","range":{"start":{"line":5,"character":6},"end":{"line":5,"character":14}}}}
+```
+
 ## Dependency decision
 
 [Eclipse LSP4J 1.0.0](https://github.com/eclipse-lsp4j/lsp4j/releases/tag/v1.0.0)
@@ -133,7 +175,7 @@ with synthetic schemas. The UTF-8 Content-Length headers are omitted here.
 
 ```text
 >>> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}
-<<< {"jsonrpc":"2.0","id":1,"result":{"capabilities":{"textDocumentSync":{"openClose":true,"change":1},"positionEncoding":"utf-16","documentFormattingProvider":true,"completionProvider":{"triggerCharacters":["@"]}}}}
+<<< {"jsonrpc":"2.0","id":1,"result":{"capabilities":{"textDocumentSync":{"openClose":true,"change":1},"positionEncoding":"utf-16","documentFormattingProvider":true,"hoverProvider":true,"definitionProvider":true,"completionProvider":{"triggerCharacters":["@"]}}}}
 >>> {"jsonrpc":"2.0","method":"initialized","params":{}}
 >>> {"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"untitled:report.tuprel","languageId":"tuprel","version":1,"text":"/* 🧪 */ $"}}}
 <<< {"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"untitled:report.tuprel","version":1,"diagnostics":[{"range":{"start":{"line":0,"character":9},"end":{"line":0,"character":10}},"severity":1,"code":"TUPREL-SCHEMA-LEX-001","source":"tuprel","message":"Unexpected character '$'."}]}}
