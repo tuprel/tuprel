@@ -90,11 +90,22 @@ function Assert-Version($version) {
         $observations.commands = @($resolved.Source)
         $observations.where = $where
         $observations.executionPolicy = [string](Get-ExecutionPolicy)
+        $observations.cmdVersion = $cmdVersion
+        $observations.powerShellVersionOutput = $reported
     } else {
+        $checkLauncher = @'
+IFS=: read -ra entries <<< "$PATH"
+count=0
+for entry in "${entries[@]}"; do
+    if [[ "$entry" == "$2" ]]; then count=$((count + 1)); fi
+done
+[[ $count == 1 && "$(type -a tuprel)" == "tuprel is $1" ]] && tuprel --version
+'@
         foreach ($mode in @('-ic','-ilc')) {
-            $reported = & /bin/bash $mode 'test "$(type -a tuprel)" = "tuprel is $1" && tuprel --version' bash $launcher
+            $reported = & /bin/bash $mode $checkLauncher bash $launcher $Fixture
             if ($LASTEXITCODE -or $reported -cne "tuprel $version") { throw "Bash $mode resolved an unexpected launcher or version" }
         }
+        $observations.bashResolution = @{ interactive = $launcher; login = $launcher; pathEntriesPerShell = 1 }
     }
     $observations.verifiedVersion = $version
     $observations.pointerSha256 = (Get-FileHash -LiteralPath $pointer -Algorithm SHA256).Hash
@@ -135,6 +146,8 @@ try {
         } elseif ($prior.boot -ceq $boot) { throw 'A different OS boot is required before continuing' }
     }
     $observations = @{ step = $Step; machine = $machine; account = $account; boot = $boot; session = $session }
+    $observations.filesystem = if ($IsWindows) { 'NTFS' } else { 'ext4' }
+    $observations.recordedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
     Write-Evidence "$Step-intent" $observations
     switch ($Step) {
         'install' {
@@ -208,6 +221,8 @@ try {
                 throw 'Interrupted activation evidence was lost or changed'
             }
             Invoke-Selection activate $second
+            Assert-Version $second
+            $observations.activatedVersion = $second
         }
         'rollback' {
             Assert-Version $second
@@ -225,6 +240,8 @@ try {
                 [IO.File]::WriteAllBytes($signature, $savedSignature)
             }
             Invoke-Selection rollback $first
+            Assert-Version $first
+            $observations.rollback = @{ ordinaryDowngradeRefused = $true; revokedRollbackRefused = $true; selected = $first }
         }
         'interrupt-removal' {
             Assert-Version $first
@@ -255,6 +272,11 @@ try {
             [IO.File]::Copy((Join-Path $evidence 'original-removal-launcher'), (Join-Path $pending 'bin/tuprel.bat'), $true)
             Invoke-Bundle $first remove
             if ([IO.Directory]::Exists($pending)) { throw 'Explicit removal recovery did not complete' }
+            $observations.removal = @{
+                removedVersion = $first
+                preservedForeignSha256 = (Get-FileHash -LiteralPath $quarantine).Hash
+                preservedModifiedSha256 = (Get-FileHash -LiteralPath (Join-Path $evidence 'preserved-modified-launcher')).Hash
+            }
             $initial = Get-Content -Raw -LiteralPath (Join-Path $evidence 'configure.json') | ConvertFrom-Json
             Invoke-PathChange remove
             if ($IsWindows) {
@@ -262,6 +284,7 @@ try {
                 if ($current.value -cne $initial.originalPath.value -or $current.kind -cne $initial.originalPath.kind) {
                     throw 'Windows PATH did not return to its original value and type'
                 }
+                $observations.pathRestored = @{ valueMatches = $true; kind = $current.kind }
             } else {
                 foreach ($profile in $initial.originalProfiles) {
                     if ((Get-FileHash -LiteralPath (Join-Path $HOME $profile.name)).Hash -cne $profile.digest) {
@@ -272,6 +295,7 @@ try {
                     & /bin/bash $mode 'test -z "$(command -v tuprel)"'
                     if ($LASTEXITCODE) { throw 'Bash still resolves Tuprel after PATH removal' }
                 }
+                $observations.pathRestored = @{ originalProfiles = $initial.originalProfiles }
             }
         }
         'verify-removal' {
@@ -286,6 +310,7 @@ try {
                     if ($LASTEXITCODE) { throw 'Bash still resolves Tuprel after PATH removal' }
                 }
             }
+            $observations.launcherAbsentFromNewTerminal = $true
         }
     }
     Write-Evidence $Step $observations

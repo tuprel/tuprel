@@ -6,7 +6,17 @@ and keep the disk across restarts. Use a dedicated standard account named
 Use the VM console to restart and sign in. Export evidence before restoring
 the snapshot. Use test keys and synthetic consumer projects.
 
-## Prepare each guest
+## Prepare two guests
+
+Use one Windows x64 VM with a desktop console and one Linux x64 VM with a
+local console. Attach persistent virtual disks with NTFS and ext4 respectively.
+Pin the same PR commit in both checkouts. Provision the standard local test
+account through the guest administrator, then sign in as `tuprel-reboot` for
+fixture preparation and all harness steps. Keep the checkout, fixture and
+evidence on the guest disk. Take the initial snapshot after provisioning and
+before preparing the fixture. Keep a separate operator log for the commit,
+guest OS version, filesystem, console logoff and restart times, and step exit
+codes. Use the guest's normal restart operation for each restart row.
 
 - Windows x64 with a local NTFS profile, PowerShell 7, a Java 21 JDK in
   an ASCII path, and the MSVC x64 toolchain. Use the normal execution policy
@@ -62,6 +72,27 @@ and account across different boots, and the same boot with a different
 Windows logon at `relogin`. Treat an intent without success as unresolved.
 Inspect and export evidence. Restore the VM snapshot before repeating the
 scenario. Keep the account's registry or profile data private.
+
+Before restoring either snapshot, collect the evidence directory and the
+operator log. Record SHA-256 hashes of the fixture manifests and signatures
+and the public key fingerprint from the fixture, plus the hash of the exported
+evidence archive. Review these records alongside the OS restart events:
+
+- `configure` records the original registry value/type or Bash profile
+  hashes. Compare the Windows notification result with the actual command
+  resolution and version in `propagation` and `relogin`.
+- Compare the active pointer hash and authorized version in `prepare-update`,
+  `activate`, `rollback` and `interrupt-removal`. The `rollback` record
+  contains the reverified selected version and both refusal outcomes.
+- `finish` records PATH restoration and hashes of the preserved foreign and
+  modified files. `verify-removal` records absence of the launcher in a
+  fresh terminal. Save the Windows command resolver results after the final
+  sign-in separately.
+
+Keep the raw archive private because it contains the test SID or UID, guest
+identifier, paths and original user PATH. Share a redacted matrix with step
+results and digest references. Keep failures and unresolved intents in the
+matrix, including failures that occur before the harness creates an intent.
 
 ## Evidence and limitations
 
