@@ -12,6 +12,9 @@ cleanup() {
     local status=$?
     if (( status != 0 )); then
         printf 'FAIL: %s\n' "${phase:-capability probe}" | tee "$evidence/failure.txt"
+        if [[ -f "$work/qemu.log" ]]; then
+            sed -e "s|$work|<guest-work>|g" "$work/qemu.log" | head -c 2048 || true
+        fi
         for log in qemu serial apt fixture step; do
             if [[ -f "$work/$log.log" ]]; then
                 printf '%s log captured privately (%s bytes)\n' "$log" "$(wc -c < "$work/$log.log")"
@@ -73,7 +76,7 @@ users:
       - $(cat "$work/client.pub")
 EOF
 cloud-localds "$work/seed.img" "$work/cloud.yaml"
-qemu-system-x86_64 -accel "$kvm_mode" -m 4096 -smp 2 -display none -monitor none +    -serial "file:$work/serial.log" -drive "file=$work/guest.qcow2,if=virtio,format=qcow2" +    -drive "file=$work/seed.img,if=virtio,format=raw,readonly=on" +    -nic "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:$port-:22" >"$work/qemu.log" 2>&1 &
+qemu-system-x86_64 -accel "$kvm_mode" -m 4096 -smp 2 -display none -monitor none +    -serial "file:$work/serial.log" -drive "file=$work/guest.qcow2,if=virtio,format=qcow2" +    -drive "file=$work/seed.img,if=virtio,format=raw" +    -nic "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:$port-:22" >"$work/qemu.log" 2>&1 &
 pid=$!
 
 ssh_options=(-i "$work/client" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=3

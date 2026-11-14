@@ -66,8 +66,26 @@ jobs:
           $worker = Get-Service vmms -ErrorAction SilentlyContinue
           $vmHost = Get-Command Get-VMHost -ErrorAction SilentlyContinue
           $hostQuery = $false
+          $emptyGuestStart = 'BLOCKED: Hyper-V management unavailable'
           if ($vmHost -and $worker.Status -eq 'Running') {
               try { Get-VMHost -ErrorAction Stop | Out-Null; $hostQuery = $true } catch {}
+          }
+          if ($hostQuery) {
+              $probe = 'tuprel-empty-' + [guid]::NewGuid()
+              $created = $false
+              try {
+                  New-VM -Name $probe -NoVHD -MemoryStartupBytes 512MB -Generation 2 -ErrorAction Stop | Out-Null
+                  $created = $true
+                  Start-VM -Name $probe -ErrorAction Stop | Out-Null
+                  $emptyGuestStart = [string](Get-VM -Name $probe -ErrorAction Stop).State
+              } catch {
+                  $emptyGuestStart = 'FAIL: ' + $_.FullyQualifiedErrorId
+              } finally {
+                  if ($created) {
+                      if ((Get-VM -Name $probe).State -ne 'Off') { Stop-VM -Name $probe -TurnOff -Force }
+                      Remove-VM -Name $probe -Force
+                  }
+              }
           }
           [ordered]@{
               freeGiB = [math]::Round($drive.AvailableFreeSpace / 1GB, 1)
@@ -78,6 +96,7 @@ jobs:
               vmMonitorExtensions = $cpu.VMMonitorModeExtensions
               enabledVirtualizationFeatures = @($features | Where-Object InstallState -eq 1 | Select-Object -ExpandProperty Name)
               hyperVManagementResponsive = $hostQuery
+              emptyGuestStart = $emptyGuestStart
               qemuOnPath = [bool]$qemu
               runnerInteractive = [Environment]::UserInteractive
               explorerBinaryPresent = Test-Path -LiteralPath (Join-Path $env:WINDIR 'explorer.exe')
