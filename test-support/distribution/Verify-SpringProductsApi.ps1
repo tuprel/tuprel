@@ -7,6 +7,8 @@ $ErrorActionPreference = 'Stop'
 $mavenPath = (Get-Command $Maven -CommandType Application | Select-Object -First 1).Source
 if ($VerifyStagedProject) {
     & $mavenPath -B -ntp -C "-Dmaven.repo.local=$env:TUPREL_CONSUMER_MAVEN_CACHE" verify
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
+    & (Join-Path $env:JAVA_HOME 'bin/java') -cp target/test-classes example.products.PackagedProductsProof
     exit $LASTEXITCODE
 }
 

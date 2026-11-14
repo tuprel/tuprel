@@ -70,6 +70,10 @@ integer stock. The server assigns the UUID. Pagination is zero-based,
 ordered by UUID and capped at 100 items per request. Missing products and
 invalid requests return problem details.
 
+Each offset page is a separate query. Concurrent inserts or deletes can
+shift offsets between requests, so clients can see duplicates or miss rows.
+The API provides no snapshot across pages.
+
 ```powershell
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/products -ContentType application/json -Body '{"name":"Keyboard","price":49.90,"stock":3}'
 Invoke-RestMethod -Uri 'http://127.0.0.1:8080/products?page=0&size=20'
@@ -99,3 +103,10 @@ From the Tuprel checkout, `./test-support/distribution/Verify-SpringProductsApi.
 stages a temporary consumer and runs the HTTP test. It accepts the existing
 local test settings used by the Tuprel integration suite. The application
 itself uses Spring's DataSource configuration.
+
+After Maven exits, the verification script inspects the executable archive
+and launches it in a separate `java -jar` process. It waits for a successful
+HTTP query, verifies request validation, creates and reads a product, and
+checks the persisted row. The proof stops the child process and drops its
+dedicated schema. The Linux staging workflow runs this against disposable
+PostgreSQL 17.
