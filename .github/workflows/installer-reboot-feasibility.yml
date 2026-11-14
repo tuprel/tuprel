@@ -1,0 +1,111 @@
+name: Installer reboot feasibility
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installer-reboot-feasibility
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    if: >-
+      github.repository == 'tuprel/tuprel' &&
+      github.event.number == 101 &&
+      github.event.label.name == 'github_actions' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'test/p0-02b-reboot-profile-proof'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prepare QEMU on the ephemeral runner
+        shell: bash
+        run: |
+          sudo apt-get -o Acquire::Retries=2 update -qq
+          sudo apt-get -o Acquire::Retries=2 install -y --no-install-recommends acl qemu-system-x86 qemu-utils cloud-image-utils
+        timeout-minutes: 5
+      - name: Boot, restart and verify the Linux guest
+        shell: bash
+        run: bash test-support/distribution/Verify-LinuxRebootVm.sh
+      - name: Upload sanitized Linux evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: linux-reboot-feasibility
+          path: ${{ runner.temp }}/tuprel-reboot-linux-evidence
+          retention-days: 7
+
+  windows-capability:
+    needs: linux
+    if: >-
+      !cancelled() &&
+      github.repository == 'tuprel/tuprel' &&
+      github.event.number == 101 &&
+      github.event.label.name == 'github_actions' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'test/p0-02b-reboot-profile-proof'
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - name: Inspect disk, hypervisor and desktop capabilities
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
+          $features = Get-CimInstance Win32_OptionalFeature -Filter "Name LIKE 'Microsoft-Hyper-V%' OR Name='HypervisorPlatform'"
+          $root = [IO.Path]::GetPathRoot($env:RUNNER_TEMP)
+          $drive = [IO.DriveInfo]::new($root)
+          $qemu = Get-Command qemu-system-x86_64 -ErrorAction SilentlyContinue
+          $worker = Get-Service vmms -ErrorAction SilentlyContinue
+          $vmHost = Get-Command Get-VMHost -ErrorAction SilentlyContinue
+          $hostQuery = $false
+          $emptyGuestStart = 'BLOCKED: Hyper-V management unavailable'
+          if ($vmHost -and $worker.Status -eq 'Running') {
+              try { Get-VMHost -ErrorAction Stop | Out-Null; $hostQuery = $true } catch {}
+          }
+          if ($hostQuery) {
+              $probe = 'tuprel-empty-' + [guid]::NewGuid()
+              $created = $false
+              try {
+                  New-VM -Name $probe -NoVHD -MemoryStartupBytes 512MB -Generation 2 -ErrorAction Stop | Out-Null
+                  $created = $true
+                  Start-VM -Name $probe -ErrorAction Stop | Out-Null
+                  $emptyGuestStart = [string](Get-VM -Name $probe -ErrorAction Stop).State
+              } catch {
+                  $emptyGuestStart = 'FAIL: ' + $_.FullyQualifiedErrorId
+              } finally {
+                  if ($created) {
+                      if ((Get-VM -Name $probe).State -ne 'Off') { Stop-VM -Name $probe -TurnOff -Force }
+                      Remove-VM -Name $probe -Force
+                  }
+              }
+          }
+          [ordered]@{
+              freeGiB = [math]::Round($drive.AvailableFreeSpace / 1GB, 1)
+              runnerFilesystem = $drive.DriveFormat
+              runnerHypervisorPresent = (Get-CimInstance Win32_ComputerSystem).HypervisorPresent
+              virtualizationFirmwareEnabled = $cpu.VirtualizationFirmwareEnabled
+              secondLevelTranslation = $cpu.SecondLevelAddressTranslationExtensions
+              vmMonitorExtensions = $cpu.VMMonitorModeExtensions
+              enabledVirtualizationFeatures = @($features | Where-Object InstallState -eq 1 | Select-Object -ExpandProperty Name)
+              hyperVManagementResponsive = $hostQuery
+              emptyGuestStart = $emptyGuestStart
+              qemuOnPath = [bool]$qemu
+              runnerInteractive = [Environment]::UserInteractive
+              explorerBinaryPresent = Test-Path -LiteralPath (Join-Path $env:WINDIR 'explorer.exe')
+              explorerProcessPresent = [bool](Get-Process explorer -ErrorAction SilentlyContinue)
+              windowsGuestBoot = 'BLOCKED: no licensed guest image provisioned for this probe'
+              guestExplorerAndReboot = 'BLOCKED: requires a booted Windows guest with an interactive desktop'
+          } | ConvertTo-Json | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'windows-vm-capability.json')
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: windows-vm-capability
+          path: ${{ runner.temp }}/windows-vm-capability.json
+          retention-days: 7

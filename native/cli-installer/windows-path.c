@@ -105,7 +105,11 @@ int wmain(int argc, wchar_t **argv) {
     int add = wcscmp(argv[1], L"add") == 0;
     installer_root *root = installer_open_root(argv[2]);
     if (!root) return 1;
+#ifdef INSTALLER_PATH_FIXTURE
     int ok = installer_trusted_file(root, L"tuprel.ps1");
+#else
+    int ok = installer_trusted_file(root, L"tuprel.cmd");
+#endif
     HKEY machine = NULL;
     if (ok && add) {
         wchar_t *path = calloc(CAPACITY, sizeof *path);
@@ -141,8 +145,10 @@ int wmain(int argc, wchar_t **argv) {
 #ifndef INSTALLER_PATH_FIXTURE
     if (ok) {
         DWORD_PTR result;
-        SendMessageTimeoutW(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM)L"Environment",
+        LRESULT sent = SendMessageTimeoutW(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM)L"Environment",
                 SMTO_ABORTIFHUNG, 1000, &result);
+        puts(sent ? "WM_SETTINGCHANGE broadcast returned success"
+                  : "WM_SETTINGCHANGE broadcast unconfirmed");
     }
 #endif
     if (!ok) fputs("Tuprel user PATH change refused or unconfirmed. Inspect the user PATH before retrying.\n", stderr);
