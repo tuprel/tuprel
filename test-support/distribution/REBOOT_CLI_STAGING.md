@@ -1,5 +1,26 @@
 # Installer reboot and user-profile proof
 
+## GitHub-hosted feasibility run
+
+To start the experiment manually on PR #101, apply the existing
+`github_actions` label. Remove and reapply it for a later run. A workflow
+introduced on a PR cannot receive `workflow_dispatch` until the file exists
+on the default branch. The label trigger is limited to this repository,
+PR and head branch. It does not change the normal staging jobs.
+
+The Linux job boots an Ubuntu guest from a checksum-pinned image. It retains
+the same copy-on-write disk through each guest restart and uses the existing
+PowerShell harness as the unprivileged test account. Linux session checks
+use fresh SSH connections and the harness launches Bash in interactive and
+login modes. Without KVM the job limits itself to a short boot and persistence
+probe. The Windows job checks the runner only. Its Explorer result describes
+the runner, and guest boot, Explorer propagation and reboot still need a
+licensed guest with an interactive desktop. The job downloads no Windows
+image.
+
+Download the sanitized Linux evidence and Windows capability report from the
+run. Only a complete Linux harness transcript counts as a Linux pass.
+
 Run this proof from a disposable VM console. Take a snapshot before starting
 and keep the disk across restarts. Use a dedicated standard account named
 `tuprel-reboot`. The scripts neither provision accounts nor reboot the guest.
