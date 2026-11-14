@@ -21,6 +21,7 @@ pluginManagement {
 rootProject.name = "tuprel"
 
 include("tuprel-schema")
+include("tuprel-language-server")
 include("tuprel-cli")
 include("tuprel-codegen-java")
 include("tuprel-sql")
