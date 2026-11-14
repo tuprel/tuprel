@@ -36,7 +36,7 @@ final class SemanticValidator {
         }
     }
 
-    private static final Set<String> SCALARS =
+    static final Set<String> SCALARS =
             Set.of(
                     "String",
                     "Boolean",
@@ -53,6 +53,9 @@ final class SemanticValidator {
                     "LocalTime",
                     "Bytes",
                     "Json");
+
+    static final Set<String> FIELD_ATTRIBUTES = Set.of("id", "unique", "default", "relation", "version");
+    static final Set<String> MODEL_ATTRIBUTES = Set.of("index", "unique");
 
     private static final Set<String> NUMERIC_SCALARS =
             Set.of("Short", "Int", "Long", "Decimal", "Float", "Double");
@@ -288,7 +291,7 @@ final class SemanticValidator {
             ModelDeclaration model, FieldDeclaration field) {
         Map<String, FieldAttribute> attributes = new LinkedHashMap<>();
         for (FieldAttribute attribute : field.attributes()) {
-            if (!Set.of("id", "unique", "default", "relation", "version").contains(attribute.name())) {
+            if (!FIELD_ATTRIBUTES.contains(attribute.name())) {
                 add(
                         "TUPREL-SCHEMA-SEM-009",
                         "Unknown field attribute '@%s' on '%s.%s'."
@@ -647,7 +650,7 @@ final class SemanticValidator {
         List<ValidatedIndex> result = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         for (BlockAttribute attribute : model.attributes()) {
-            if (!Set.of("index", "unique").contains(attribute.name())) {
+            if (!MODEL_ATTRIBUTES.contains(attribute.name())) {
                 add(
                         "TUPREL-SCHEMA-SEM-009",
                         "Unknown model attribute '@@%s' on '%s'."

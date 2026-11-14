@@ -1,7 +1,8 @@
 # Tuprel Language Server
 
-The Java 21 server reports the official schema compiler diagnostics over local
-stdin and stdout. Start it from an installed distribution.
+The Java 21 server provides official diagnostics, whole-document formatting and
+contextual completion over local stdin and stdout. Start it from an installed
+distribution.
 
 ```powershell
 .\gradlew.bat :tuprel-language-server:installDist
@@ -39,7 +40,6 @@ or a protocol harness to send frames.
 - No workspace file access, database, subprocess or network access is required.
   Operational errors go to stderr without schema text, URIs or stack traces.
   Compiler messages go to the client through the protocol.
-- Editor integration and completion have separate phases.
 
 ## Whole-document formatting
 
@@ -70,6 +70,45 @@ Framing headers are omitted.
 <<< {"jsonrpc":"2.0","id":2,"result":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":24}},"newText":"model Item {\n    id Int @id\n}\n"}]}
 ```
 
+## Contextual completion
+
+The server advertises `completionProvider` with `@` as a trigger character.
+Send `textDocument/completion` with the URI of an open document and a zero-based
+UTF-16 position. The server uses the latest accepted in-memory snapshot in wire
+order. Completion requests and responses carry no document version.
+
+The official parser identifies the grammar slot at the cursor. Suggestions cover
+top-level declarations, built-in scalars and declared model and enum names at a
+field type, and separate field and model attribute names. Model and enum names
+come from the same document, including declarations after the cursor. A document
+can contain errors and still yield suggestions at an unambiguous slot. Field
+types and implicit field attributes are offered on the field's line. Explicit
+`@` and `@@` prefixes follow the parser's placement rules.
+
+Suggestions match the typed prefix case-sensitively and have unique labels in
+ascending lexical order. Each text edit replaces the current token, including
+the sigil for an attribute. The server uses LSP Keyword, Class, Enum and Property
+kinds for declarations, scalar or model types, enum types and attributes. Attribute
+suggestions identify their syntactic scope and leave argument entry and semantic
+checks to the editor and official diagnostics.
+
+Comments, strings, ambiguous syntax, closed or unknown documents, oversized
+snapshots and positions past the line or document return an empty list.
+Malformed parameters receive JSON-RPC error `-32602`. If more than 200 labels
+match, the server returns the first 200 and marks the list incomplete so the
+client can request a narrower prefix. The client chooses whether to apply an
+edit. Completion uses only the current document and does not provide argument
+values, cross-file symbols or item resolution.
+
+This exchange was captured from the installed server with CRLF text containing
+`state St` on the second line and a following `enum Status { Ready }`.
+Framing headers are omitted.
+
+```text
+>>> {"jsonrpc":"2.0","id":2,"method":"textDocument/completion","params":{"textDocument":{"uri":"untitled:report.tuprel"},"position":{"line":1,"character":12}}}
+<<< {"jsonrpc":"2.0","id":2,"result":[{"label":"Status","kind":13,"textEdit":{"range":{"start":{"line":1,"character":10},"end":{"line":1,"character":12}},"newText":"Status"}},{"label":"String","kind":7,"textEdit":{"range":{"start":{"line":1,"character":10},"end":{"line":1,"character":12}},"newText":"String"}}]}
+```
+
 ## Dependency decision
 
 [Eclipse LSP4J 1.0.0](https://github.com/eclipse-lsp4j/lsp4j/releases/tag/v1.0.0)
@@ -94,7 +133,7 @@ with synthetic schemas. The UTF-8 Content-Length headers are omitted here.
 
 ```text
 >>> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}
-<<< {"jsonrpc":"2.0","id":1,"result":{"capabilities":{"textDocumentSync":{"openClose":true,"change":1},"positionEncoding":"utf-16","documentFormattingProvider":true}}}
+<<< {"jsonrpc":"2.0","id":1,"result":{"capabilities":{"textDocumentSync":{"openClose":true,"change":1},"positionEncoding":"utf-16","documentFormattingProvider":true,"completionProvider":{"triggerCharacters":["@"]}}}}
 >>> {"jsonrpc":"2.0","method":"initialized","params":{}}
 >>> {"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"untitled:report.tuprel","languageId":"tuprel","version":1,"text":"/* 🧪 */ $"}}}
 <<< {"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"untitled:report.tuprel","version":1,"diagnostics":[{"range":{"start":{"line":0,"character":9},"end":{"line":0,"character":10}},"severity":1,"code":"TUPREL-SCHEMA-LEX-001","source":"tuprel","message":"Unexpected character '$'."}]}}

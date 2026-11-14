@@ -5,9 +5,11 @@ import dev.tuprel.schema.SourceSpan;
 import java.util.Arrays;
 
 final class DiagnosticRanges {
+    private final String text;
     private final int[] starts;
 
     DiagnosticRanges(String text) {
+        this.text = text;
         int[] offsets = new int[text.length() + 1];
         int count = 1;
         for (int index = 0; index < text.length(); index++) {
@@ -21,6 +23,18 @@ final class DiagnosticRanges {
             }
         }
         starts = Arrays.copyOf(offsets, count);
+    }
+
+    int offset(int line, int character) {
+        if (line < 0 || line >= starts.length || character < 0) {
+            return -1;
+        }
+        int start = starts[line];
+        int end = line + 1 < starts.length ? starts[line + 1] : text.length();
+        while (end > start && (text.charAt(end - 1) == '\r' || text.charAt(end - 1) == '\n')) {
+            end--;
+        }
+        return character <= end - start ? start + character : -1;
     }
 
     JsonObject range(SourceSpan span) {
