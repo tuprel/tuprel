@@ -3,6 +3,7 @@ package dev.tuprel.schema;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class SchemaFormatterTest {
@@ -35,6 +36,53 @@ class SchemaFormatterTest {
         assertTrue(formatted.contains("// keep this"));
         assertTrue(formatted.contains("    id Int @id"));
         assertEquals(formatted, formatter.format(SourceText.of("format.tuprel", formatted)).formattedText().orElseThrow());
+    }
+
+    @Test
+    void preservesStandaloneBlockCommentExactly() {
+        String comment = "/* block\n\t * aligned 🧪\n\n\n    tail  \n */";
+        String input = comment + "\n\n\nmodel Product{\n id   UUID @id\n}\n";
+        String expected = comment + "\n\nmodel Product {\n    id UUID @id\n}\n";
+        assertPreservedFormatting(input, expected);
+        assertPreservedFormatting(input.replace("\n", "\r\n"), expected);
+    }
+
+    @Test
+    void formatsCodeAroundInlineBlockCommentsWithoutChangingTokens() {
+        String opening = "/* opening { //\n    exact indentation\n  */";
+        String betweenAttributes = "/* attribute }\n\t spacing\n\n */";
+        String footer = "/* footer\n  */";
+        String literal = "\"literal /* } // \\\"quote\\\" 🧪 \\u0041\"";
+        String input = "model Product{" + opening + "\n"
+                + " id   UUID @id" + betweenAttributes + "@default(uuid())\n"
+                + " name String @default(" + literal + ")\n"
+                + " " + footer + "}\n"
+                + "  // next declaration\n"
+                + "model Other{\n id    Int @id\n}\n";
+        String expected = "model Product { " + opening + "\n"
+                + "    id UUID @id " + betweenAttributes + " @default(uuid())\n"
+                + "    name String @default(" + literal + ")\n"
+                + "    " + footer + " }\n"
+                + "// next declaration\n"
+                + "model Other {\n    id Int @id\n}\n";
+        assertPreservedFormatting(input, expected);
+    }
+
+    private void assertPreservedFormatting(String input, String expected) {
+        SourceText original = SourceText.of("before.tuprel", input);
+        String formatted = formatter.format(original).formattedText().orElseThrow();
+        assertEquals(expected, formatted);
+
+        SourceText result = SourceText.of("after.tuprel", formatted);
+        assertTrue(new SchemaCompiler().compile(result).isValid());
+        assertEquals(tokensWithoutPositions(original), tokensWithoutPositions(result));
+        assertEquals(formatted, formatter.format(result).formattedText().orElseThrow());
+    }
+
+    private List<List<String>> tokensWithoutPositions(SourceText source) {
+        return Lexer.lex(source).tokens().stream()
+                .map(token -> List.of(token.kind().name(), token.text().replace("\r\n", "\n")))
+                .toList();
     }
 
     @Test
