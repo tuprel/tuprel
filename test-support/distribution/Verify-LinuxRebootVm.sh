@@ -76,7 +76,10 @@ users:
       - $(cat "$work/client.pub")
 EOF
 cloud-localds "$work/seed.img" "$work/cloud.yaml"
-qemu-system-x86_64 -accel "$kvm_mode" -m 4096 -smp 2 -display none -monitor none +    -serial "file:$work/serial.log" -drive "file=$work/guest.qcow2,if=virtio,format=qcow2" +    -drive "file=$work/seed.img,if=virtio,format=raw" +    -nic "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:$port-:22" >"$work/qemu.log" 2>&1 &
+qemu-system-x86_64 -accel "$kvm_mode" -m 4096 -smp 2 -display none -monitor none \
+    -serial "file:$work/serial.log" -drive "file=$work/guest.qcow2,if=virtio,format=qcow2" \
+    -drive "file=$work/seed.img,if=virtio,format=raw,readonly=on" \
+    -nic "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:$port-:22" >"$work/qemu.log" 2>&1 &
 pid=$!
 
 ssh_options=(-i "$work/client" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=3
@@ -119,7 +122,8 @@ digest="$(tester 'sha256sum "$HOME/reboot-marker" | cut -d" " -f1')"
 phase='guest reboot and ext4 marker verification'
 after="$(restart "$before" "$boot_limit")"
 [[ "$digest" =~ ^[0-9a-f]{64}$ && "$digest" == "$(tester 'sha256sum "$HOME/reboot-marker" | cut -d" " -f1')" ]]
-printf 'status=PASS\nfilesystem=ext4\nboot_before=%s\nboot_after=%s\nmarker_sha256=%s\n' +    "$before" "$after" "$digest" | tee "$evidence/restart.txt"
+printf 'status=PASS\nfilesystem=ext4\nboot_before=%s\nboot_after=%s\nmarker_sha256=%s\n' \
+    "$before" "$after" "$digest" | tee "$evidence/restart.txt"
 if [[ "$kvm_mode" != kvm ]]; then
     echo 'BLOCKED: short software-emulation probe only' | tee "$evidence/harness-status.txt"
     exit 0
@@ -128,7 +132,8 @@ fi
 phase='install guest test toolchain'
 echo 'Installing test toolchain inside the guest'
 admin 'sudo apt-get -o Acquire::Retries=2 update -qq &&
-    sudo DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 install -y --no-install-recommends +        openjdk-21-jdk-headless gcc libc6-dev libicu74 libssl3t64 zlib1g libgssapi-krb5-2' >"$work/apt.log" 2>&1
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 install -y --no-install-recommends \
+        openjdk-21-jdk-headless gcc libc6-dev libicu74 libssl3t64 zlib1g libgssapi-krb5-2' >"$work/apt.log" 2>&1
 pwsh_dir="$(dirname "$(readlink -f "$(command -v pwsh)")")"
 tar -C "$pwsh_dir" -cf - . | admin 'sudo mkdir /opt/tuprel-pwsh && sudo tar -xf - -C /opt/tuprel-pwsh'
 git archive --format=tar HEAD | tester 'mkdir -m 700 "$HOME/checkout" && tar -xf - -C "$HOME/checkout"'
@@ -139,7 +144,8 @@ tester 'chmod 700 "$HOME"; umask 077
         chmod 600 "$HOME/$file" || exit
     done
     cd "$HOME/checkout" &&
-    JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 /opt/tuprel-pwsh/pwsh -NoProfile +        -File test-support/distribution/Verify-SignedCli.ps1 -PrepareRebootFixture' >"$work/fixture.log" 2>&1
+    JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 /opt/tuprel-pwsh/pwsh -NoProfile \
+        -File test-support/distribution/Verify-SignedCli.ps1 -PrepareRebootFixture' >"$work/fixture.log" 2>&1
 
 run_step() {
     local step="$1"
