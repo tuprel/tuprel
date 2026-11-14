@@ -39,7 +39,36 @@ or a protocol harness to send frames.
 - No workspace file access, database, subprocess or network access is required.
   Operational errors go to stderr without schema text, URIs or stack traces.
   Compiler messages go to the client through the protocol.
-- Formatting and editor integration have separate phases.
+- Editor integration and completion have separate phases.
+
+## Whole-document formatting
+
+The server advertises documentFormattingProvider and accepts
+textDocument/formatting for an open document. Send the usual options object
+with tabSize and insertSpaces. The formatter follows RFC-001: four spaces per
+level and LF, so applying an edit may convert CRLF to LF. Editor options do
+not change that policy.
+
+The server analyses the in-memory snapshot in message order. The official
+formatter validates the input, and the server compiles the output again and
+compares ordered language tokens and comments with the official lexer.
+String values are compared after decoding. Comment line endings are
+normalised for comparison. An edit replaces the exact original UTF-16 range,
+and the server never applies the edit itself. An unchanged, invalid,
+unavailable, oversized, unknown or closed document returns an empty list.
+
+Formatting results carry no document version. The future editor client must
+capture the version at request time and discard the result if the user has
+edited, closed or reopened the document before the result can be applied.
+
+The following request and response were captured from the installed server
+after opening an unsaved document with text model Item{ id Int @id }.
+Framing headers are omitted.
+
+```text
+>>> {"jsonrpc":"2.0","id":2,"method":"textDocument/formatting","params":{"textDocument":{"uri":"untitled:report.tuprel"},"options":{"tabSize":4,"insertSpaces":true}}}
+<<< {"jsonrpc":"2.0","id":2,"result":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":24}},"newText":"model Item {\n    id Int @id\n}\n"}]}
+```
 
 ## Dependency decision
 
@@ -65,7 +94,7 @@ with synthetic schemas. The UTF-8 Content-Length headers are omitted here.
 
 ```text
 >>> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}
-<<< {"jsonrpc":"2.0","id":1,"result":{"capabilities":{"textDocumentSync":{"openClose":true,"change":1},"positionEncoding":"utf-16"}}}
+<<< {"jsonrpc":"2.0","id":1,"result":{"capabilities":{"textDocumentSync":{"openClose":true,"change":1},"positionEncoding":"utf-16","documentFormattingProvider":true}}}
 >>> {"jsonrpc":"2.0","method":"initialized","params":{}}
 >>> {"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"untitled:report.tuprel","languageId":"tuprel","version":1,"text":"/* 🧪 */ $"}}}
 <<< {"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"untitled:report.tuprel","version":1,"diagnostics":[{"range":{"start":{"line":0,"character":9},"end":{"line":0,"character":10}},"severity":1,"code":"TUPREL-SCHEMA-LEX-001","source":"tuprel","message":"Unexpected character '$'."}]}}

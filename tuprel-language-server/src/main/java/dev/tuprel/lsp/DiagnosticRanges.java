@@ -24,9 +24,13 @@ final class DiagnosticRanges {
     }
 
     JsonObject range(SourceSpan span) {
+        return range(span.startOffset(), span.endOffset());
+    }
+
+    JsonObject range(int start, int end) {
         JsonObject range = new JsonObject();
-        range.add("start", position(span.startOffset()));
-        range.add("end", position(span.endOffset()));
+        range.add("start", position(start));
+        range.add("end", position(end));
         return range;
     }
 

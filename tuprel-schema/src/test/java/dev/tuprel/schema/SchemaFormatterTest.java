@@ -1,6 +1,7 @@
 package dev.tuprel.schema;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -66,6 +67,36 @@ class SchemaFormatterTest {
                 + "// next declaration\n"
                 + "model Other {\n    id Int @id\n}\n";
         assertPreservedFormatting(input, expected);
+    }
+
+    @Test
+    void preservationCheckAcceptsOfficialSpellingChanges() {
+        String input = "model Entry { id Int @id() label String @default(\"\\u0041\") }";
+        SourceText original = SourceText.of("original", input);
+        String output = formatter.format(original).formattedText().orElseThrow();
+
+        assertTrue(output.contains("id Int @id\n"));
+        assertTrue(output.contains("@default(\"A\")"));
+        assertTrue(formatter.preservesContents(original, SourceText.of("formatted", output)));
+    }
+
+    @Test
+    void preservationCheckRejectsChangedCommentsAndSemantics() {
+        String text = "/* 🧪\n  keep\n\n*/\nmodel Entry { id Int @id label String @default(\"a\") }";
+        SourceText original = SourceText.of("original", text);
+        assertTrue(formatter.preservesContents(
+                SourceText.of("original", text.replace("\n", "\r\n")), original));
+        for (String changed : List.of(
+                text.replace("  keep", " keep"),
+                text.replace("\n\n*/", "\n*/"),
+                text.substring(text.indexOf("model")),
+                text.replace("\"a\"", "\"b\""),
+                text.replace("id Int @id label String", "label String @default(\"a\") id Int @id")
+                        .replace("@id @default(\"a\")", "@id"),
+                text.replace("id Int", "id Long"))) {
+            assertTrue(new SchemaCompiler().compile(SourceText.of("changed", changed)).isValid());
+            assertFalse(formatter.preservesContents(original, SourceText.of("changed", changed)));
+        }
     }
 
     private void assertPreservedFormatting(String input, String expected) {

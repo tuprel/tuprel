@@ -9,6 +9,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.tuprel.schema.SchemaCompiler;
 import dev.tuprel.schema.SchemaDiagnostic;
+import dev.tuprel.schema.SchemaFormatter;
 import dev.tuprel.schema.SourceText;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
@@ -16,10 +17,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
 
 @Timeout(30)
 class LanguageServerProcessTest {
@@ -255,6 +258,115 @@ class LanguageServerProcessTest {
         }
     }
 
+    @Test
+    void formatsTheUnsavedSnapshotWithoutWritingToDisk(@TempDir Path directory) throws Exception {
+        Path saved = Files.writeString(directory.resolve("saved.tuprel"), "saved content\n");
+        Path missing = directory.resolve("missing.tuprel");
+        String uri = saved.toUri().toString();
+        String unsavedUri = missing.toUri().toString();
+        try (Client client = new Client()) {
+            client.initialize();
+            String input = "model User{ id UUID @id() }";
+            String expected = "model User {\n    id UUID @id\n}\n";
+            client.open(uri, 1, input);
+            assertTrue(client.diagnostics(uri, 1).isEmpty());
+            assertEdit(client.format(uri), expected, 0, input.length());
+
+            client.open(unsavedUri, 1, "model Other{ id Int @id }");
+            client.diagnostics(unsavedUri, 1);
+            assertEdit(client.format(unsavedUri), "model Other {\n    id Int @id\n}\n", 0, "model Other{ id Int @id }".length());
+            // A formatting response never changes the tracked text.
+            String edited = assertEdit(client.format(uri), expected, 0, input.length());
+            client.change(uri, 2, edited);
+            assertTrue(client.diagnostics(uri, 2).isEmpty());
+            assertTrue(client.format(uri).isEmpty());
+            client.notify("textDocument/didClose", document(uri, null));
+            client.diagnostics(uri, null);
+            assertTrue(client.format(uri).isEmpty());
+            assertTrue(client.format(SECOND).isEmpty());
+            assertEquals("saved content\n", Files.readString(saved));
+            assertFalse(Files.exists(missing));
+            client.shutdown();
+        }
+    }
+
+    @Test
+    void formatsCommentsAndEscapesWithTheOriginalUtf16Range() throws Exception {
+        String comment = "/* emoji 🧪\n    keep indentation\n\n*/";
+        String model = "model First{\n id UUID @id\n text String @default(\"a\\\"🐈\")\n}";
+        String original = comment + "\n" + model + "\nmodel Second{\n id Int @id\n} // 🧪";
+        SchemaFormatter formatter = new SchemaFormatter();
+        try (Client client = new Client()) {
+            client.initialize();
+            for (String eol : new String[] {"\n", "\r\n"}) {
+                for (boolean trailingNewline : new boolean[] {false, true}) {
+                    String input = (original + (trailingNewline ? "\n" : "")).replace("\n", eol);
+                    SourceText source = SourceText.of("before", input);
+                    String expected = formatter.format(source).formattedText().orElseThrow();
+                    assertTrue(expected.contains(comment));
+                    assertTrue(expected.contains("\"a\\\"🐈\""));
+                    assertFalse(expected.contains("\r"));
+                    SourceText formatted = SourceText.of("after", expected);
+                    assertTrue(new SchemaCompiler().compile(formatted).isValid());
+                    assertTrue(formatter.preservesContents(source, formatted));
+
+                    client.open(FIRST, 1, input);
+                    assertTrue(client.diagnostics(FIRST, 1).isEmpty());
+                    String edited = assertEdit(client.format(FIRST), expected, trailingNewline ? 11 : 10,
+                            trailingNewline ? 0 : "} // 🧪".length());
+                    client.change(FIRST, 2, edited);
+                    assertTrue(client.diagnostics(FIRST, 2).isEmpty());
+                    assertTrue(client.format(FIRST).isEmpty());
+                    client.notify("textDocument/didClose", document(FIRST, null));
+                    client.diagnostics(FIRST, null);
+                }
+            }
+            client.shutdown();
+        }
+    }
+
+    @Test
+    void invalidSnapshotsAndParametersCannotProduceFormattingEdits() throws Exception {
+        try (Client client = new Client()) {
+            client.initialize();
+            client.open(FIRST, 1, "");
+            assertFalse(client.diagnostics(FIRST, 1).isEmpty());
+            assertTrue(client.format(FIRST).isEmpty());
+            client.change(FIRST, 2, "model User {}");
+            assertFalse(client.diagnostics(FIRST, 2).isEmpty());
+            assertTrue(client.format(FIRST).isEmpty());
+            client.change(FIRST, 3, " ".repeat(65_537));
+            assertUnavailable(client, FIRST, 3, "TUPREL-LSP-DOCUMENT-TOO-LARGE");
+            assertTrue(client.format(FIRST).isEmpty());
+            client.change(FIRST, 4, "model User { id UUID @default(" + "[".repeat(20_000)
+                    + "0" + "]".repeat(20_000) + ") @id }");
+            assertUnavailable(client, FIRST, 4, "TUPREL-LSP-ANALYSIS-STACK-LIMIT");
+            assertTrue(client.format(FIRST).isEmpty());
+            for (String params : new String[] {
+                "{}", "[]", "{\"textDocument\":{\"uri\":true},\"options\":{}}",
+                "{\"textDocument\":{\"uri\":\"untitled:one\"},\"options\":{\"tabSize\":-1,\"insertSpaces\":true}}",
+                "{\"textDocument\":{\"uri\":\"untitled:one\"},\"options\":{\"tabSize\":4,\"insertSpaces\":\"true\"}}"
+            }) {
+                client.requestFormatting(params);
+                assertError(client, -32602);
+            }
+            client.change(FIRST, 5, VALID);
+            assertTrue(client.diagnostics(FIRST, 5).isEmpty());
+            assertEdit(client.format(FIRST), "model User {\n    id UUID @id\n}\n", 0, VALID.length());
+            client.shutdown("TUPREL-LSP-FORMATTING: schema formatting interrupted.");
+        }
+    }
+
+    private static String assertEdit(JsonArray edits, String expected, int line, int character) {
+        assertEquals(1, edits.size());
+        JsonObject edit = edits.get(0).getAsJsonObject();
+        assertPosition(edit, "start", 0, 0);
+        assertPosition(edit, "end", line, character);
+        String newText = edit.get("newText").getAsString();
+        assertEquals(expected, newText);
+        return newText;
+    }
+
     private static void assertError(Client client, int code) throws IOException {
         assertEquals(code, client.read().getAsJsonObject("error").get("code").getAsInt());
     }
@@ -325,6 +437,8 @@ class LanguageServerProcessTest {
             assertEquals("init", response.get("id").getAsString());
             JsonObject capabilities = response.getAsJsonObject("result").getAsJsonObject("capabilities");
             assertEquals("utf-16", capabilities.get("positionEncoding").getAsString());
+            assertTrue(capabilities.get("documentFormattingProvider").getAsBoolean());
+            assertFalse(capabilities.has("documentRangeFormattingProvider"));
             JsonObject sync = capabilities.getAsJsonObject("textDocumentSync");
             assertTrue(sync.get("openClose").getAsBoolean());
             assertEquals(1, sync.get("change").getAsInt());
@@ -370,12 +484,33 @@ class LanguageServerProcessTest {
             return params.getAsJsonArray("diagnostics");
         }
 
+        JsonArray format(String uri) throws IOException {
+            JsonObject params = document(uri, null);
+            JsonObject options = new JsonObject();
+            options.addProperty("tabSize", 2);
+            options.addProperty("insertSpaces", false);
+            params.add("options", options);
+            requestFormatting(params.toString());
+            JsonObject response = read();
+            assertEquals("format", response.get("id").getAsString());
+            return response.getAsJsonArray("result");
+        }
+
+        void requestFormatting(String params) throws IOException {
+            send("{\"jsonrpc\":\"2.0\",\"id\":\"format\",\"method\":\"textDocument/formatting\",\"params\":"
+                    + params + "}");
+        }
+
         void shutdown() throws Exception {
+            shutdown("");
+        }
+
+        void shutdown(String expectedStderr) throws Exception {
             send("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"shutdown\"}");
             assertTrue(read().get("result").isJsonNull());
             notify("exit", new JsonObject());
             finish(0);
-            assertEquals(-1, process.getErrorStream().read());
+            assertEquals(expectedStderr, new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8).strip());
         }
 
         void finish(int expectedExit) throws Exception {

@@ -10,6 +10,7 @@ import dev.tuprel.schema.ast.SchemaDocument.Declaration;
 import dev.tuprel.schema.ast.SchemaDocument.Expression;
 import dev.tuprel.schema.ast.SchemaDocument.FieldAttribute;
 import dev.tuprel.schema.ast.SchemaDocument.FieldDeclaration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
@@ -35,6 +36,42 @@ public final class SchemaFormatter {
                         : new AstPrinter().print(compilation.syntax().orElseThrow());
         return new SchemaFormatResult(java.util.Optional.of(formatted), List.of());
     }
+
+    /**
+     * Checks that formatting preserved the ordered language tokens and comments.
+     * Decoded string values, normalised comment line endings and optional empty
+     * field-attribute argument lists are compared according to RFC-001.
+     * Callers must validate both schemas separately.
+     */
+    public boolean preservesContents(SourceText original, SourceText formatted) {
+        Lexer.Result before = Lexer.lex(original);
+        Lexer.Result after = Lexer.lex(formatted);
+        return before.diagnostics().isEmpty() && after.diagnostics().isEmpty()
+                && comparableTokens(before.tokens()).equals(comparableTokens(after.tokens()));
+    }
+
+    private static List<TokenContent> comparableTokens(List<Token> tokens) {
+        List<TokenContent> result = new ArrayList<>(tokens.size());
+        for (int index = 0; index < tokens.size(); index++) {
+            Token token = tokens.get(index);
+            TokenKind kind = token.kind();
+            String value = kind == TokenKind.COMMENT
+                    ? token.text().replace("\r\n", "\n").replace('\r', '\n')
+                    : token.value();
+            result.add(new TokenContent(kind, value));
+
+            // The AST printer omits empty parentheses on field attributes.
+            if (kind == TokenKind.IDENTIFIER && index > 0 && index + 2 < tokens.size()
+                    && tokens.get(index - 1).kind() == TokenKind.AT
+                    && tokens.get(index + 1).kind() == TokenKind.LEFT_PAREN
+                    && tokens.get(index + 2).kind() == TokenKind.RIGHT_PAREN) {
+                index += 2;
+            }
+        }
+        return result;
+    }
+
+    private record TokenContent(TokenKind kind, String value) {}
 
     private String formatPreservingComments(String input, List<Token> tokens) {
         StringBuilder output = new StringBuilder();
