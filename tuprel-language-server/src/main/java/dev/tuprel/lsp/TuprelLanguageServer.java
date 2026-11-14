@@ -7,6 +7,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import dev.tuprel.schema.SchemaCompiler;
 import dev.tuprel.schema.SchemaDiagnostic;
+import dev.tuprel.schema.SchemaFormatResult;
+import dev.tuprel.schema.SchemaFormatter;
 import dev.tuprel.schema.SourceText;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -27,6 +29,8 @@ public final class TuprelLanguageServer {
     private record Snapshot(int version, String text) {}
 
     private final LspTransport transport;
+    private final SchemaFormatter formatter = new SchemaFormatter();
+    private final SchemaCompiler formattedSchemaCompiler = new SchemaCompiler();
     private final Function<SourceText, List<SchemaDiagnostic>> compile;
     private final Map<String, Snapshot> documents = new HashMap<>();
     private State state = State.NEW;
@@ -96,6 +100,7 @@ public final class TuprelLanguageServer {
             sync.addProperty("change", 1);
             capabilities.add("textDocumentSync", sync);
             capabilities.addProperty("positionEncoding", "utf-16");
+            capabilities.addProperty("documentFormattingProvider", true);
             JsonObject result = new JsonObject();
             result.add("capabilities", capabilities);
             state = State.INITIALIZING;
@@ -114,9 +119,68 @@ public final class TuprelLanguageServer {
             state = State.SHUTDOWN;
             documents.clear();
             respond(id, JsonNull.INSTANCE);
+        } else if ("textDocument/formatting".equals(method)) {
+            formatDocument(id, object(params));
         } else {
             error(id, -32601, "Method not found");
         }
+    }
+
+    private void formatDocument(JsonElement id, JsonObject params) throws IOException {
+        String uri = string(object(params.get("textDocument")).get("uri"));
+        JsonObject options = object(params.get("options"));
+        Integer tabSize = version(options.get("tabSize"));
+        JsonElement insertSpaces = options.get("insertSpaces");
+        if (!validUri(uri) || tabSize == null || tabSize < 0 || !isBoolean(insertSpaces)) {
+            error(id, -32602, "Invalid params");
+            return;
+        }
+        Snapshot snapshot = documents.get(uri);
+        JsonArray edits = new JsonArray();
+        if (snapshot != null && snapshot.text() != null) {
+            JsonObject edit = fullDocumentEdit(snapshot.text());
+            // The dispatcher owns the snapshots and handles one message at a time.
+            if (edit != null && snapshot.equals(documents.get(uri))) {
+                edits.add(edit);
+            }
+        }
+        respond(id, edits);
+    }
+
+    private JsonObject fullDocumentEdit(String text) {
+        try {
+            SourceText original = SourceText.of("editor.tuprel", text);
+            // SchemaFormatter validates the input before it can return formatted text.
+            SchemaFormatResult result = formatter.format(original);
+            if (!result.isSuccess()) {
+                return null;
+            }
+            String output = result.formattedText().orElseThrow();
+            if (output.equals(text)) {
+                return null;
+            }
+            SourceText formatted = SourceText.of("editor.tuprel", output);
+            if (output.isEmpty() || !formattedSchemaCompiler.compile(formatted).isValid()
+                    || !formatter.preservesContents(original, formatted)) {
+                System.err.println("TUPREL-LSP-FORMATTING: formatter output failed safety checks.");
+                return null;
+            }
+            JsonObject edit = new JsonObject();
+            edit.add("range", new DiagnosticRanges(text).range(0, text.length()));
+            edit.addProperty("newText", output);
+            return edit;
+        } catch (StackOverflowError | RuntimeException failure) {
+            System.err.println("TUPREL-LSP-FORMATTING: schema formatting interrupted.");
+            return null;
+        }
+    }
+
+    private static boolean isBoolean(JsonElement value) {
+        return value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isBoolean();
+    }
+
+    private static boolean validUri(String uri) {
+        return uri != null && !uri.isBlank() && uri.length() <= MAX_URI_UNITS;
     }
 
     private void notification(String method, JsonElement arguments) throws IOException {
@@ -131,7 +195,7 @@ public final class TuprelLanguageServer {
         JsonObject params = object(arguments);
         JsonObject document = object(params.get("textDocument"));
         String uri = string(document.get("uri"));
-        if (uri == null || uri.isBlank() || uri.length() > MAX_URI_UNITS) {
+        if (!validUri(uri)) {
             return;
         }
         Snapshot current = documents.get(uri);
