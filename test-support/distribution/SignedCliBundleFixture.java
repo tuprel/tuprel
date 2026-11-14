@@ -9,6 +9,8 @@ import java.security.KeyPairGenerator;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -30,6 +32,7 @@ final class SignedCliBundleFixture {
         Path firstZip = Path.of(args[2]);
         Path secondZip = Path.of(args[3]);
         if (args[0].equals("prepare")) {
+            assertMetadataFreshness();
             KeyPair fixtureKey = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
             byte[] publicKey = fixtureKey.getPublic().getEncoded();
             Files.write(privateRoot.resolve("public-key.bin"), publicKey);
@@ -118,6 +121,21 @@ final class SignedCliBundleFixture {
     private static byte[] authorization(String firstDigest, String secondDigest, String firstMode) {
         return ("TUPREL-STAGING-AUTHORIZATION 1\n" + FIRST + " " + firstDigest + " " + firstMode
                 + "\n" + SECOND + " " + secondDigest + " allow\n").getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+    }
+
+    private static void assertMetadataFreshness() throws Exception {
+        Instant issued = Instant.parse("2026-11-14T00:00:00Z");
+        Instant expires = issued.plus(24, ChronoUnit.HOURS);
+        StagedMetadataFreshness.verify(issued, issued, issued, expires);
+        StagedMetadataFreshness.verify(expires.minusNanos(1), issued, issued, expires);
+        reject(() -> StagedMetadataFreshness.verify(expires, issued, issued, expires));
+        reject(() -> StagedMetadataFreshness.verify(expires.plusSeconds(1), issued, issued, expires));
+        reject(() -> StagedMetadataFreshness.verify(issued.minusNanos(1), null, issued, expires));
+        reject(() -> StagedMetadataFreshness.verify(issued, issued.plusSeconds(1), issued, expires));
+        reject(() -> StagedMetadataFreshness.verify(issued, null, issued, expires.plusNanos(1)));
+        reject(() -> StagedMetadataFreshness.verify(issued, null, issued, issued));
+        reject(() -> StagedMetadataFreshness.verify(issued, null, issued, issued.minusSeconds(1)));
+        reject(() -> StagedMetadataFreshness.verify(null, issued, issued, expires));
     }
 
     private static void assertRejectsUntrustedAuthorization(Path directory, KeyPair fixtureKey, String keyId,

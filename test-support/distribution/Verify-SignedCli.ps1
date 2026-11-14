@@ -23,7 +23,7 @@ try {
     [IO.Directory]::CreateDirectory($classes) | Out-Null
     $java = Join-Path $env:JAVA_HOME 'bin/java'
     $javac = Join-Path $env:JAVA_HOME 'bin/javac'
-    & $javac --release 21 -Xlint:all -Werror -d $classes "$PSScriptRoot/SignedCliBundle.java" "$PSScriptRoot/SignedCliBundleFixture.java" "$PSScriptRoot/VerifyCliBundle.java" "$PSScriptRoot/StagingRoot.java" "$PSScriptRoot/StagedActivation.java" "$PSScriptRoot/StagedAuthorization.java" "$PSScriptRoot/StagedBashPath.java"
+    & $javac --release 21 -Xlint:all -Werror -d $classes "$PSScriptRoot/SignedCliBundle.java" "$PSScriptRoot/SignedCliBundleFixture.java" "$PSScriptRoot/VerifyCliBundle.java" "$PSScriptRoot/StagingRoot.java" "$PSScriptRoot/StagedActivation.java" "$PSScriptRoot/StagedAuthorization.java" "$PSScriptRoot/StagedMetadataFreshness.java" "$PSScriptRoot/StagedBashPath.java"
     if ($LASTEXITCODE -ne 0) { throw 'Staging verifier did not compile' }
 
     $versions = @('0.0.0-staging', '0.0.1-staging')
