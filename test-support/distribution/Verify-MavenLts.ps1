@@ -103,6 +103,7 @@ try {
     }
     Select-Jdk 21
     $repository = Join-Path $fixture 'tuprel-maven-fixture-lts'
+    [IO.Directory]::CreateDirectory($repository) | Out-Null
     & "$PSScriptRoot/Verify-StagedMaven.ps1" -Repository $repository -IncludeCli -Gpg $Gpg
     $publication = Get-Hashes $repository
     $stagedJars = [ordered]@{}

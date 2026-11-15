@@ -5,8 +5,8 @@ $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
 $ownsRepository = -not $Repository
 if ($ownsRepository) {
     $repository = Join-Path ([IO.Path]::GetTempPath()) ("tuprel-maven-fixture-" + [guid]::NewGuid())
+    [IO.Directory]::CreateDirectory($repository) | Out-Null
 }
-[IO.Directory]::CreateDirectory($repository) | Out-Null
 Push-Location -LiteralPath $root
 try {
     $gradle = if ($IsWindows) { '.\gradlew.bat' } else { './gradlew' }
