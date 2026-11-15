@@ -32,9 +32,15 @@ final class NativeRenameProcess implements AutoCloseable {
         ProcessBuilder builder = new ProcessBuilder(executable.toString(), "2", parent.toString(), stage, destination)
                 .directory(executable.getParent().toFile()).redirectError(ProcessBuilder.Redirect.DISCARD);
         builder.environment().clear();
-        Process process = builder.start();
+        return start(builder.start());
+    }
+
+    static NativeRenameProcess start(Process process) throws IOException, InterruptedException {
         try { return new NativeRenameProcess(process); }
-        catch (IOException | InterruptedException failure) { process.destroyForcibly(); throw failure; }
+        catch (IOException | InterruptedException failure) {
+            stop(process);
+            throw failure;
+        }
     }
 
     String identity(String frame) throws IOException {
@@ -77,7 +83,12 @@ final class NativeRenameProcess implements AutoCloseable {
     static boolean validIdentity(String value) { return ID.matcher(value).matches(); }
 
     @Override public void close() {
+        stop(process);
+    }
+
+    private static void stop(Process process) {
         try { process.getOutputStream().close(); } catch (IOException ignored) { /* Final result is determined separately. */ }
+        // The authenticated helper owns the pipe's only writer. Stop it before closing a pipe with a blocked reader.
         if (process.isAlive()) { process.destroyForcibly(); }
         try { process.getInputStream().close(); } catch (IOException ignored) { /* No raw process errors escape. */ }
     }
@@ -95,7 +106,9 @@ final class NativeRenameProcess implements AutoCloseable {
 
     private static <T> T within(Callable<T> operation) throws IOException, InterruptedException {
         FutureTask<T> task = new FutureTask<>(operation);
-        Thread.startVirtualThread(task);
+        Thread reader = new Thread(null, task, "tuprel-native-publisher-response", 0, false);
+        reader.setDaemon(true);
+        reader.start();
         try { return task.get(TIMEOUT_SECONDS, TimeUnit.SECONDS); }
         catch (ExecutionException | TimeoutException failure) { throw protocol(); }
         finally { task.cancel(true); }

@@ -13,21 +13,21 @@ class MigrationStatusTest {
         MigrationStatus status = MigrationStatus.compare(List.of(file(1, "first"), file(2, "next")), new MigrationHistory(false, List.of()));
         assertFalse(status.initialised());
         assertFalse(status.hasProblems());
-        assertEquals(Set.of(MigrationStatus.State.PENDING), status.entries().getFirst().states());
+        assertEquals(Set.of(MigrationStatus.State.PENDING), status.entries().get(0).states());
         assertThrows(UnsupportedOperationException.class, () -> status.entries().clear());
     }
     @Test void exactPrefixLeavesOnlyLaterMigrationsPending() {
         MigrationStatus status = compare(List.of(file(2, "next"), file(1, "first")), List.of(row(file(1, "first"), 1)));
         assertFalse(status.hasProblems());
         assertEquals(List.of("first", "next"), status.entries().stream().map(MigrationStatus.Entry::name).toList());
-        assertEquals(Set.of(MigrationStatus.State.APPLIED), status.entries().getFirst().states());
+        assertEquals(Set.of(MigrationStatus.State.APPLIED), status.entries().get(0).states());
     }
     @Test void independentChecksumNameAndRemovalDivergencesAreRetained() {
         MigrationFile edited = new MigrationFile(file(1, "renamed").id(), "renamed", "-- edited\n".getBytes(StandardCharsets.UTF_8));
         MigrationStatus status = compare(List.of(edited), List.of(row(file(1, "first"), 1), row(file(2, "removed"), 2)));
         assertTrue(status.hasProblems());
-        assertTrue(status.entries().getFirst().states().containsAll(Set.of(MigrationStatus.State.MODIFIED, MigrationStatus.State.RENAMED)));
-        assertTrue(status.entries().getLast().states().contains(MigrationStatus.State.REMOVED));
+        assertTrue(status.entries().get(0).states().containsAll(Set.of(MigrationStatus.State.MODIFIED, MigrationStatus.State.RENAMED)));
+        assertTrue(status.entries().get(status.entries().size() - 1).states().contains(MigrationStatus.State.REMOVED));
     }
     @Test void gapsRetroactiveFilesAndReversedExecutionTimesAreOutOfOrder() {
         MigrationStatus gap = compare(List.of(file(1, "first"), file(2, "second")), List.of(row(file(2, "second"), 2)));

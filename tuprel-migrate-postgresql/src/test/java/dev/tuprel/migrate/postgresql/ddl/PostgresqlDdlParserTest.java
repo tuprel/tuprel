@@ -26,8 +26,8 @@ class PostgresqlDdlParserTest {
                 """);
         assertTrue(parsed.isSupported());
         assertEquals(3, parsed.statements().size());
-        DdlStatement.CreateTable table = assertInstanceOf(DdlStatement.CreateTable.class, parsed.statements().getFirst());
-        assertTrue(table.columns().getFirst().primaryKey()); assertFalse(table.columns().getFirst().nullable());
+        DdlStatement.CreateTable table = assertInstanceOf(DdlStatement.CreateTable.class, parsed.statements().get(0));
+        assertTrue(table.columns().get(0).primaryKey()); assertFalse(table.columns().get(0).nullable());
         assertEquals("""
                 CREATE TABLE "app"."User" (
                     "id" "pg_catalog"."uuid" NOT NULL PRIMARY KEY,

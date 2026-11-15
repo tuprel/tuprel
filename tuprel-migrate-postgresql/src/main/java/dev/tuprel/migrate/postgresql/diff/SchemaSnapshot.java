@@ -98,30 +98,28 @@ public final class SchemaSnapshot {
             }
             objects += statement instanceof DdlStatement.CreateTable create ? 1 + create.columns().size() : 1;
             if (objects > MAX_OBJECTS) { throw new IllegalArgumentException("TUPREL-DIFF-RESOURCE_LIMIT: Too many schema objects"); }
-            switch (statement) {
-                case DdlStatement.CreateTable create -> {
-                    if (!relations.add(name)) { throw conflict(); }
-                    Map<String, DdlStatement.Column> columns = new TreeMap<>();
-                    create.columns().forEach(column -> columns.put(column.name().name(), column));
-                    tables.put(name, new Table(columns, Map.of()));
+            if (statement instanceof DdlStatement.CreateTable create) {
+                if (!relations.add(name)) { throw conflict(); }
+                Map<String, DdlStatement.Column> columns = new TreeMap<>();
+                create.columns().forEach(column -> columns.put(column.name().name(), column));
+                tables.put(name, new Table(columns, Map.of()));
+            } else if (statement instanceof DdlStatement.AddColumn add) {
+                Table table = requireTable(tables, name);
+                Map<String, DdlStatement.Column> columns = new TreeMap<>(table.columns());
+                if (columns.putIfAbsent(add.name().name(), new DdlStatement.Column(add.name(), add.type(), true, false)) != null
+                        || columns.size() > DdlStatement.MAX_COLUMNS) { throw conflict(); }
+                tables.put(name, new Table(columns, table.indexes()));
+            } else if (statement instanceof DdlStatement.CreateIndex index) {
+                Table table = requireTable(tables, name);
+                if (reserved(index.name().name()) || !relations.add(index.name().name())
+                        || !table.columns().keySet().containsAll(index.columns().stream().map(SqlIdentifier::name).toList())) {
+                    throw conflict();
                 }
-                case DdlStatement.AddColumn add -> {
-                    Table table = requireTable(tables, name);
-                    Map<String, DdlStatement.Column> columns = new TreeMap<>(table.columns());
-                    if (columns.putIfAbsent(add.name().name(), new DdlStatement.Column(add.name(), add.type(), true, false)) != null
-                            || columns.size() > DdlStatement.MAX_COLUMNS) { throw conflict(); }
-                    tables.put(name, new Table(columns, table.indexes()));
-                }
-                case DdlStatement.CreateIndex index -> {
-                    Table table = requireTable(tables, name);
-                    if (reserved(index.name().name()) || !relations.add(index.name().name())
-                            || !table.columns().keySet().containsAll(index.columns().stream().map(SqlIdentifier::name).toList())) {
-                        throw conflict();
-                    }
-                    Map<String, DdlStatement.CreateIndex> indexes = new TreeMap<>(table.indexes());
-                    indexes.put(index.name().name(), index);
-                    tables.put(name, new Table(table.columns(), indexes));
-                }
+                Map<String, DdlStatement.CreateIndex> indexes = new TreeMap<>(table.indexes());
+                indexes.put(index.name().name(), index);
+                tables.put(name, new Table(table.columns(), indexes));
+            } else {
+                throw new IncompatibleClassChangeError();
             }
         }
         return new SchemaSnapshot(schema, tables);

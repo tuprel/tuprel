@@ -72,7 +72,7 @@ public record MigrationStatus(boolean initialised, List<Entry> entries) {
             previous = row;
         }
         if (!applied.isEmpty()) {
-            MigrationId last = applied.getLast().id();
+            MigrationId last = applied.get(applied.size() - 1).id();
             boolean gap = states.entrySet().stream().anyMatch(entry ->
                     entry.getKey().compareTo(last) < 0 && entry.getValue().contains(State.PENDING));
             if (gap) {

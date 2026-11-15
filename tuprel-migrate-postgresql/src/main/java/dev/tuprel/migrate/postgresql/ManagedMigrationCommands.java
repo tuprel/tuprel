@@ -34,7 +34,7 @@ final class ManagedMigrationCommands {
     }
 
     int run(List<String> arguments, PrintWriter out, PrintWriter err) {
-        if (arguments.size() < 2 || !arguments.getFirst().equals("migrate")) { return usage(err); }
+        if (arguments.size() < 2 || !arguments.get(0).equals("migrate")) { return usage(err); }
         Map<String, String> options = new HashMap<>();
         for (int index = 2; index < arguments.size(); index++) {
             String option = arguments.get(index);

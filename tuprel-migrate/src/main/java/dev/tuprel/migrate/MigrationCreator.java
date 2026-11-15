@@ -146,7 +146,7 @@ public final class MigrationCreator {
         if (existing.stream().anyMatch(file -> file.id().equals(id))) {
             throw new MigrationCreationException(Reason.COLLISION);
         }
-        if (!existing.isEmpty() && id.compareTo(existing.getLast().id()) < 0) {
+        if (!existing.isEmpty() && id.compareTo(existing.get(existing.size() - 1).id()) < 0) {
             throw new MigrationCreationException(Reason.CLOCK_ORDER);
         }
         byte[] bytes = DRAFT.getBytes(StandardCharsets.UTF_8);

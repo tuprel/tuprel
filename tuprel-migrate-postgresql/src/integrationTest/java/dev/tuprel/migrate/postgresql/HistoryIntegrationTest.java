@@ -77,7 +77,7 @@ class HistoryIntegrationTest {
         MigrationStatus status = status();
         assertFalse(status.initialised());
         assertFalse(status.hasProblems());
-        assertEquals(MigrationStatus.State.PENDING, status.entries().getFirst().states().iterator().next());
+        assertEquals(MigrationStatus.State.PENDING, status.entries().get(0).states().iterator().next());
         assertEquals(before, objects());
         assertEquals(0, count("SELECT count(*) FROM pg_catalog.pg_class WHERE relnamespace = '" + schema + "'::regnamespace"));
     }
@@ -89,8 +89,8 @@ class HistoryIntegrationTest {
         MigrationStatus status = status();
         assertTrue(status.initialised());
         assertFalse(status.hasProblems());
-        assertTrue(status.entries().getFirst().states().contains(MigrationStatus.State.APPLIED));
-        assertTrue(status.entries().getLast().states().contains(MigrationStatus.State.PENDING));
+        assertTrue(status.entries().get(0).states().contains(MigrationStatus.State.APPLIED));
+        assertTrue(status.entries().get(status.entries().size() - 1).states().contains(MigrationStatus.State.PENDING));
         assertEquals(before, fingerprint());
     }
 
@@ -104,8 +104,8 @@ class HistoryIntegrationTest {
         Files.delete(catalog.resolve(second.directoryName()).resolve("migration.sql"));
         Files.delete(catalog.resolve(second.directoryName()));
         MigrationStatus status = status();
-        assertTrue(status.entries().getFirst().states().containsAll(java.util.Set.of(MigrationStatus.State.MODIFIED, MigrationStatus.State.RENAMED)));
-        assertTrue(status.entries().getLast().states().contains(MigrationStatus.State.REMOVED));
+        assertTrue(status.entries().get(0).states().containsAll(java.util.Set.of(MigrationStatus.State.MODIFIED, MigrationStatus.State.RENAMED)));
+        assertTrue(status.entries().get(status.entries().size() - 1).states().contains(MigrationStatus.State.REMOVED));
         assertTrue(status.hasProblems());
     }
 

@@ -125,8 +125,8 @@ public final class MigrationDirectory {
         for (Path ancestor = canonical; ancestor != null; ancestor = ancestor.getParent()) {
             ancestors.add(ancestor);
         }
-        for (Path ancestor : ancestors.reversed()) {
-            BasicFileAttributes attributes = attributes(ancestor);
+        for (int index = ancestors.size() - 1; index >= 0; index--) {
+            BasicFileAttributes attributes = attributes(ancestors.get(index));
             if (!attributes.isDirectory() || attributes.isSymbolicLink() || attributes.isOther()) {
                 throw failure(Reason.INVALID_ROOT);
             }

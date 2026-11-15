@@ -98,7 +98,7 @@ class PostgresqlMigrationPlanCompilerTest {
             MigrationPlan plan = compile(List.of(file(1, "first", CREATE), file(2, "unknown", source)), EMPTY);
             assertEquals(MigrationPlan.State.BLOCKED, plan.state());
             assertThrows(IllegalStateException.class, plan::preview);
-            assertFalse(plan.scripts().getLast().diagnostic().orElseThrow().toString().contains("private_password"));
+            assertFalse(plan.scripts().get(plan.scripts().size() - 1).diagnostic().orElseThrow().toString().contains("private_password"));
         }
     }
 
@@ -169,14 +169,14 @@ class PostgresqlMigrationPlanCompilerTest {
         assertEquals(1, result.scripts().size());
         assertThrows(UnsupportedOperationException.class, () -> result.scripts().clear());
         assertThrows(UnsupportedOperationException.class, () -> result.risks().clear());
-        assertThrows(UnsupportedOperationException.class, () -> result.scripts().getFirst().risks().clear());
+        assertThrows(UnsupportedOperationException.class, () -> result.scripts().get(0).risks().clear());
         assertEquals(1, IntStream.range(0, 32).parallel().mapToObj(ignored -> compiler.compile(target, List.of(file(1, "first", CREATE)), EMPTY).digest()).distinct().count());
     }
 
     @Test void independentPowerShellGoldenVectorFixesTheBinaryProtocol() throws Exception {
         assertEquals("da2917ea228fc91fe41e388e8213ef1d71d39a93e97017a76c39f4ac4e21a55c", target().fingerprint().value());
         MigrationPlan plan = compile(List.of(file(1, "first", CREATE)), EMPTY);
-        assertEquals("96b368e8fe05a1ca823fd1fb38f95f8a9399667b75cc75493f538c34f2de8e08", plan.scripts().getFirst().previewChecksum().orElseThrow().value());
+        assertEquals("96b368e8fe05a1ca823fd1fb38f95f8a9399667b75cc75493f538c34f2de8e08", plan.scripts().get(0).previewChecksum().orElseThrow().value());
         assertEquals("d1af5be3dd5c6c329e75ca9e5e0e0e2c32be15456cfebf7f54b5b348849879fc", plan.digest().value());
         MigrationFile file = file(1, "first", CREATE);
         AppliedMigration row = new AppliedMigration(file.id(), file.name(), file.checksum(),

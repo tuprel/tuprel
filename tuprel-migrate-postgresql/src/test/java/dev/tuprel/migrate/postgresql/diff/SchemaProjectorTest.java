@@ -72,7 +72,7 @@ class SchemaProjectorTest {
     @Test void configurationIsNeverEvaluatedAndDiagnosticsAreDetachedPositions() {
         SchemaProjection result = project("datasource db { provider = \"postgresql\" url = env(\"UNSET_SECRET\") } model Item { id UUID @id value String @default(\"private_value\") }");
         assertTrue(result.snapshot().isEmpty());
-        assertTrue(result.diagnostics().getFirst().start().column() > 0);
+        assertTrue(result.diagnostics().get(0).start().column() > 0);
         assertFalse(result.diagnostics().toString().contains("UNSET_SECRET"));
     }
 
@@ -97,9 +97,12 @@ class SchemaProjectorTest {
     @Test void sharedProjectorIsDeterministicUnderConcurrency() throws Exception {
         ValidatedSchema source = compile("model Item { id UUID @id value String? @@index([value]) }");
         String expected = diff(projector.project(APP, source)).preview();
-        try (java.util.concurrent.ExecutorService executor = Executors.newFixedThreadPool(4)) {
+        java.util.concurrent.ExecutorService executor = Executors.newFixedThreadPool(4);
+        try {
             List<Callable<String>> tasks = IntStream.range(0, 64).mapToObj(index -> (Callable<String>) () -> diff(projector.project(APP, source)).preview()).toList();
             for (java.util.concurrent.Future<String> future : executor.invokeAll(tasks)) { assertEquals(expected, future.get()); }
+        } finally {
+            executor.shutdownNow();
         }
     }
 

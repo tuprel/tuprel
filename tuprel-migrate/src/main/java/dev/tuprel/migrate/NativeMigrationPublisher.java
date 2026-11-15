@@ -94,7 +94,9 @@ final class NativeMigrationPublisher {
         MigrationChecksum baseline = digest(existing);
         if (expected.isPresent() && !expected.orElseThrow().equals(baseline)) { return Outcome.REFUSED; }
         byte[] sql = candidate.sql().getBytes(StandardCharsets.UTF_8);
-        if (!existing.isEmpty() && existing.getLast().id().compareTo(candidate.id()) >= 0) { return Outcome.REFUSED; }
+        if (!existing.isEmpty() && existing.get(existing.size() - 1).id().compareTo(candidate.id()) >= 0) {
+            return Outcome.REFUSED;
+        }
         if (existing.size() >= MigrationDirectory.MAX_MIGRATIONS || sql.length + existing.stream()
                 .mapToLong(file -> file.sql().getBytes(StandardCharsets.UTF_8).length).sum()
                 > MigrationDirectory.MAX_TOTAL_SQL_BYTES) { return Outcome.REFUSED; }
