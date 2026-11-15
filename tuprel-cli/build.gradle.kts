@@ -1,5 +1,3 @@
-import org.gradle.api.attributes.java.TargetJvmVersion
-
 plugins {
     id("tuprel.java-conventions")
     application
@@ -9,11 +7,12 @@ tasks.compileJava {
     options.release.set(17)
 }
 
-// The CLI sources target 17. The full distribution still needs the Java 21 code generator.
-listOf("compileClasspath", "runtimeClasspath", "apiElements", "runtimeElements").forEach { name ->
-    configurations.named(name) {
-        attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 21)
-    }
+tasks.compileTestJava {
+    options.release.set(17)
+}
+
+tasks.named<JavaCompile>("compileIntegrationTestJava") {
+    options.release.set(17)
 }
 
 dependencies {

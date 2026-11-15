@@ -54,7 +54,7 @@ public final class Consumer {
         });
         List<Product> page = db.product().findMany(query -> query.where(ProductWhere.stock().gte(2))
                 .orderBy(ProductOrder.stock().desc(), ProductOrder.id().asc()).take(1));
-        require(page.size() == 1 && page.getFirst().id() == 1);
+        require(page.size() == 1 && page.get(0).id() == 1);
         Purchase purchase = db.purchase().findById(1, query -> query.include(PurchaseInclude.product())).orElseThrow();
         require(purchase.product().get().name().equals("Keyboard"));
         require(db.product().updateById(1, ProductUpdate.builder().stock(1).build()).orElseThrow().stock() == 1);

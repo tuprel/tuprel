@@ -89,11 +89,14 @@ class CliExperienceTest {
     @Test
     void concurrentInitializersHaveExactlyOneWinner() throws Exception {
         CountDownLatch start = new CountDownLatch(1);
-        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
             Future<Integer> first = executor.submit(() -> { start.await(); return run("init").code(); });
             Future<Integer> second = executor.submit(() -> { start.await(); return run("init").code(); });
             start.countDown();
             assertEquals(List.of(0, 2), List.of(first.get(), second.get()).stream().sorted().toList());
+        } finally {
+            executor.shutdownNow();
         }
         assertEquals(0, run("validate").code());
         assertTrue(MigrationDirectory.discover(project.resolve("tuprel/migrations")).isEmpty());
