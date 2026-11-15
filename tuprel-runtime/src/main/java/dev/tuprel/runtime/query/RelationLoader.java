@@ -123,8 +123,8 @@ final class RelationLoader {
 
     private static SqlCondition keyCondition(List<? extends Field<?, ?>> fields, List<List<SqlValue>> keys) {
         if (fields.size() == 1) {
-            return new SqlCondition.Comparison(fields.getFirst().column(), SqlCondition.Operator.IN,
-                    keys.stream().map(List::getFirst).toList());
+            return new SqlCondition.Comparison(fields.get(0).column(), SqlCondition.Operator.IN,
+                    keys.stream().map(key -> key.get(0)).toList());
         }
         List<SqlCondition> alternatives = new ArrayList<>(keys.size());
         for (List<SqlValue> key : keys) {
@@ -135,6 +135,6 @@ final class RelationLoader {
             }
             alternatives.add(new SqlCondition.And(terms));
         }
-        return alternatives.size() == 1 ? alternatives.getFirst() : new SqlCondition.Or(alternatives);
+        return alternatives.size() == 1 ? alternatives.get(0) : new SqlCondition.Or(alternatives);
     }
 }

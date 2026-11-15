@@ -391,7 +391,7 @@ public final class TuprelDatabase {
             throw new TuprelDatabaseException(TuprelDatabaseException.Phase.EXECUTION,
                     new SQLException("Aggregate query did not return exactly one row"));
         }
-        return rows.getFirst();
+        return rows.get(0);
     }
 
     private int updateCount(SqlCommand command) {

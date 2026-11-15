@@ -10,6 +10,7 @@ import dev.tuprel.sql.SqlRenderer;
 import dev.tuprel.sql.SqlValue;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.StringJoiner;
 
@@ -32,28 +33,48 @@ public final class PostgresqlRenderer implements SqlRenderer {
 
     @Override
     public RenderedSql render(SqlCommand command) {
-        return checked(switch (command) {
-            case SqlCommand.Insert insert -> insert(insert.table(), insert.values());
-            case SqlCommand.InsertReturning insert -> returning(
+        return checked(renderCommand(command));
+    }
+
+    private static RenderedSql renderCommand(SqlCommand command) {
+        Objects.requireNonNull(command);
+        if (command instanceof SqlCommand.Insert insert) {
+            return insert(insert.table(), insert.values());
+        }
+        if (command instanceof SqlCommand.InsertReturning insert) {
+            return returning(
                     insert(insert.table(), insert.values()), insert.returning());
-            case SqlCommand.FindById find -> new RenderedSql(
+        }
+        if (command instanceof SqlCommand.FindById find) {
+            return new RenderedSql(
                     "SELECT * FROM " + quote(find.table()) + " WHERE " + quote(find.idColumn()) + " = ?",
                     List.of(find.id()));
-            case SqlCommand.InsertMany insert -> insertMany(insert);
-            case SqlCommand.UpdateById update -> update(update);
-            case SqlCommand.UpdateByIdReturning update -> returning(versioned(update), update.returning());
-            case SqlCommand.UpdateWhere update -> updateWhere(update);
-            case SqlCommand.DeleteById delete -> new RenderedSql(
+        }
+        if (command instanceof SqlCommand.InsertMany insert) {
+            return insertMany(insert);
+        }
+        if (command instanceof SqlCommand.UpdateById update) {
+            return update(update);
+        }
+        if (command instanceof SqlCommand.UpdateByIdReturning update) {
+            return returning(versioned(update), update.returning());
+        }
+        if (command instanceof SqlCommand.UpdateWhere update) {
+            return updateWhere(update);
+        }
+        if (command instanceof SqlCommand.DeleteById delete) {
+            return new RenderedSql(
                     "DELETE FROM " + quote(delete.table()) + " WHERE " + quote(delete.idColumn()) + " = ?",
                     List.of(delete.id()));
-            case SqlCommand.DeleteWhere delete -> {
-                StringBuilder sql = new StringBuilder("DELETE FROM ").append(quote(delete.table()))
-                        .append(" WHERE ");
-                List<SqlValue> binds = new ArrayList<>();
-                appendCondition(sql, binds, delete.condition());
-                yield new RenderedSql(sql.toString(), binds);
-            }
-        });
+        }
+        if (command instanceof SqlCommand.DeleteWhere delete) {
+            StringBuilder sql = new StringBuilder("DELETE FROM ").append(quote(delete.table()))
+                    .append(" WHERE ");
+            List<SqlValue> binds = new ArrayList<>();
+            appendCondition(sql, binds, delete.condition());
+            return new RenderedSql(sql.toString(), binds);
+        }
+        throw new IncompatibleClassChangeError();
     }
 
     private static RenderedSql insertMany(SqlCommand.InsertMany command) {
@@ -109,38 +130,37 @@ public final class PostgresqlRenderer implements SqlRenderer {
     public RenderedSql render(SqlQuery query) {
         List<SqlValue> binds = new ArrayList<>();
         StringBuilder sql = new StringBuilder();
-        switch (query.selection()) {
-            case SqlQuery.Selection.Columns columns -> {
-                sql.append("SELECT ").append(columns(columns.columns()))
-                        .append(" FROM ").append(quote(query.table()));
-                appendWhere(sql, binds, query);
-                appendOrder(sql, query.orderBy());
-                query.limit().ifPresent(value -> {
-                    sql.append(" LIMIT ?");
-                    binds.add(new SqlValue.Int32(value));
-                });
-                query.offset().ifPresent(value -> {
-                    sql.append(" OFFSET ?");
-                    binds.add(new SqlValue.Int32(value));
-                });
-                query.lock().ifPresent(lock -> {
-                    sql.append(lock.strength() == SqlQuery.Lock.Strength.UPDATE ? " FOR UPDATE" : " FOR SHARE");
-                    switch (lock.waitPolicy()) {
-                        case WAIT -> { }
-                        case NOWAIT -> sql.append(" NOWAIT");
-                        case SKIP_LOCKED -> sql.append(" SKIP LOCKED");
-                    }
-                });
-            }
-            case SqlQuery.Selection.Count count -> {
-                sql.append("SELECT COUNT(*) AS \"count\" FROM ").append(quote(query.table()));
-                appendWhere(sql, binds, query);
-            }
-            case SqlQuery.Selection.Exists exists -> {
-                sql.append("SELECT EXISTS (SELECT 1 FROM ").append(quote(query.table()));
-                appendWhere(sql, binds, query);
-                sql.append(") AS \"exists\"");
-            }
+        SqlQuery.Selection selection = Objects.requireNonNull(query.selection());
+        if (selection instanceof SqlQuery.Selection.Columns columns) {
+            sql.append("SELECT ").append(columns(columns.columns()))
+                    .append(" FROM ").append(quote(query.table()));
+            appendWhere(sql, binds, query);
+            appendOrder(sql, query.orderBy());
+            query.limit().ifPresent(value -> {
+                sql.append(" LIMIT ?");
+                binds.add(new SqlValue.Int32(value));
+            });
+            query.offset().ifPresent(value -> {
+                sql.append(" OFFSET ?");
+                binds.add(new SqlValue.Int32(value));
+            });
+            query.lock().ifPresent(lock -> {
+                sql.append(lock.strength() == SqlQuery.Lock.Strength.UPDATE ? " FOR UPDATE" : " FOR SHARE");
+                switch (lock.waitPolicy()) {
+                    case WAIT -> { }
+                    case NOWAIT -> sql.append(" NOWAIT");
+                    case SKIP_LOCKED -> sql.append(" SKIP LOCKED");
+                }
+            });
+        } else if (selection instanceof SqlQuery.Selection.Count) {
+            sql.append("SELECT COUNT(*) AS \"count\" FROM ").append(quote(query.table()));
+            appendWhere(sql, binds, query);
+        } else if (selection instanceof SqlQuery.Selection.Exists) {
+            sql.append("SELECT EXISTS (SELECT 1 FROM ").append(quote(query.table()));
+            appendWhere(sql, binds, query);
+            sql.append(") AS \"exists\"");
+        } else {
+            throw new IncompatibleClassChangeError();
         }
         return checked(new RenderedSql(sql.toString(), binds));
     }
@@ -199,17 +219,22 @@ public final class PostgresqlRenderer implements SqlRenderer {
 
     private static void appendCondition(StringBuilder sql, List<SqlValue> binds,
             SqlCondition condition) {
-        switch (condition) {
-            case SqlCondition.Comparison comparison -> appendComparison(sql, binds, comparison);
-            case SqlCondition.NullCheck check -> sql.append(quote(check.column()))
-                    .append(check.negated() ? " IS NOT NULL" : " IS NULL");
-            case SqlCondition.And and -> appendJoined(sql, binds, " AND ", and.terms());
-            case SqlCondition.Or or -> appendJoined(sql, binds, " OR ", or.terms());
-            case SqlCondition.Not not -> {
-                sql.append("NOT (");
-                appendCondition(sql, binds, not.term());
-                sql.append(')');
-            }
+        Objects.requireNonNull(condition);
+        if (condition instanceof SqlCondition.Comparison comparison) {
+            appendComparison(sql, binds, comparison);
+        } else if (condition instanceof SqlCondition.NullCheck check) {
+            sql.append(quote(check.column()))
+                .append(check.negated() ? " IS NOT NULL" : " IS NULL");
+        } else if (condition instanceof SqlCondition.And and) {
+            appendJoined(sql, binds, " AND ", and.terms());
+        } else if (condition instanceof SqlCondition.Or or) {
+            appendJoined(sql, binds, " OR ", or.terms());
+        } else if (condition instanceof SqlCondition.Not not) {
+            sql.append("NOT (");
+            appendCondition(sql, binds, not.term());
+            sql.append(')');
+        } else {
+            throw new IncompatibleClassChangeError();
         }
     }
 
@@ -238,7 +263,7 @@ public final class PostgresqlRenderer implements SqlRenderer {
     }
 
     private static String pattern(SqlCondition.Comparison comparison) {
-        String operand = ((SqlValue.Text) comparison.values().getFirst()).value();
+        String operand = ((SqlValue.Text) comparison.values().get(0)).value();
         StringBuilder escaped = new StringBuilder(operand.length() + 2);
         for (int index = 0; index < operand.length(); index++) {
             char character = operand.charAt(index);

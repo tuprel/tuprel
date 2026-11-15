@@ -135,7 +135,7 @@ class ModelOperationsTest {
         assertEquals(new SqlValue.Text("RUNNABLE"), Field.<Person, Thread.State>enumeration("a", false,
                 p -> Thread.State.RUNNABLE, Thread.State::valueOf).bind(Thread.State.RUNNABLE));
         assertEquals(new SqlValue.Binary(new byte[] {1}), Field.<Person, List<Byte>>bytes("a", true, p -> null,
-                bytes -> List.of(bytes[0]), list -> new byte[] {list.getFirst()}).bind(List.of((byte) 1)));
+                bytes -> List.of(bytes[0]), list -> new byte[] {list.get(0)}).bind(List.of((byte) 1)));
         assertThrows(IllegalArgumentException.class, () -> TextField.<Person>text("bad name", false, Person::name));
     }
 
@@ -176,23 +176,23 @@ class ModelOperationsTest {
         assertEquals(SqlQuery.select(C_TABLE, List.of(C_ID, C_NAME, C_AGE))
                 .where(NAME.eq("x").toSql())
                 .orderBy(List.of(new SqlOrder(C_AGE, SqlOrder.Direction.DESC)))
-                .limit(10).offset(5), recorder.queries.getLast());
+                .limit(10).offset(5), recorder.queries.get(recorder.queries.size() - 1));
         people.findFirst(Query.<Person>all().orderBy(NAME.asc()));
-        assertEquals(Optional.of(1), recorder.queries.getLast().limit());
+        assertEquals(Optional.of(1), recorder.queries.get(recorder.queries.size() - 1).limit());
         people.findById(7L);
         assertEquals(SqlQuery.select(C_TABLE, List.of(C_ID, C_NAME, C_AGE)).where(ID.eq(7L).toSql()),
-                recorder.queries.getLast());
+                recorder.queries.get(recorder.queries.size() - 1));
         people.select(Projection.of(List.of(NAME), row -> row.get(NAME)), Query.<Person>all().take(3));
-        assertEquals(SqlQuery.select(C_TABLE, List.of(C_NAME)).limit(3), recorder.queries.getLast());
+        assertEquals(SqlQuery.select(C_TABLE, List.of(C_NAME)).limit(3), recorder.queries.get(recorder.queries.size() - 1));
         // The fake driver returns no row, which an aggregate must report as a runtime failure.
         TuprelDatabaseException noRow = assertThrows(TuprelDatabaseException.class,
                 () -> people.count(Query.<Person>all().where(AGE.isNull())));
         assertEquals(TuprelDatabaseException.Phase.EXECUTION, noRow.phase());
-        assertEquals(SqlQuery.count(C_TABLE).where(AGE.isNull().toSql()), recorder.queries.getLast());
+        assertEquals(SqlQuery.count(C_TABLE).where(AGE.isNull().toSql()), recorder.queries.get(recorder.queries.size() - 1));
         assertThrows(TuprelDatabaseException.class, () -> people.exists(Query.all()));
-        assertEquals(SqlQuery.exists(C_TABLE), recorder.queries.getLast());
+        assertEquals(SqlQuery.exists(C_TABLE), recorder.queries.get(recorder.queries.size() - 1));
         assertEquals(recorder.preview, people.preview(Query.all()));
-        assertEquals(SqlQuery.select(C_TABLE, List.of(C_ID, C_NAME, C_AGE)), recorder.queries.getLast());
+        assertEquals(SqlQuery.select(C_TABLE, List.of(C_ID, C_NAME, C_AGE)), recorder.queries.get(recorder.queries.size() - 1));
     }
 
     @Test
@@ -209,7 +209,7 @@ class ModelOperationsTest {
         assertEquals(1, recorder.connections, "An update is one statement on one connection");
         assertEquals(new SqlCommand.UpdateByIdReturning(C_TABLE, C_ID, new SqlValue.Int64(1),
                 List.of(new SqlCommand.Assignment(C_NAME, new SqlValue.Text("b"))), List.of(C_ID, C_NAME, C_AGE)),
-                recorder.commands.getLast());
+                recorder.commands.get(recorder.commands.size() - 1));
     }
 
     @Test
@@ -229,7 +229,7 @@ class ModelOperationsTest {
         ModelOperations<Person, Long> people = recorder.operations();
         people.findManyCursor(Query.<Person>all().take(2));
         assertEquals(SqlQuery.select(C_TABLE, List.of(C_ID, C_NAME, C_AGE))
-                .orderBy(List.of(new SqlOrder(C_ID, SqlOrder.Direction.ASC))).limit(3), recorder.queries.getLast());
+                .orderBy(List.of(new SqlOrder(C_ID, SqlOrder.Direction.ASC))).limit(3), recorder.queries.get(recorder.queries.size() - 1));
 
         Cursor cursor = new Cursor("person:name-,id+", List.of(new SqlValue.Text("M"), new SqlValue.Int64(9)));
         people.findManyCursor(Query.<Person>all().where(AGE.gt(1)).orderBy(NAME.desc(), ID.asc())
@@ -243,7 +243,7 @@ class ModelOperationsTest {
                 .where(new SqlCondition.And(List.of(AGE.gt(1).toSql(), keyset)))
                 .orderBy(List.of(new SqlOrder(C_NAME, SqlOrder.Direction.DESC),
                         new SqlOrder(C_ID, SqlOrder.Direction.ASC)))
-                .limit(3), recorder.queries.getLast());
+                .limit(3), recorder.queries.get(recorder.queries.size() - 1));
     }
 
     @Test
@@ -293,7 +293,7 @@ class ModelOperationsTest {
         assertEquals(0, recorder.connections);
         recorder.database().transaction(tx -> new ModelOperations<>(tx, TABLE).findMany(locked.take(1)));
         assertEquals(Optional.of(new SqlQuery.Lock(SqlQuery.Lock.Strength.UPDATE, SqlQuery.Lock.Wait.SKIP_LOCKED)),
-                recorder.queries.getLast().lock());
+                recorder.queries.get(recorder.queries.size() - 1).lock());
     }
 
     @Test
@@ -305,7 +305,7 @@ class ModelOperationsTest {
         assertEquals(new SqlCommand.InsertMany(C_TABLE, List.of(C_NAME, C_AGE), List.of(
                 List.of(Optional.of(new SqlValue.Text("a")), Optional.empty()),
                 List.of(Optional.of(new SqlValue.Text("b")), Optional.of(new SqlValue.Int32(3))))),
-                recorder.commands.getLast());
+                recorder.commands.get(recorder.commands.size() - 1));
         assertThrows(IllegalArgumentException.class, () -> people.createMany(List.of()));
         assertThrows(IllegalArgumentException.class, () -> people.createMany(List.of(Assignments.empty())));
         List<Assignments<Person>> large = new ArrayList<>();
@@ -325,9 +325,9 @@ class ModelOperationsTest {
         ModelOperations<Person, Long> people = recorder.operations();
         people.updateMany(AGE.lt(18), Assignments.<Person>empty().set(NAME, "minor"));
         assertEquals(new SqlCommand.UpdateWhere(C_TABLE, List.of(new SqlCommand.Assignment(C_NAME,
-                new SqlValue.Text("minor"))), AGE.lt(18).toSql(), Optional.empty()), recorder.commands.getLast());
+                new SqlValue.Text("minor"))), AGE.lt(18).toSql(), Optional.empty()), recorder.commands.get(recorder.commands.size() - 1));
         people.deleteMany(AGE.isNull());
-        assertEquals(new SqlCommand.DeleteWhere(C_TABLE, AGE.isNull().toSql()), recorder.commands.getLast());
+        assertEquals(new SqlCommand.DeleteWhere(C_TABLE, AGE.isNull().toSql()), recorder.commands.get(recorder.commands.size() - 1));
         assertThrows(NullPointerException.class, () -> people.deleteMany(null));
         assertThrows(IllegalArgumentException.class, () -> people.updateMany(AGE.lt(1), Assignments.empty()));
         assertThrows(IllegalArgumentException.class,
@@ -343,7 +343,7 @@ class ModelOperationsTest {
         assertThrows(IllegalArgumentException.class,
                 () -> versionedPeople.updateById(1L, Long.MAX_VALUE, Assignments.<Person>empty().set(NAME, "x")));
         versionedPeople.updateMany(ID.eq(1L), Assignments.<Person>empty().set(NAME, "x"));
-        assertEquals(Optional.of(C_AGE), ((SqlCommand.UpdateWhere) recorder.commands.getLast()).incrementVersion());
+        assertEquals(Optional.of(C_AGE), ((SqlCommand.UpdateWhere) recorder.commands.get(recorder.commands.size() - 1)).incrementVersion());
         assertThrows(IllegalStateException.class,
                 () -> people.updateById(1L, 1, Assignments.<Person>empty().set(NAME, "x")));
         assertThrows(IllegalArgumentException.class, () -> ModelTable.versioned("person", ID, AGE,

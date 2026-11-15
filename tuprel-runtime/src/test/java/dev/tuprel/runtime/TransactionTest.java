@@ -199,7 +199,7 @@ class TransactionTest {
         assertFalse(recorder.events.contains("commit"));
         assertEquals(List.of("abort", "close"), recorder.events.subList(recorder.events.size() - 2,
                 recorder.events.size()));
-        assertEquals("close", recorder.events.getLast());
+        assertEquals("close", recorder.events.get(recorder.events.size() - 1));
     }
 
     @Test
@@ -212,7 +212,7 @@ class TransactionTest {
         assertEquals("40001", failure.sqlState());
         assertEquals(1, failure.getSuppressed().length);
         assertFalse(recorder.events.contains("setAutoCommit(true)"));
-        assertEquals("close", recorder.events.getLast());
+        assertEquals("close", recorder.events.get(recorder.events.size() - 1));
     }
 
     @Test
@@ -253,7 +253,7 @@ class TransactionTest {
                 tx -> tx.deleteById(DELETE)));
         assertTrue(recorder.events.contains("setReadOnly(false)"));
         assertFalse(recorder.events.contains("executeUpdate"));
-        assertEquals("close", recorder.events.getLast());
+        assertEquals("close", recorder.events.get(recorder.events.size() - 1));
     }
 
     @Test
@@ -261,7 +261,7 @@ class TransactionTest {
         Recorder recorder = new Recorder();
         recorder.originalReadOnly = true;
         recorder.database().transaction(tx -> tx.deleteById(DELETE));
-        assertEquals("setReadOnly(false)", recorder.events.getFirst());
+        assertEquals("setReadOnly(false)", recorder.events.get(0));
         assertEquals("setReadOnly(true)", recorder.events.get(recorder.events.size() - 2));
     }
 
@@ -313,7 +313,7 @@ class TransactionTest {
         assertSame(original, failure);
         assertEquals(2, failure.getSuppressed().length);
         assertFalse(recorder.events.contains("setAutoCommit(true)"));
-        assertEquals("close", recorder.events.getLast());
+        assertEquals("close", recorder.events.get(recorder.events.size() - 1));
     }
 
     @Test
@@ -325,7 +325,7 @@ class TransactionTest {
         assertSame(recorder.commitFailure, failure.getCause());
         assertEquals(TuprelDatabaseException.Phase.TRANSACTION, failure.phase());
         assertTrue(recorder.events.contains("rollback"));
-        assertEquals("close", recorder.events.getLast());
+        assertEquals("close", recorder.events.get(recorder.events.size() - 1));
     }
 
     @Test
@@ -341,7 +341,7 @@ class TransactionTest {
         assertTrue(recorder.events.contains("commit"));
         assertTrue(recorder.events.contains("abort"));
         assertFalse(recorder.events.contains("rollback"), "The transaction was already committed");
-        assertEquals("close", recorder.events.getLast());
+        assertEquals("close", recorder.events.get(recorder.events.size() - 1));
     }
 
     @Test
@@ -359,7 +359,7 @@ class TransactionTest {
         assertEquals(1, recorder.statementsClosed);
         assertTrue(recorder.events.contains("rollback"));
         assertFalse(recorder.events.contains("commit"));
-        assertEquals("close", recorder.events.getLast());
+        assertEquals("close", recorder.events.get(recorder.events.size() - 1));
     }
 
     @Test
@@ -371,7 +371,7 @@ class TransactionTest {
         assertSame(recorder.streamOpeningFailure, failure);
         assertEquals(1, recorder.statementsClosed);
         assertTrue(recorder.events.contains("rollback"));
-        assertEquals("close", recorder.events.getLast());
+        assertEquals("close", recorder.events.get(recorder.events.size() - 1));
     }
 
     @Test

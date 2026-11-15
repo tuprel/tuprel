@@ -51,7 +51,7 @@ public final class Relation<M, T> {
             BiFunction<M, T, M> attach) {
         Objects.requireNonNull(attach, "attach");
         return new Relation<>(name, Kind.ONE, sourceFields, target, targetFields,
-                (row, values) -> attach.apply(row, values.getFirst()));
+                (row, values) -> attach.apply(row, values.iterator().next()));
     }
 
     /** Relation to at most one target row, such as a nullable foreign key or a one-to-one inverse. */

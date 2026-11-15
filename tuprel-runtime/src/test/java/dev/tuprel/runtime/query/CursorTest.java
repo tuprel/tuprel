@@ -31,6 +31,10 @@ class CursorTest {
                 new SqlValue.Binary(new byte[] {0, -1, 7}));
         Cursor cursor = new Cursor("Order:id+", values);
         String token = cursor.encode();
+        // Token produced by the Java 21 implementation, covering every existing wire tag.
+        assertEquals("AQAAAAlPcmRlcjppZCsOAQAAAB1uYcOvdmUg4piDICc7IERST1AgVEFCTEUgeDstLQL_-QOAAAAABH"
+                + "__________BT_AAAAGv9AAAAAAAAAHAAAACjEyMzQ1LjY3ODkIAQnhZClwrTVF0JvgadbNILYHCgAAAABqu4"
+                + "_CB1vNFQsAAAAAAABQ9QAAIZaNVXkADAAAAAAAACrMDQAATpSRP73ADgAAAAMA_wc", token);
         assertTrue(token.matches("[A-Za-z0-9_-]+"), token);
         Cursor decoded = Cursor.decode(token);
         assertEquals(cursor, decoded);

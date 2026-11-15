@@ -2,6 +2,18 @@ plugins {
     id("tuprel.java-conventions")
 }
 
+tasks.compileJava {
+    options.release.set(17)
+}
+
+tasks.compileTestJava {
+    options.release.set(17)
+}
+
+tasks.named<JavaCompile>("compileIntegrationTestJava") {
+    options.release.set(17)
+}
+
 dependencies {
     api(project(":tuprel-runtime"))
     implementation(project(":tuprel-sql"))
