@@ -10,6 +10,65 @@ permissions:
   contents: read
 
 jobs:
+  maven-lts:
+    name: External Maven consumers (Java 17, 21, 25)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.11-trixie
+        env:
+          POSTGRES_USER: tuprel_fixture
+          POSTGRES_PASSWORD: disposable_fixture
+          POSTGRES_DB: tuprel_devtest
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk17
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk25
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk21
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify and unpack Apache Maven 3.9.16
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          archive=apache-maven-3.9.16-bin.tar.gz
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --max-time 120 "https://archive.apache.org/dist/maven/maven-3/3.9.16/binaries/$archive" -o "$archive"
+          printf '%s  %s\n' '831a8591fe20c8243b1dbe7d71e3244f31d1665b0804b2e825e38cbbe5ce0cafb8338851f90780735568773e0a6cd07bbec107cda0b896b008b861075358b6f6ed4' "$archive" | sha512sum --check
+          tar -xzf "$archive"
+      - name: Verify Maven publication, isolation and consumer execution
+        shell: pwsh
+        env:
+          TUPREL_JDK_17: ${{ steps.jdk17.outputs.path }}
+          TUPREL_JDK_21: ${{ steps.jdk21.outputs.path }}
+          TUPREL_JDK_25: ${{ steps.jdk25.outputs.path }}
+          TUPREL_TEST_JDBC_URL: jdbc:postgresql://127.0.0.1:${{ job.services.postgres.ports[5432] }}/tuprel_devtest
+          TUPREL_TEST_DB_USER: tuprel_fixture
+          TUPREL_TEST_DB_PASSWORD: disposable_fixture
+        run: |
+          ./test-support/distribution/Verify-MavenLts.ps1 -Maven "$env:RUNNER_TEMP/apache-maven-3.9.16/bin/mvn" `
+            -Jdk17 $env:TUPREL_JDK_17 -Jdk21 $env:TUPREL_JDK_21 -Jdk25 $env:TUPREL_JDK_25 -Gpg /usr/bin/gpg -Postgresql
   verify:
     name: Staged CLI (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
@@ -24,6 +83,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: replay-jdk
+        with:
+          distribution: temurin
+          java-version: '25'
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
@@ -52,7 +116,9 @@ jobs:
           persist-credentials: false
       - name: Compile and upgrade an external Maven consumer
         shell: pwsh
-        run: ./test-support/distribution/Verify-MavenConsumer.ps1 -PreviousCheckout build/maven-upgrade-fixture
+        env:
+          TUPREL_REPLAY_JDK: ${{ steps.replay-jdk.outputs.path }}
+        run: ./test-support/distribution/Verify-MavenConsumer.ps1 -PreviousCheckout build/maven-upgrade-fixture -ReplayJdk25 $env:TUPREL_REPLAY_JDK
       - name: Resolve the staged Gradle plugin marker in an external project
         if: runner.os == 'Linux'
         shell: pwsh

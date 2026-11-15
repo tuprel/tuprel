@@ -76,7 +76,9 @@ try {
     [IO.File]::WriteAllBytes($changed, $bytes)
     & $Gpg @verify --verify (ConvertTo-GpgPath "$($Files[0]).asc") (ConvertTo-GpgPath $changed)
     if ($LASTEXITCODE -ne 1) { throw 'A changed artifact did not produce the expected signature failure' }
-    "Verified $($Files.Count) signed Maven staging artifacts and rejected changed bytes"
+    & $Gpg @verify --verify (ConvertTo-GpgPath "$($Files[1]).asc") (ConvertTo-GpgPath $Files[0])
+    if ($LASTEXITCODE -ne 1) { throw 'A substituted signature did not produce the expected signature failure' }
+    "Verified $($Files.Count) signed Maven staging artifacts and rejected changed bytes and a substituted signature"
 } finally {
     & $gpgconf --homedir $signerArgument --kill gpg-agent
     if ($LASTEXITCODE -ne 0) { throw 'Cannot stop the isolated staging signer' }

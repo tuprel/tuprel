@@ -1,11 +1,13 @@
 param(
     [string]$Maven = $(if ($IsWindows) { 'mvn.cmd' } else { 'mvn' }),
-    [string]$PreviousCheckout
+    [string]$PreviousCheckout,
+    [string]$ReplayJdk25
 )
 
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
 $previous = $null
+if ($ReplayJdk25 -and -not $PreviousCheckout) { throw 'A replay needs the pinned previous checkout' }
 if ($PreviousCheckout) {
     $previous = (Resolve-Path -LiteralPath $PreviousCheckout).Path
     $revision = git -C $previous rev-parse HEAD
@@ -67,11 +69,35 @@ try {
         $arguments = @('--batch-mode', '--no-transfer-progress', '--strict-checksums',
             '--settings', $settings, '--global-settings', $settings,
             "-Dmaven.repo.local=$localRepository", "-Dfixture.version=$version", "-Dfixture.repository=$repositoryUrl")
+        if ($previous) { $arguments += '-Dmaven.compiler.release=21' }
         Push-Location -LiteralPath $project
         try {
             if ($previous -and -not $isOld) {
                 & $mavenCommand @arguments exec:java
                 if ($LASTEXITCODE -ne 0) { throw 'The old compiled consumer could not link against the new runtime' }
+                if ($ReplayJdk25) {
+                    $compiled = @(Get-ChildItem -LiteralPath 'target/classes' -File -Recurse -Filter '*.class')
+                    if ($compiled.Count -eq 0) { throw 'Missing compiled legacy fixture' }
+                    $before = ($compiled | Get-FileHash -Algorithm SHA256 | ForEach-Object Hash) -join ','
+                    $buildJava = $env:JAVA_HOME
+                    $buildPath = $env:PATH
+                    try {
+                        $env:JAVA_HOME = (Resolve-Path -LiteralPath $ReplayJdk25).Path
+                        $env:PATH = (Join-Path $env:JAVA_HOME 'bin') + [IO.Path]::PathSeparator + $buildPath
+                        $reported = (& $mavenCommand --version | Out-String)
+                        if ($LASTEXITCODE -ne 0 -or $reported -notmatch 'Java version: 25[.,]') {
+                            throw 'Expected Maven to run on Java 25 for the pinned binary replay'
+                        }
+                        & $mavenCommand @arguments exec:java
+                        if ($LASTEXITCODE -ne 0) { throw 'The pinned Java 21 binary could not link on Java 25' }
+                        $after = ($compiled | Get-FileHash -Algorithm SHA256 | ForEach-Object Hash) -join ','
+                        if ($after -cne $before) { throw 'Pinned consumer classes changed during the replay' }
+                        Write-Output 'Pinned Java 21 Maven consumer linked on Java 21 and 25 without recompilation'
+                    } finally {
+                        $env:JAVA_HOME = $buildJava
+                        $env:PATH = $buildPath
+                    }
+                }
                 & $mavenCommand @arguments clean compile exec:java
                 if ($LASTEXITCODE -ne 0) { throw 'The old generated sources could not compile against the new runtime' }
             }
@@ -84,7 +110,7 @@ try {
             $generator = if ($isOld) { $previousLauncher } else { $launcher }
             & $generator generate 'tuprel/schema.tuprel'
             if ($LASTEXITCODE -ne 0) { throw 'Java generation failed' }
-            & $mavenCommand @arguments clean compile exec:java
+            & $mavenCommand @arguments clean verify exec:java
             if ($LASTEXITCODE -ne 0) { throw 'External Maven consumer failed' }
             foreach ($library in @('tuprel-sql', 'tuprel-runtime', 'tuprel-postgresql')) {
                 if (-not (Test-Path -LiteralPath "$localRepository/dev/tuprel/staging/$library/$version/$library-$version.jar" -PathType Leaf)) {
