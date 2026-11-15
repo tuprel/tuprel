@@ -36,7 +36,7 @@ final class SemanticValidator {
         }
     }
 
-    private static final Set<String> SCALARS =
+    static final Set<String> SCALARS =
             Set.of(
                     "String",
                     "Boolean",
@@ -53,6 +53,9 @@ final class SemanticValidator {
                     "LocalTime",
                     "Bytes",
                     "Json");
+
+    static final Set<String> FIELD_ATTRIBUTES = Set.of("id", "unique", "default", "relation", "version");
+    static final Set<String> MODEL_ATTRIBUTES = Set.of("index", "unique");
 
     private static final Set<String> NUMERIC_SCALARS =
             Set.of("Short", "Int", "Long", "Decimal", "Float", "Double");
@@ -288,7 +291,7 @@ final class SemanticValidator {
             ModelDeclaration model, FieldDeclaration field) {
         Map<String, FieldAttribute> attributes = new LinkedHashMap<>();
         for (FieldAttribute attribute : field.attributes()) {
-            if (!Set.of("id", "unique", "default", "relation", "version").contains(attribute.name())) {
+            if (!FIELD_ATTRIBUTES.contains(attribute.name())) {
                 add(
                         "TUPREL-SCHEMA-SEM-009",
                         "Unknown field attribute '@%s' on '%s.%s'."
@@ -647,7 +650,7 @@ final class SemanticValidator {
         List<ValidatedIndex> result = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         for (BlockAttribute attribute : model.attributes()) {
-            if (!Set.of("index", "unique").contains(attribute.name())) {
+            if (!MODEL_ATTRIBUTES.contains(attribute.name())) {
                 add(
                         "TUPREL-SCHEMA-SEM-009",
                         "Unknown model attribute '@@%s' on '%s'."
@@ -879,20 +882,25 @@ final class SemanticValidator {
     }
 
     private Optional<ResolvedType> resolve(String name) {
-        if (SCALARS.contains(name)) {
-            return Optional.of(new ResolvedType(name, TypeKind.SCALAR));
-        }
-        if (enums.containsKey(name)) {
-            return Optional.of(new ResolvedType(name, TypeKind.ENUM));
-        }
-        if (models.containsKey(name)) {
-            return Optional.of(new ResolvedType(name, TypeKind.MODEL));
-        }
-        return Optional.empty();
+        return resolve(name, declared -> {
+            if (enums.containsKey(declared)) {
+                return TypeKind.ENUM;
+            }
+            return models.containsKey(declared) ? TypeKind.MODEL : null;
+        });
+    }
+
+    static Optional<ResolvedType> resolve(String name, Function<String, TypeKind> declaredType) {
+        TypeKind kind = SCALARS.contains(name) ? TypeKind.SCALAR : declaredType.apply(name);
+        return kind == null ? Optional.empty() : Optional.of(new ResolvedType(name, kind));
+    }
+
+    static boolean isAllowedName(String name) {
+        return !JAVA_RESERVED.contains(name);
     }
 
     private void validateName(String name, String kind, SourceSpan span) {
-        if (JAVA_RESERVED.contains(name)) {
+        if (!isAllowedName(name)) {
             add(
                     "TUPREL-SCHEMA-SEM-003",
                     "%s name '%s' is reserved by Java.".formatted(capitalize(kind), name),

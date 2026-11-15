@@ -1,0 +1,549 @@
+package dev.tuprel.lsp;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import dev.tuprel.schema.SchemaCompiler;
+import dev.tuprel.schema.SchemaCompletion;
+import dev.tuprel.schema.SchemaDiagnostic;
+import dev.tuprel.schema.SchemaFormatResult;
+import dev.tuprel.schema.SchemaFormatter;
+import dev.tuprel.schema.SchemaSymbols;
+import dev.tuprel.schema.SourceSpan;
+import dev.tuprel.schema.SourceText;
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+/** Standalone Tuprel language server entry point. */
+public final class TuprelLanguageServer {
+    private static final int MAX_DOCUMENTS = 64;
+    private static final int MAX_DOCUMENT_UNITS = 64 * 1024;
+    private static final int MAX_URI_UNITS = 4096;
+    private static final int MAX_DIAGNOSTICS = 200;
+    private static final int MAX_COMPLETIONS = 200;
+
+    private enum State { NEW, INITIALIZING, READY, SHUTDOWN }
+
+    private enum PositionQuery { COMPLETION, HOVER, DEFINITION }
+
+    private record Snapshot(int version, String text, boolean analysisFailed) {}
+
+    private record Analysis(JsonArray diagnostics, boolean failed) {}
+
+    private final LspTransport transport;
+    private final SchemaCompletion completion = new SchemaCompletion();
+    private final SchemaSymbols symbols = new SchemaSymbols();
+    private final SchemaFormatter formatter = new SchemaFormatter();
+    private final SchemaCompiler formattedSchemaCompiler = new SchemaCompiler();
+    private final Function<SourceText, List<SchemaDiagnostic>> compile;
+    private final Map<String, Snapshot> documents = new HashMap<>();
+    private State state = State.NEW;
+    private boolean capacityWarningSent;
+
+    TuprelLanguageServer(LspTransport transport, Function<SourceText, List<SchemaDiagnostic>> compile) {
+        this.transport = transport;
+        this.compile = compile;
+    }
+
+    /** Runs the stdio session and returns a process status through the Java launcher. */
+    public static void main(String[] args) {
+        SchemaCompiler compiler = new SchemaCompiler();
+        try {
+            System.exit(new TuprelLanguageServer(
+                    new LspTransport(new BufferedInputStream(System.in), System.out),
+                    source -> compiler.compile(source).diagnostics()).run());
+        } catch (IOException | RuntimeException failure) {
+            System.err.println("TUPREL language server session terminated.");
+            System.exit(1);
+        }
+    }
+
+    int run() throws IOException {
+        String body;
+        while ((body = transport.read()) != null) {
+            JsonElement input;
+            try {
+                input = transport.parse(body);
+            } catch (JsonParseException failure) {
+                error(JsonNull.INSTANCE, -32700, "Parse error");
+                continue;
+            }
+            if (input == null || !input.isJsonObject()) {
+                error(JsonNull.INSTANCE, -32600, "Invalid Request");
+                continue;
+            }
+            JsonObject message = input.getAsJsonObject();
+            String method = string(message.get("method"));
+            JsonElement id = message.get("id");
+            if (!"2.0".equals(string(message.get("jsonrpc"))) || method == null || method.isEmpty() || !validId(id)) {
+                error(JsonNull.INSTANCE, -32600, "Invalid Request");
+                continue;
+            }
+            JsonElement params = message.get("params");
+            if (id != null) {
+                request(id, method, params);
+            } else if (params == null || params.isJsonObject()) {
+                if ("exit".equals(method)) {
+                    return state == State.SHUTDOWN ? 0 : 1;
+                }
+                notification(method, params);
+            }
+        }
+        return 0;
+    }
+
+    private void request(JsonElement id, String method, JsonElement params) throws IOException {
+        if ("initialize".equals(method) && state == State.NEW) {
+            if (params == null || !params.isJsonObject()) {
+                error(id, -32602, "Invalid params");
+                return;
+            }
+            JsonObject capabilities = new JsonObject();
+            JsonObject sync = new JsonObject();
+            sync.addProperty("openClose", true);
+            sync.addProperty("change", 1);
+            capabilities.add("textDocumentSync", sync);
+            capabilities.addProperty("positionEncoding", "utf-16");
+            capabilities.addProperty("documentFormattingProvider", true);
+            capabilities.addProperty("hoverProvider", true);
+            capabilities.addProperty("definitionProvider", true);
+            JsonObject completionProvider = new JsonObject();
+            JsonArray triggers = new JsonArray();
+            triggers.add("@");
+            completionProvider.add("triggerCharacters", triggers);
+            capabilities.add("completionProvider", completionProvider);
+            JsonObject result = new JsonObject();
+            result.add("capabilities", capabilities);
+            state = State.INITIALIZING;
+            respond(id, result);
+        } else if (state == State.SHUTDOWN || "initialize".equals(method)) {
+            error(id, -32600, "Invalid Request");
+        } else if (state != State.READY) {
+            error(id, -32002, "Server not initialized");
+        } else if (params != null && !params.isJsonObject()) {
+            error(id, -32602, "Invalid params");
+        } else if ("shutdown".equals(method)) {
+            if (params != null && !params.getAsJsonObject().isEmpty()) {
+                error(id, -32602, "Invalid params");
+                return;
+            }
+            state = State.SHUTDOWN;
+            documents.clear();
+            respond(id, JsonNull.INSTANCE);
+        } else if ("textDocument/formatting".equals(method)) {
+            formatDocument(id, object(params));
+        } else {
+            switch (method) {
+                case "textDocument/completion" -> queryDocument(id, object(params), PositionQuery.COMPLETION);
+                case "textDocument/hover" -> queryDocument(id, object(params), PositionQuery.HOVER);
+                case "textDocument/definition" -> queryDocument(id, object(params), PositionQuery.DEFINITION);
+                default -> error(id, -32601, "Method not found");
+            }
+        }
+    }
+
+    private void queryDocument(JsonElement id, JsonObject params, PositionQuery query) throws IOException {
+        String uri = string(object(params.get("textDocument")).get("uri"));
+        JsonObject position = object(params.get("position"));
+        Integer line = version(position.get("line"));
+        Integer character = version(position.get("character"));
+        if (!validPositionUri(uri, query) || line == null || character == null || line < 0 || character < 0) {
+            error(id, -32602, "Invalid params");
+            return;
+        }
+
+        Snapshot snapshot = documents.get(uri);
+        // Position requests have no version. The dispatcher sees updates and requests in wire order.
+        if (snapshot == null || snapshot.text() == null
+                || (query != PositionQuery.COMPLETION && snapshot.analysisFailed())) {
+            respond(id, emptyPositionResult(query));
+            return;
+        }
+        DiagnosticRanges ranges = new DiagnosticRanges(snapshot.text());
+        int offset = ranges.offset(line, character);
+        if (offset < 0) {
+            respond(id, emptyPositionResult(query));
+            return;
+        }
+        respond(id, query == PositionQuery.COMPLETION
+                ? completionItems(snapshot.text(), ranges, offset)
+                : symbolResult(query, uri, snapshot.text(), ranges, offset));
+    }
+
+    private static JsonElement emptyPositionResult(PositionQuery query) {
+        return query == PositionQuery.COMPLETION ? new JsonArray() : JsonNull.INSTANCE;
+    }
+
+    private JsonElement completionItems(String text, DiagnosticRanges ranges, int offset) {
+        JsonArray items = new JsonArray();
+        Optional<SchemaCompletion.Result> result;
+        try {
+            result = completion.complete(SourceText.of("editor.tuprel", text), offset);
+        } catch (StackOverflowError exhausted) {
+            // Completion uses the same recursive parser as diagnostics.
+            return items;
+        } catch (RuntimeException failure) {
+            System.err.println("TUPREL-LSP-COMPLETION: unexpected schema query exception.");
+            return items;
+        }
+        if (result.isEmpty()) {
+            return items;
+        }
+
+        SchemaCompletion.Result suggestions = result.orElseThrow();
+        JsonObject range = ranges.range(suggestions.replacement());
+        for (SchemaCompletion.Item suggestion : suggestions.items().stream().limit(MAX_COMPLETIONS).toList()) {
+            JsonObject edit = new JsonObject();
+            edit.add("range", range);
+            edit.addProperty("newText", suggestion.label());
+            JsonObject item = new JsonObject();
+            item.addProperty("label", suggestion.label());
+            item.addProperty("kind", switch (suggestion.kind()) {
+                case SCALAR, MODEL -> 7; // Class is the LSP kind for these named types.
+                case ATTRIBUTE -> 10; // Property
+                case ENUM -> 13;
+                case KEYWORD -> 14;
+            });
+            item.add("textEdit", edit);
+            items.add(item);
+        }
+        if (suggestions.items().size() <= MAX_COMPLETIONS) {
+            return items;
+        }
+        JsonObject list = new JsonObject();
+        list.addProperty("isIncomplete", true);
+        list.add("items", items);
+        return list;
+    }
+
+    private JsonElement symbolResult(PositionQuery query, String uri, String text, DiagnosticRanges ranges, int offset) {
+        Optional<SchemaSymbols.Match> result;
+        try {
+            result = symbols.lookup(SourceText.of("editor.tuprel", text), offset);
+        } catch (StackOverflowError exhausted) {
+            return JsonNull.INSTANCE;
+        } catch (RuntimeException failure) {
+            System.err.println("TUPREL-LSP-SYMBOLS: unexpected schema query exception.");
+            return JsonNull.INSTANCE;
+        }
+        if (result.isEmpty()) {
+            return JsonNull.INSTANCE;
+        }
+        SchemaSymbols.Match match = result.orElseThrow();
+        if (query == PositionQuery.DEFINITION) {
+            return match.definition().<JsonElement>map(span -> location(uri, ranges, span)).orElse(JsonNull.INSTANCE);
+        }
+
+        JsonObject contents = new JsonObject();
+        contents.addProperty("kind", "plaintext");
+        contents.addProperty("value", hoverText(match.symbol()));
+        JsonObject hover = new JsonObject();
+        hover.add("contents", contents);
+        hover.add("range", ranges.range(match.occurrence()));
+        return hover;
+    }
+
+    private static JsonObject location(String uri, DiagnosticRanges ranges, SourceSpan span) {
+        JsonObject location = new JsonObject();
+        location.addProperty("uri", uri);
+        location.add("range", ranges.range(span));
+        return location;
+    }
+
+    private static String hoverText(SchemaSymbols.Symbol symbol) {
+        return switch (symbol) {
+            case SchemaSymbols.Model model -> {
+                String fields = model.fields().stream()
+                        .map(field -> field.name() + ": " + field.type().name() + switch (field.cardinality()) {
+                            case REQUIRED -> "";
+                            case OPTIONAL -> "?";
+                            case LIST -> "[]";
+                        })
+                        .collect(Collectors.joining(", "));
+                yield "Model: " + model.name() + "\nType: TUPREL model"
+                        + (fields.isEmpty() ? "" : "\nFields: " + fields);
+            }
+            case SchemaSymbols.Enumeration enumeration ->
+                    "Enum: " + enumeration.name() + "\nType: TUPREL enum"
+                            + (enumeration.values().isEmpty() ? "" : "\nValues: " + String.join(", ", enumeration.values()));
+            case SchemaSymbols.Field field ->
+                    "Field: " + field.model() + "." + field.name() + "\nType: " + field.type().name()
+                            + "\nCardinality: " + switch (field.cardinality()) {
+                                case REQUIRED -> "required";
+                                case OPTIONAL -> "optional";
+                                case LIST -> "list";
+                            };
+            case SchemaSymbols.Scalar scalar -> "Type: " + scalar.name() + "\nTUPREL scalar";
+        };
+    }
+
+    private static boolean validPositionUri(String uri, PositionQuery query) {
+        if (!validUri(uri)) {
+            return false;
+        }
+        try {
+            URI parsed = new URI(uri);
+            String authority = parsed.getRawAuthority();
+            return parsed.isAbsolute()
+                    && (query == PositionQuery.COMPLETION || authority == null || !authority.contains("@"));
+        } catch (URISyntaxException invalid) {
+            return false;
+        }
+    }
+
+    private void formatDocument(JsonElement id, JsonObject params) throws IOException {
+        String uri = string(object(params.get("textDocument")).get("uri"));
+        JsonObject options = object(params.get("options"));
+        Integer tabSize = version(options.get("tabSize"));
+        JsonElement insertSpaces = options.get("insertSpaces");
+        if (!validUri(uri) || tabSize == null || tabSize < 0 || !isBoolean(insertSpaces)) {
+            error(id, -32602, "Invalid params");
+            return;
+        }
+        Snapshot snapshot = documents.get(uri);
+        JsonArray edits = new JsonArray();
+        if (snapshot != null && snapshot.text() != null) {
+            JsonObject edit = fullDocumentEdit(snapshot.text());
+            // The dispatcher owns the snapshots and handles one message at a time.
+            if (edit != null && snapshot.equals(documents.get(uri))) {
+                edits.add(edit);
+            }
+        }
+        respond(id, edits);
+    }
+
+    private JsonObject fullDocumentEdit(String text) {
+        try {
+            SourceText original = SourceText.of("editor.tuprel", text);
+            // SchemaFormatter validates the input before it can return formatted text.
+            SchemaFormatResult result = formatter.format(original);
+            if (!result.isSuccess()) {
+                return null;
+            }
+            String output = result.formattedText().orElseThrow();
+            if (output.equals(text)) {
+                return null;
+            }
+            SourceText formatted = SourceText.of("editor.tuprel", output);
+            if (output.isEmpty() || !formattedSchemaCompiler.compile(formatted).isValid()
+                    || !formatter.preservesContents(original, formatted)) {
+                System.err.println("TUPREL-LSP-FORMATTING: formatter output failed safety checks.");
+                return null;
+            }
+            JsonObject edit = new JsonObject();
+            edit.add("range", new DiagnosticRanges(text).range(0, text.length()));
+            edit.addProperty("newText", output);
+            return edit;
+        } catch (StackOverflowError | RuntimeException failure) {
+            System.err.println("TUPREL-LSP-FORMATTING: schema formatting interrupted.");
+            return null;
+        }
+    }
+
+    private static boolean isBoolean(JsonElement value) {
+        return value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isBoolean();
+    }
+
+    private static boolean validUri(String uri) {
+        return uri != null && !uri.isBlank() && uri.length() <= MAX_URI_UNITS;
+    }
+
+    private void notification(String method, JsonElement arguments) throws IOException {
+        if (state == State.INITIALIZING && "initialized".equals(method)) {
+            state = State.READY;
+            return;
+        }
+        if (state != State.READY) {
+            return;
+        }
+
+        JsonObject params = object(arguments);
+        JsonObject document = object(params.get("textDocument"));
+        String uri = string(document.get("uri"));
+        if (!validUri(uri)) {
+            return;
+        }
+        Snapshot current = documents.get(uri);
+        switch (method) {
+            case "textDocument/didOpen" -> {
+                Integer version = version(document.get("version"));
+                String text = string(document.get("text"));
+                if (current == null && version != null && text != null) {
+                    if (documents.size() < MAX_DOCUMENTS) {
+                        update(uri, version, text);
+                    } else if (!capacityWarningSent) {
+                        capacityWarningSent = true;
+                        warnAtCapacity();
+                    }
+                }
+            }
+            case "textDocument/didChange" -> {
+                Integer version = version(document.get("version"));
+                String text = fullText(params.get("contentChanges"));
+                if (current != null && version != null && version > current.version() && text != null) {
+                    update(uri, version, text);
+                }
+            }
+            case "textDocument/didClose" -> {
+                if (documents.remove(uri) != null) {
+                    capacityWarningSent = false;
+                    publish(uri, null, new JsonArray());
+                }
+            }
+            default -> { }
+        }
+    }
+
+    private void update(String uri, int version, String text) throws IOException {
+        // Keep the latest version even when the content exceeds the analysis budget.
+        String retained = text.length() <= MAX_DOCUMENT_UNITS ? text : null;
+        Analysis analysis = analyze(retained);
+        documents.put(uri, new Snapshot(version, retained, analysis.failed()));
+        // Dispatch and publication run on the reader thread, in wire order, without queued analysis.
+        publish(uri, version, analysis.diagnostics());
+    }
+
+    private Analysis analyze(String text) {
+        if (text == null) {
+            return unavailable("TUPREL-LSP-DOCUMENT-TOO-LARGE",
+                    "Analysis skipped: document exceeds " + MAX_DOCUMENT_UNITS + " UTF-16 code units.");
+        }
+
+        List<SchemaDiagnostic> found;
+        try {
+            found = compile.apply(SourceText.of("editor.tuprel", text));
+        } catch (StackOverflowError exhausted) {
+            // The schema parser descends recursively into expressions.
+            return unavailable("TUPREL-LSP-ANALYSIS-STACK-LIMIT",
+                    "Analysis interrupted: the compiler exceeded its stack limit.");
+        } catch (RuntimeException failure) {
+            // Exception messages and stack traces can contain schema text or other local data.
+            System.err.println("TUPREL-LSP-ANALYSIS-FAILED: unexpected schema compiler exception.");
+            return unavailable("TUPREL-LSP-ANALYSIS-FAILED",
+                    "Analysis interrupted by an unexpected compiler error.");
+        }
+
+        JsonArray diagnostics = new JsonArray();
+        DiagnosticRanges ranges = new DiagnosticRanges(text);
+        for (SchemaDiagnostic diagnostic : found.stream().limit(MAX_DIAGNOSTICS).toList()) {
+            JsonObject item = new JsonObject();
+            item.add("range", ranges.range(diagnostic.span()));
+            item.addProperty("severity", switch (diagnostic.severity()) {
+                case ERROR -> 1;
+                case WARNING -> 2;
+            });
+            item.addProperty("code", diagnostic.code());
+            item.addProperty("source", "tuprel");
+            item.addProperty("message", diagnostic.message());
+            diagnostics.add(item);
+        }
+        return new Analysis(diagnostics, false);
+    }
+
+    private static Analysis unavailable(String code, String description) {
+        JsonObject origin = new JsonObject();
+        origin.addProperty("line", 0);
+        origin.addProperty("character", 0);
+        JsonObject range = new JsonObject();
+        range.add("start", origin);
+        range.add("end", origin);
+        JsonObject diagnostic = new JsonObject();
+        diagnostic.add("range", range);
+        diagnostic.addProperty("severity", 2);
+        diagnostic.addProperty("code", code);
+        diagnostic.addProperty("source", "tuprel-language-server");
+        diagnostic.addProperty("message", description);
+        JsonArray diagnostics = new JsonArray();
+        diagnostics.add(diagnostic);
+        return new Analysis(diagnostics, true);
+    }
+
+    private void warnAtCapacity() throws IOException {
+        JsonObject params = new JsonObject();
+        params.addProperty("type", 2);
+        params.addProperty("message", "TUPREL analysis unavailable for additional documents: "
+                + MAX_DOCUMENTS + " document limit reached. Close a tracked document and reopen the skipped document.");
+        JsonObject message = envelope();
+        message.addProperty("method", "window/showMessage");
+        message.add("params", params);
+        transport.send(message);
+    }
+
+    private void publish(String uri, Integer version, JsonArray diagnostics) throws IOException {
+        JsonObject params = new JsonObject();
+        params.addProperty("uri", uri);
+        if (version != null) {
+            params.addProperty("version", version);
+        }
+        params.add("diagnostics", diagnostics);
+        JsonObject message = envelope();
+        message.addProperty("method", "textDocument/publishDiagnostics");
+        message.add("params", params);
+        transport.send(message);
+    }
+
+    private static String fullText(JsonElement changes) {
+        if (changes == null || !changes.isJsonArray() || changes.getAsJsonArray().size() != 1) {
+            return null;
+        }
+        JsonObject change = object(changes.getAsJsonArray().get(0));
+        return change.has("range") || change.has("rangeLength") ? null : string(change.get("text"));
+    }
+
+    private static JsonObject object(JsonElement element) {
+        return element != null && element.isJsonObject() ? element.getAsJsonObject() : new JsonObject();
+    }
+
+    private static String string(JsonElement element) {
+        return element != null && element.isJsonPrimitive() && element.getAsJsonPrimitive().isString()
+                ? element.getAsString() : null;
+    }
+
+    private static Integer version(JsonElement value) {
+        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value.getAsString());
+        } catch (NumberFormatException invalid) {
+            return null;
+        }
+    }
+
+    private static boolean validId(JsonElement id) {
+        return id == null || string(id) != null || version(id) != null;
+    }
+
+    private void error(JsonElement id, int code, String description) throws IOException {
+        JsonObject error = new JsonObject();
+        error.addProperty("code", code);
+        error.addProperty("message", description);
+        JsonObject result = envelope();
+        result.add("id", id);
+        result.add("error", error);
+        transport.send(result);
+    }
+
+    private void respond(JsonElement id, JsonElement payload) throws IOException {
+        JsonObject result = envelope();
+        result.add("id", id);
+        result.add("result", payload);
+        transport.send(result);
+    }
+
+    private static JsonObject envelope() {
+        JsonObject message = new JsonObject();
+        message.addProperty("jsonrpc", "2.0");
+        return message;
+    }
+}

@@ -404,10 +404,12 @@ cascata enganadora sobre AST incompleto.
 `tuprel format`:
 
 - usa quatro espaços por nível e LF;
-- remove trailing whitespace e termina com newline;
+- remove trailing whitespace fora dos comentários e termina com newline;
 - normaliza espaços entre tokens, junto de pontuação, `=` e `:`;
 - mantém ordem de declarações, fields, enum members e atributos;
-- preserva comentários e no máximo uma linha vazia consecutiva;
+- preserva o texto dos comentários, incluindo indentação interna e linhas vazias,
+  normalizando apenas os fins de linha para LF;
+- mantém no máximo uma linha vazia consecutiva fora dos comentários;
 - é idempotente;
 - recusa escrever quando existem diagnostics de lexer/parser/semântica.
 

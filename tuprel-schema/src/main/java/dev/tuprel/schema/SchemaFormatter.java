@@ -32,78 +32,96 @@ public final class SchemaFormatter {
                 lexed.tokens().stream().anyMatch(token -> token.kind() == TokenKind.COMMENT);
         String formatted =
                 hasComments
-                        ? formatPreservingComments(source.text())
+                        ? formatPreservingComments(source.text(), lexed.tokens())
                         : new AstPrinter().print(compilation.syntax().orElseThrow());
         return new SchemaFormatResult(java.util.Optional.of(formatted), List.of());
     }
 
-    private String formatPreservingComments(String input) {
-        String normalizedNewlines = input.replace("\r\n", "\n").replace('\r', '\n');
-        String[] lines = normalizedNewlines.split("\n", -1);
-        List<String> output = new ArrayList<>();
-        int indent = 0;
-        boolean inBlockComment = false;
-        boolean previousBlank = true;
-
-        for (String originalLine : lines) {
-            String trimmed = originalLine.strip();
-            if (trimmed.isEmpty()) {
-                if (!previousBlank && !output.isEmpty()) {
-                    output.add("");
-                }
-                previousBlank = true;
-                continue;
-            }
-
-            boolean startsClosing = !inBlockComment && trimmed.startsWith("}");
-            if (startsClosing) {
-                indent = Math.max(0, indent - 1);
-            }
-
-            String formattedLine =
-                    inBlockComment || trimmed.startsWith("/*") || trimmed.startsWith("*")
-                            ? trimmed
-                            : normalizeCodeLine(trimmed);
-            output.add("    ".repeat(indent) + formattedLine);
-            previousBlank = false;
-
-            CommentState state = updateCommentState(trimmed, inBlockComment);
-            inBlockComment = state.inBlockComment();
-            if (!inBlockComment && !startsClosing) {
-                indent += Math.max(0, state.openBraces() - state.closeBraces());
-            } else if (!inBlockComment && startsClosing) {
-                indent += Math.max(0, state.openBraces() - state.closeBraces() + 1);
-            }
-        }
-
-        while (!output.isEmpty() && output.getLast().isEmpty()) {
-            output.removeLast();
-        }
-        return String.join("\n", output) + "\n";
+    /**
+     * Checks that formatting preserved the ordered language tokens and comments.
+     * Decoded string values, normalised comment line endings and optional empty
+     * field-attribute argument lists are compared according to RFC-001.
+     * Callers must validate both schemas separately.
+     */
+    public boolean preservesContents(SourceText original, SourceText formatted) {
+        Lexer.Result before = Lexer.lex(original);
+        Lexer.Result after = Lexer.lex(formatted);
+        return before.diagnostics().isEmpty() && after.diagnostics().isEmpty()
+                && comparableTokens(before.tokens()).equals(comparableTokens(after.tokens()));
     }
 
-    private String normalizeCodeLine(String line) {
-        Lexer.Result result = Lexer.lex(SourceText.of("<formatter-line>", line));
-        List<Token> tokens =
-                result.tokens().stream().filter(token -> token.kind() != TokenKind.EOF).toList();
+    private static List<TokenContent> comparableTokens(List<Token> tokens) {
+        List<TokenContent> result = new ArrayList<>(tokens.size());
+        for (int index = 0; index < tokens.size(); index++) {
+            Token token = tokens.get(index);
+            TokenKind kind = token.kind();
+            String value = kind == TokenKind.COMMENT
+                    ? token.text().replace("\r\n", "\n").replace('\r', '\n')
+                    : token.value();
+            result.add(new TokenContent(kind, value));
+
+            // The AST printer omits empty parentheses on field attributes.
+            if (kind == TokenKind.IDENTIFIER && index > 0 && index + 2 < tokens.size()
+                    && tokens.get(index - 1).kind() == TokenKind.AT
+                    && tokens.get(index + 1).kind() == TokenKind.LEFT_PAREN
+                    && tokens.get(index + 2).kind() == TokenKind.RIGHT_PAREN) {
+                index += 2;
+            }
+        }
+        return result;
+    }
+
+    private record TokenContent(TokenKind kind, String value) {}
+
+    private String formatPreservingComments(String input, List<Token> tokens) {
         StringBuilder output = new StringBuilder();
-        TokenKind previous = null;
+        int indent = 0;
+        Token previous = null;
         for (Token token : tokens) {
-            if (token.kind() == TokenKind.COMMENT) {
-                if (!output.isEmpty() && output.charAt(output.length() - 1) != ' ') {
+            TokenKind kind = token.kind();
+            if (kind == TokenKind.EOF) {
+                break;
+            }
+            if (kind == TokenKind.RIGHT_BRACE) {
+                indent--;
+            }
+
+            if (previous == null) {
+                output.append("    ".repeat(indent));
+            } else {
+                int lineBreaks = countLineBreaks(
+                        input, previous.span().endOffset(), token.span().startOffset());
+                if (lineBreaks > 0) {
+                    output.append("\n".repeat(lineBreaks)).append("    ".repeat(indent));
+                } else if (kind == TokenKind.COMMENT || needsSpace(previous.kind(), kind, output)) {
                     output.append(' ');
                 }
-                output.append(token.text().stripTrailing());
-                previous = token.kind();
-                continue;
             }
-            if (needsSpace(previous, token.kind(), output)) {
-                output.append(' ');
+            // A comment token owns its interior whitespace, including its continuation lines.
+            output.append(kind == TokenKind.COMMENT
+                    ? token.text().replace("\r\n", "\n").replace('\r', '\n')
+                    : token.text());
+
+            if (kind == TokenKind.LEFT_BRACE) {
+                indent++;
             }
-            output.append(token.text());
-            previous = token.kind();
+            previous = token;
         }
-        return output.toString();
+        return output.append('\n').toString();
+    }
+
+    private int countLineBreaks(String input, int start, int end) {
+        int count = 0;
+        for (int index = start; index < end; index++) {
+            char current = input.charAt(index);
+            if (current == '\r' || (current == '\n' && (index == start || input.charAt(index - 1) != '\r'))) {
+                count++;
+                if (count == 2) {
+                    return count;
+                }
+            }
+        }
+        return count;
     }
 
     private boolean needsSpace(TokenKind previous, TokenKind current, StringBuilder output) {
@@ -134,50 +152,6 @@ public final class SchemaFormatter {
         }
         return true;
     }
-
-    private CommentState updateCommentState(String line, boolean initiallyInBlockComment) {
-        boolean inBlock = initiallyInBlockComment;
-        boolean inString = false;
-        boolean escaped = false;
-        int opens = 0;
-        int closes = 0;
-        for (int index = 0; index < line.length(); index++) {
-            char current = line.charAt(index);
-            char next = index + 1 < line.length() ? line.charAt(index + 1) : '\0';
-            if (inBlock) {
-                if (current == '*' && next == '/') {
-                    inBlock = false;
-                    index++;
-                }
-                continue;
-            }
-            if (inString) {
-                if (escaped) {
-                    escaped = false;
-                } else if (current == '\\') {
-                    escaped = true;
-                } else if (current == '"') {
-                    inString = false;
-                }
-                continue;
-            }
-            if (current == '"') {
-                inString = true;
-            } else if (current == '/' && next == '/') {
-                break;
-            } else if (current == '/' && next == '*') {
-                inBlock = true;
-                index++;
-            } else if (current == '{') {
-                opens++;
-            } else if (current == '}') {
-                closes++;
-            }
-        }
-        return new CommentState(inBlock, opens, closes);
-    }
-
-    private record CommentState(boolean inBlockComment, int openBraces, int closeBraces) {}
 
     private static final class AstPrinter {
         private final StringBuilder output = new StringBuilder();

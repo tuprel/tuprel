@@ -113,6 +113,15 @@ class CliExperienceTest {
         assertEquals(0, run("validate", "--", "-schema.tuprel").code());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"model Product { /* unterminated", "/* valid comment */ model Product {}"})
+    void formatLeavesInvalidSchemaUntouched(String input) throws IOException {
+        Path schema = Files.writeString(project.resolve("invalid.tuprel"), input + "\r\n");
+
+        assertEquals(1, run("format", schema.toString()).code());
+        assertEquals(input + "\r\n", Files.readString(schema));
+    }
+
     @Test
     void invalidArgumentsAndUnimplementedCommandsHaveNoSideEffects() throws Exception {
         List<String[]> invalid = List.of(new String[] {}, new String[] {"--help", "extra"},
