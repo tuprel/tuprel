@@ -55,7 +55,7 @@ jobs:
           archive=apache-maven-3.9.16-bin.tar.gz
           curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
             --max-time 120 "https://archive.apache.org/dist/maven/maven-3/3.9.16/binaries/$archive" -o "$archive"
-          printf '%s  %s\n' '831a8591fe20c8243b1dbe7d71e3244f31d1665b0804b2e825e38cbbe5ce0cafb8338851f90780735568773e0a6cd07bbec107cda0b896b008b861075358b6f6ed4' "$archive" | sha512sum --check
+          printf '%s  %s\n' '831a8591fe20c8243b1dbe7d71e3244f31d1665b0804b2e825e38cbbe5ce0cafb8338851f90780735568773e0a6cd07bbec107cda0b896b008b861075358b6f6' "$archive" | sha512sum --check
           tar -xzf "$archive"
       - name: Verify Maven publication, isolation and consumer execution
         shell: pwsh
