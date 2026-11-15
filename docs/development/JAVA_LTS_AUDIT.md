@@ -1,21 +1,26 @@
 # Auditoria de compatibilidade Java LTS
 
-Base `ae3776c28c328c7f6472df1f32f832d17b9f282a`. A API REST, ainda no
-PR #103, foi avaliada separadamente a partir de uma cópia do HEAD
+Base actual `372f59ac87d767eaa4b2781214473c4f62922523`. A primeira
+auditoria usou `ae3776c28c328c7f6472df1f32f832d17b9f282a`. As suas
+provas permanecem identificadas abaixo. A API REST do PR #103 foi avaliada
+separadamente a partir de uma cópia do HEAD
 `8ee68e75be0852a32c704915dccc90709335168b`.
 
 ## Inventário e bloqueios
 
-Os dez módulos publicáveis têm classes de produção major 65 sob a configuração
-actual. O ensaio de fonte usou javac 21 com `--release 17 -proc:none`, um
-módulo de cada vez e os classpaths Gradle resolvidos no baseline. Uma aprovação
+Os onze módulos de produção de `settings.gradle.kts` usam a convenção
+Java 21, com classes major 65. O ensaio de fonte original usou javac 21
+com `--release 17 -proc:none`, um módulo de cada vez e os classpaths
+Gradle resolvidos na base original. A actualização repetiu a compilação
+isolada para o servidor e o schema actuais. Uma aprovação
 nesta coluna permite ler dependências major 65 com o compilador 21. Pode
 ocultar incompatibilidades transitivas e o parser pode parar antes da
 resolução de APIs. Repetir com o grafo integral major 61 antes de certificar.
 
 | Módulo | Ensaio de fonte | Evidência e risco da adaptação |
 | --- | --- | --- |
-| `tuprel-schema` | Falha | `Parser`, `SchemaFormatter`, `SemanticValidator` e `RelationGraph` usam operações de listas sequenciadas. Risco baixo a médio para ordenação e diagnósticos. |
+| `tuprel-schema` | Falha | Na base original, `Parser`, `SchemaFormatter`, `SemanticValidator` e `RelationGraph` usavam operações de listas sequenciadas. Na base actual, `SchemaCompletion` (linhas 71, 78, 209) e `SchemaSymbols` (linhas 99, 122, 164) acrescentam pattern switches e operações sequenciadas. Risco médio para ordem de sugestões, diagnóstico e resolução de símbolos. |
+| `tuprel-language-server` | Falha | `TuprelLanguageServer:264` usa pattern switch sobre `SchemaSymbols.Symbol` para hover. O ensaio rejeita a primeira cláusula na linha 265. Os records privados e o `readNBytes` de `LspTransport:49` são compatíveis com 17. O servidor depende do schema, que também precisa de adaptação. Risco médio para dispatch, semântica das respostas e framing. |
 | `tuprel-codegen-java` | Passa isoladamente | Depende de schema. `JavaCodeGeneratorTest` compila fixtures com release 21. Risco médio para tipos, goldens e ligação ao runtime. |
 | `tuprel-sql` | Falha | `SqlCondition:46` chama `List.getFirst()`. Risco baixo se mantiver a validação de cardinalidade. |
 | `tuprel-runtime` | Falha | `Cursor:127,172` usa pattern switch. `ModelOperations`, `RelationLoader`, `Relation` e `TuprelDatabase` usam acessos sequenciados. Risco médio a alto para bytes de cursor, ordem, cardinalidade e transacções. |
@@ -42,17 +47,20 @@ o launcher estável fazem parte da cadeia que o utilizador executará.
 | CLI e PostgreSQL | pgjdbc 42.7.14 major base 52, variante Java 11 major 55. Checker Qual 3.55.1 major base 52. `jdeps --missing-deps` localizou referências opcionais do pgjdbc a OSGi e JNA/Waffle para SSPI. Estas referências não provam suporte a SSPI. Validar JDBC/TLS, SCRAM e apenas os mecanismos de autenticação anunciados. |
 | Starter | Boot/autoconfigure 4.1.2 e Spring Framework 7.0.10 major base até 61. Spring Core inclui variantes 21/25-selectable em `META-INF/versions/21` e `24`, major 65 e 68. Micrometer 1.16.8, Commons Logging 1.3.5 e JSpecify 1.0.1 até major 52 no grafo auditado. |
 | Runtime e SQL | Sem dependências externas no grafo de produção. O adapter PostgreSQL acrescenta o driver e as respectivas dependências. |
+| Language Server | `installDist/lib` contém servidor e schema (major 65), Gson 2.15.0 e `error_prone_annotations` 2.50.0 (classes base major 52 e descritor Java 9 major 53 em ambos). O `jdeps` confirmou as dependências directas do servidor em `java.base`, Gson e schema. O Gson referencia também `java.sql` e as anotações. O Error Prone usado como processador no build fica fora da distribuição. |
 | Gradle | Wrapper 9.8.2 arrancou nas três JVMs. A matriz oficial exige Gradle 9.1 ou superior para executar o daemon em Java 25. Avaliar 9.7.1 e 9.8.2 para o plugin, sem inferir suporte Gradle 8 do suporte do Spring Boot. |
 | Maven | 3.9.16 arrancou nas três JVMs. O consumidor usa Maven Compiler, Exec, Build Helper, Surefire e Boot Repackage. O caminho de staging usa CLI e repositório local. Maven 4 fica fora da primeira matriz. |
 | Spring Boot | A linha 4.1 suporta Java 17. O POM do #103 fixa release 21 e a aplicação empacotada falha em 17 na classe `ProductsApplication`. O limite observado nesta prova é do Tuprel/exemplo. |
 
 Fontes de suporte externo. [Gradle](https://docs.gradle.org/9.8.2/userguide/compatibility.html)
 · [Spring Boot](https://docs.spring.io/spring-boot/system-requirements.html)
-· [Maven](https://maven.apache.org/docs/history.html).
+· [Maven](https://maven.apache.org/docs/history.html)
+· [Gson](https://github.com/google/gson/tree/gson-parent-2.15.0#minimum-java-version).
 
 ## Provas executadas e limites
 
-Windows x64. Temurin 17.0.21 e 21.0.13, Oracle JDK 25.0.5.0.3.
+Provas originais em Windows x64. Temurin 17.0.21 e 21.0.13, Oracle JDK
+25.0.5.0.3.
 JDK 17 extraído num directório de auditoria e verificado com SHA-256.
 `javap -verbose` confirmou major 65 na CLI. Os cabeçalhos das classes
 foram inspeccionados separando a base das entradas multi-release.
@@ -69,6 +77,32 @@ imagem reduzida e testar também os fornecedores criptográficos e TLS.
 | Spring Boot, Maven e JAR API #103 | JAR recusa carregar a aplicação | HTTP/PostgreSQL e java -jar aprovados no #103 | Maven verify e prova independente java -jar passaram com PostgreSQL 17 |
 | Gradle e plugin | Wrapper arranca. Plugin major 65 | TestKit existente | Wrapper arranca. Plugin no daemon 25 por certificar |
 | Instalador nativo e launcher estável | Verificador de staging compilado para 21 | Provas de staging existentes por perfil | JNI, assinatura, instalação e rollback por certificar |
+| Language Server, `installDist` por stdio, base actual | Falha antes de emitir frames, major 65 > 61 | Passou no Windows x64 | Passou no Windows x64 com os mesmos JARs |
+| Extensão VS Code, base actual | A invocação equivalente falha ao carregar o servidor | Invocação equivalente passou, extensão por certificar | Invocação equivalente passou, extensão por certificar |
+
+### Language Server na base actual
+
+Construí a distribuição com JDK 21 e verificação estrita e executei os
+mesmos JARs em Windows x64 nas três JVMs. Usei o launcher
+`bin/tuprel-language-server.bat` e, separadamente, a invocação directa do
+editor, `java.exe -cp "lib/*" dev.tuprel.lsp.TuprelLanguageServer`, com o
+classpath da distribuição e sem opções JVM herdadas. Em Java 21 e 25,
+cada execução devolveu oito frames LSP válidos: inicialização, diagnóstico
+de tipo inválido, limpeza do diagnóstico após edição, formatação,
+hover de um escalar, completion, resposta de definição para um escalar
+sem localização e shutdown. O processo terminou com código 0 e stderr
+vazio. Em Java 17, ambas as invocações terminaram com
+`UnsupportedClassVersionError`, código diferente de zero e stdout vazio.
+O ensaio directo reproduz a chamada da extensão. O host VS Code e o
+launcher Unix ficam por certificar nesta matriz.
+
+A [documentação da extensão](https://github.com/tuprel/tuprel-editors/blob/27a7e291771255254be8b438e803dc6f330ce21a/extensions/vscode/README.md)
+e o [manifesto de settings](https://github.com/tuprel/tuprel-editors/blob/27a7e291771255254be8b438e803dc6f330ce21a/extensions/vscode/package.json)
+pedem um executável Java 21 e os caminhos absolutos para o Java e para
+a distribuição oficial. A extensão inicia o Java directamente, com pipes
+stdio, num workspace local de confiança. O realce e snippets funcionam sem
+Java. A configuração, os diagnósticos de arranque e o modo sintáctico em
+caso de falha fazem parte da futura certificação da extensão.
 
 `gradlew check --dependency-verification strict` passou também com o
 daemon Gradle em JDK 25. O build reteve a toolchain 21 para os workers
@@ -101,15 +135,16 @@ os seus critérios independentes.
 | B2 | Runtime e adapter PostgreSQL. Preservar dispatch exaustivo, ordem de bind, cursores e semântica de falhas. Executar SQL goldens, CRUD, relações e transacções com PostgreSQL 17. |
 | B3 | Migrations, adapter e CLI. Preservar bytes, digests, confinamento e estados de falha. Testar streams simultâneos, limites, interrupção e locks antes de trocar a estratégia de threads. Provar o launcher com Java 17. |
 | C | Gerador e saída Java. Comparar hashes entre JDKs, compilar com javac 17 e executar um consumidor em cada JDK. Manter protecção dos ficheiros gerados. |
-| D | Maven, Gradle, Spring Boot e instalador em fatias próprias. Resolver artefactos de staging em projectos independentes. Testar HTTP e JAR, ownership do DataSource e ciclo de vida. Provar JNI, PATH e selecção de versões em Windows e Linux. |
-| E | Tornar obrigatórias as três células e documentar o suporte comprovado. Preservar CodeQL, Dependency Review, locks e verificação de dependências. |
+| D1 | Maven, Gradle, Spring Boot e instalador em fatias próprias. Resolver artefactos de staging em projectos independentes. Testar HTTP e JAR, ownership do DataSource e ciclo de vida. Provar JNI, PATH e selecção de versões em Windows e Linux. |
+| D2 | Depois do schema, adaptar o Language Server e provar `installDist`, launchers e stdio nos três JDKs. Exercitar diagnósticos, formatação, completions, hover, definição positiva e negativa, encerramento e limites de protocolo. Validar o host VS Code com o servidor instalado e a recuperação perante uma JVM incompatível. |
+| E | Tornar obrigatórias as três células. Preservar CodeQL, Dependency Review, locks e verificação de dependências. Actualizar o suporte público após a certificação e a decisão explícita de activação. |
 
 Começar com um job de produção JDK 21, com análise de API e bytecode do
 grafo distribuído. Em cada célula JDK 17/21/25, consumir os mesmos hashes,
 sem fallback para JDK 21. Executar os testes unitários aplicáveis, gerar
 e compilar o cliente externo, executar Maven e Gradle sob o JDK da
 célula e provar PostgreSQL real, migrations e java -jar. Executar Windows e
-Linux para launchers e instalador. Testar metadados adulterados, versão
+Linux para launchers, instalador e Language Server. Testar metadados adulterados, versão
 incompatível, rollback permitido e negado, recuperação e JVM seleccionada.
 Validar compatibilidade binária e de fontes numa actualização real do
 consumidor. Qualquer célula omitida mantém o perfil por certificar.

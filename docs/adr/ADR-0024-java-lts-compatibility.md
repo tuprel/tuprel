@@ -1,8 +1,15 @@
 # ADR-0024 — Compatibilidade com versões Java LTS
 
-Estado **Proposto**. Se aceite, substitui a decisão de runtime mínimo do
-[ADR-0002](ADR-0002-java-21-baseline.md). A mudança de suporte público
-depende da certificação descrita abaixo. A baseline em vigor é Java 21.
+**Estratégia aprovada, activação pendente.** A direcção aprovada é certificar
+uma distribuição com target Java 17 nas LTS 17, 21 e 25. A implementação e a
+certificação continuam incompletas. O
+[ADR-0002](ADR-0002-java-21-baseline.md) permanece aceite, com Java 21 como
+mínimo efectivo.
+
+A substituição do ADR-0002 e o anúncio de suporte público exigem a conclusão
+dos gates descritos abaixo e uma decisão explícita de activação que identifique
+os artefactos e perfis certificados. Aprovar a estratégia ou integrar este
+documento, por si só, mantém Java 21 em vigor.
 
 ## Contexto e decisão proposta
 
@@ -16,7 +23,8 @@ Fixar também Java 17 no contrato do código gerado. Os testes que certificam
 o consumidor devem compilar e executar no JDK de cada célula.
 
 As provas abrangem CLI com migrations, bibliotecas, código gerado, integração
-Maven, plugin Gradle, starter Spring e instalador por perfil. Uma imagem
+Maven, plugin Gradle, starter Spring, Language Server por stdio, extensão VS
+Code ligada à distribuição e instalador por perfil. Uma imagem
 opcional com runtime incluído tem matriz própria de SO, arquitectura e
 segurança. Mantém-se a opção de usar um Java 17 externo. A versão Java
 suportada também se aplica aos verificadores e launchers distribuídos.
@@ -74,5 +82,13 @@ inelegível numa máquina apenas com 17. Manter a versão activa anterior se a
 nova selecção falhar. Provar Windows e Linux nos perfis aprovados, incluindo
 JNI, Ed25519, JDBC/TLS e recuperação. Os testes de reinício e confiança de
 release mantêm os seus gates próprios.
+
+Para o Language Server, verificar a distribuição `installDist` e a execução
+por stdio com o executável configurado no editor, incluindo inicialização,
+diagnósticos, formatação, completions, hover, navegação e encerramento. As
+provas da extensão devem usar uma distribuição certificada e confirmar que
+uma JVM incompatível mantém o editor no modo sintáctico. Actualizar a
+documentação e as mensagens da extensão em coordenação com a activação dos
+perfis certificados.
 
 Consultar a [auditoria e plano de certificação](../development/JAVA_LTS_AUDIT.md).
