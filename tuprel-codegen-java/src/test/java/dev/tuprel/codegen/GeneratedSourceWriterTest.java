@@ -9,7 +9,15 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.AclFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.io.TempDir;
@@ -94,5 +102,69 @@ class GeneratedSourceWriterTest {
         Files.writeString(root.resolve("p/A.java"), "private edit\n");
         assertThrows(IOException.class, () -> writer.wouldChange(root, source));
         assertEquals("private edit\n", Files.readString(root.resolve("p/A.java")));
+    }
+
+    @Test
+    void partialWriteDoesNotGrantOwnershipAndRequiresExplicitCleanupBeforeRetry() throws IOException {
+        Path root = Files.createDirectory(temporaryDirectory.resolve("partial"));
+        Path obstruction = Files.writeString(root.resolve("z"), "keep\n", StandardCharsets.UTF_8);
+        Path firstSource = root.resolve("p/A.java");
+        Path manifest = root.resolve(".tuprel-generated");
+        GeneratedSourceWriter writer = new GeneratedSourceWriter();
+        GeneratedJavaSources sources = new GeneratedJavaSources(
+                Map.of("p/A.java", "class A {}\n", "z/B.java", "class B {}\n"));
+
+        assertThrows(IOException.class, () -> writer.write(root, sources));
+        assertEquals("class A {}\n", Files.readString(firstSource));
+        assertEquals("keep\n", Files.readString(obstruction));
+        assertFalse(Files.exists(manifest));
+
+        Files.delete(obstruction);
+        assertThrows(IOException.class, () -> writer.write(root, sources));
+        assertEquals("class A {}\n", Files.readString(firstSource));
+        assertFalse(Files.exists(manifest));
+
+        Files.delete(firstSource);
+        writer.write(root, sources);
+        assertTrue(writer.isCurrent(root, sources));
+        String ownership = Files.readString(manifest);
+        writer.write(root, sources);
+        assertEquals(ownership, Files.readString(manifest));
+        assertTrue(writer.isCurrent(root, sources));
+    }
+
+    @Test
+    void writeDenialCannotCreateAnOwnedFileAndRestoredPermissionsAllowRetry() throws IOException {
+        Path root = temporaryDirectory.resolve("denied");
+        Path directory = Files.createDirectories(root.resolve("p"));
+        GeneratedSourceWriter writer = new GeneratedSourceWriter();
+        GeneratedJavaSources sources = new GeneratedJavaSources(Map.of("p/A.java", "class A {}\n"));
+
+        if (System.getProperty("os.name").startsWith("Windows")) {
+            AclFileAttributeView view = Files.getFileAttributeView(directory, AclFileAttributeView.class);
+            List<AclEntry> original = view.getAcl();
+            List<AclEntry> denied = new ArrayList<>(original);
+            denied.add(0, AclEntry.newBuilder().setType(AclEntryType.DENY).setPrincipal(Files.getOwner(directory))
+                    .setPermissions(AclEntryPermission.WRITE_DATA, AclEntryPermission.APPEND_DATA).build());
+            view.setAcl(denied);
+            try {
+                assertThrows(IOException.class, () -> writer.write(root, sources));
+            } finally {
+                view.setAcl(original);
+            }
+        } else {
+            Set<PosixFilePermission> original = Files.getPosixFilePermissions(directory);
+            Files.setPosixFilePermissions(directory, Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
+            try {
+                assertThrows(IOException.class, () -> writer.write(root, sources));
+            } finally {
+                Files.setPosixFilePermissions(directory, original);
+            }
+        }
+
+        assertFalse(Files.exists(root.resolve("p/A.java")));
+        assertFalse(Files.exists(root.resolve(".tuprel-generated")));
+        writer.write(root, sources);
+        assertTrue(writer.isCurrent(root, sources));
     }
 }

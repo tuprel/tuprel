@@ -54,7 +54,7 @@ public final class StagedJavaConsumer {
 
         Path classes = Files.createDirectory(project.resolve("classes"));
         List<String> compile = new ArrayList<>(List.of(jdk.resolve(windows ? "javac.exe" : "javac").toString(),
-                "--release", "21", "-encoding", "UTF-8", "-cp", classpath(), "-d", classes.toString(),
+                "--release", "17", "-encoding", "UTF-8", "-cp", classpath(), "-d", classes.toString(),
                 project.resolve("src/Consumer.java").toString()));
         try (Stream<Path> files = Files.walk(project.resolve("build/generated/sources/tuprel/main"))) {
             files.filter(path -> path.toString().endsWith(".java")).map(Path::toString).sorted().forEach(compile::add);

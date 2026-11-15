@@ -69,7 +69,7 @@ class MigrationStatusCommandTest {
         Files.writeString(catalog.resolve(MigrationDirectory.FORMAT_FILE), MigrationDirectory.FORMAT_HEADER);
         Path directory = Files.createDirectory(catalog.resolve("20261030_120000_initial"));
         Files.writeString(directory.resolve("migration.sql"), "-- draft\n");
-        return MigrationDirectory.discover(catalog).getFirst();
+        return MigrationDirectory.discover(catalog).get(0);
     }
     private Result run(MigrationStatusCommand command, String... options) {
         String[] arguments = new String[options.length + 2]; arguments[0] = "migrate"; arguments[1] = "status";

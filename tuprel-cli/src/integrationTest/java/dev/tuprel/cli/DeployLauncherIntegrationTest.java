@@ -66,7 +66,7 @@ class DeployLauncherIntegrationTest {
         Result deployed = launch(true, true, "migrate", "deploy", "--target-schema", schema, "--approve-digest", approval);
         assertEquals(0, deployed.exit(), deployed::output); assertTrue(deployed.output().contains("Deployment: APPLIED"));
         assertTrue(deployed.output().contains("Confirmed this invocation: 1")); assertTrue(exists("items")); assertEquals(1, history().applied().size());
-        assertEquals(MigrationDirectory.discover(project.resolve("tuprel/migrations")).getFirst().checksum(), history().applied().getFirst().checksum());
+        assertEquals(MigrationDirectory.discover(project.resolve("tuprel/migrations")).get(0).checksum(), history().applied().get(0).checksum());
         Result stale = launch(true, false, "migrate", "deploy", "--target-schema", schema, "--approve-digest", approval);
         assertEquals(2, stale.exit()); assertTrue(stale.output().contains("APPROVAL")); assertEquals(1, history().applied().size());
         Result current = launch(true, false, "migrate", "deploy", "--dry-run", "--target-schema", schema);

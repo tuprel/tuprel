@@ -69,7 +69,7 @@ class JavaCodeGeneratorTest {
         Files.createDirectories(classes);
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         assertNotNull(compiler);
-        List<String> arguments = new ArrayList<>(List.of("--release", "21", "-Xlint:all", "-Werror",
+        List<String> arguments = new ArrayList<>(List.of("--release", "17", "-Xlint:all", "-Werror",
                 "-classpath", System.getProperty("java.class.path"),
                 "-d", classes.toString()));
         arguments.addAll(sourcePaths);
@@ -152,7 +152,7 @@ class JavaCodeGeneratorTest {
         new GeneratedSourceWriter().write(sources, generated);
         Path classes = temporaryDirectory.resolve("all-scalars-classes");
         Files.createDirectories(classes);
-        List<String> arguments = new ArrayList<>(List.of("--release", "21", "-Xlint:all", "-Werror",
+        List<String> arguments = new ArrayList<>(List.of("--release", "17", "-Xlint:all", "-Werror",
                 "-classpath", System.getProperty("java.class.path"),
                 "-d", classes.toString()));
         for (String relative : generated.files().keySet()) {
@@ -190,7 +190,7 @@ class JavaCodeGeneratorTest {
         JavaGenerationResult result = new JavaCodeGenerator().generate(
                 collision.validatedSchema().orElseThrow());
         assertFalse(result.isSuccess());
-        assertEquals("TUPREL-CODEGEN-003", result.diagnostics().getFirst().code());
+        assertEquals("TUPREL-CODEGEN-003", result.diagnostics().get(0).code());
     }
 
     @Test
@@ -212,7 +212,7 @@ class JavaCodeGeneratorTest {
         assertTrue(compilation.isValid());
         JavaGenerationResult result = new JavaCodeGenerator().generate(
                 compilation.validatedSchema().orElseThrow());
-        assertEquals("TUPREL-CODEGEN-001", result.diagnostics().getFirst().code());
+        assertEquals("TUPREL-CODEGEN-001", result.diagnostics().get(0).code());
     }
 
     @Test
@@ -235,8 +235,8 @@ class JavaCodeGeneratorTest {
                 model User { id Int @id }
                 """);
         ValidatedSchema valid = compilation.validatedSchema().orElseThrow();
-        ValidatedModel model = valid.models().getFirst();
-        ValidatedField field = model.fields().getFirst();
+        ValidatedModel model = valid.models().get(0);
+        ValidatedField field = model.fields().get(0);
         ValidatedField injected = new ValidatedField("id; class Evil {}", field.type(),
                 field.cardinality(), field.id(), field.unique(), field.defaultValue(),
                 field.relation(), field.span());
@@ -259,7 +259,7 @@ class JavaCodeGeneratorTest {
                 model User { id Int @id role Role }
                 """);
         ValidatedSchema valid = compilation.validatedSchema().orElseThrow();
-        ValidatedEnum original = valid.enums().getFirst();
+        ValidatedEnum original = valid.enums().get(0);
         ValidatedEnum forged = new ValidatedEnum(original.name(),
                 List.of("ADMIN; static { System.exit(1); }"), original.span());
         ValidatedSchema forgedSchema = new ValidatedSchema(valid.syntax(), valid.models(),
@@ -378,8 +378,8 @@ class JavaCodeGeneratorTest {
                                         .orderBy(PostOrder.id().desc())
                                         .include(PostInclude.author())))
                                 .include(UserInclude.profile()));
-                        List<Post> posts = users.getFirst().posts().get();
-                        Optional<Profile> profile = users.getFirst().profile().get();
+                        List<Post> posts = users.get(0).posts().get();
+                        Optional<Profile> profile = users.get(0).profile().get();
                         return db.transaction(TransactionOptions.defaults()
                                 .withIsolation(IsolationLevel.SERIALIZABLE).withTimeout(Duration.ofSeconds(5)), tx -> {
                             tx.post().findById(1L, query -> query.lock(RowLock.FOR_UPDATE));
@@ -598,7 +598,7 @@ class JavaCodeGeneratorTest {
         Path root = Files.createTempDirectory(temporaryDirectory, "compile");
         Path sources = root.resolve("sources");
         new GeneratedSourceWriter().write(sources, generated);
-        List<String> arguments = new ArrayList<>(List.of("--release", "21", "-Xlint:all", "-Werror",
+        List<String> arguments = new ArrayList<>(List.of("--release", "17", "-Xlint:all", "-Werror",
                 "-classpath", System.getProperty("java.class.path"),
                 "-d", Files.createDirectories(root.resolve("classes")).toString()));
         for (String relative : generated.files().keySet()) {
