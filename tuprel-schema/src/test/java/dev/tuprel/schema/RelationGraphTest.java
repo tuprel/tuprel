@@ -159,8 +159,8 @@ class RelationGraphTest {
                     version Int @version @default(0)
                 }
                 """);
-        assertTrue(schema.models().getFirst().fields().get(1).version());
-        assertFalse(schema.models().getFirst().fields().get(0).version());
+        assertTrue(schema.models().get(0).fields().get(1).version());
+        assertFalse(schema.models().get(0).fields().get(0).version());
         assertCode("model Product { id Int @id version Int? @version }", "TUPREL-SCHEMA-SEM-025");
         assertCode("model Product { id Int @id version String @version }", "TUPREL-SCHEMA-SEM-025");
         assertCode("model Product { id Int @id @version }", "TUPREL-SCHEMA-SEM-025");

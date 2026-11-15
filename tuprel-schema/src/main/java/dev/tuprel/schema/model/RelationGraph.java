@@ -116,7 +116,7 @@ public final class RelationGraph {
                             .formatted(label, target.name(), model.name()), field.span()));
                     continue;
                 }
-                ValidatedField owner = owners.getFirst();
+                ValidatedField owner = owners.get(0);
                 if (!claimed.add(target.name() + "." + owner.name())) {
                     problems.add(new Problem("TUPREL-SCHEMA-SEM-022", ("Relation '%s' pairs with '%s.%s', "
                             + "which another relation field already uses.")
@@ -168,12 +168,12 @@ public final class RelationGraph {
                         && candidate.type().name().equals(owner.name())
                         && !(target.name().equals(owner.name()) && candidate.name().equals(owning.name())))
                 .toList();
-        return inverses.size() == 1 ? Optional.of(inverses.getFirst().name()) : Optional.empty();
+        return inverses.size() == 1 ? Optional.of(inverses.get(0).name()) : Optional.empty();
     }
 
     private static boolean unique(ValidatedModel model, List<String> fields) {
         if (fields.size() == 1) {
-            String name = fields.getFirst();
+            String name = fields.get(0);
             if (model.fields().stream().anyMatch(field -> field.name().equals(name)
                     && (field.id() || field.unique()))) {
                 return true;
