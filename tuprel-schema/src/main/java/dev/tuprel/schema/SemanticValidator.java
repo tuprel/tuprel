@@ -422,7 +422,7 @@ final class SemanticValidator {
             FieldDeclaration field,
             ResolvedType type,
             FieldAttribute attribute) {
-        if (attribute.arguments().size() != 1 || attribute.arguments().getFirst().isNamed()) {
+        if (attribute.arguments().size() != 1 || attribute.arguments().get(0).isNamed()) {
             add(
                     "TUPREL-SCHEMA-SEM-011",
                     "@default on '%s.%s' requires one positional argument."
@@ -440,7 +440,7 @@ final class SemanticValidator {
             return Optional.empty();
         }
 
-        SchemaDocument.Expression expression = attribute.arguments().getFirst().value();
+        SchemaDocument.Expression expression = attribute.arguments().get(0).value();
         boolean compatible = isCompatibleDefault(type, expression);
         if (!compatible) {
             add(
@@ -624,7 +624,7 @@ final class SemanticValidator {
 
     private boolean isUniqueReference(ModelDeclaration target, List<String> references) {
         if (references.size() == 1) {
-            String reference = references.getFirst();
+            String reference = references.get(0);
             Optional<FieldDeclaration> field =
                     target.fields().stream().filter(item -> item.name().equals(reference)).findFirst();
             if (field.isPresent()
@@ -640,7 +640,7 @@ final class SemanticValidator {
                 .filter(attribute -> attribute.name().equals("unique"))
                 .map(BlockAttribute::arguments)
                 .filter(arguments -> arguments.size() == 1)
-                .map(arguments -> symbolList(arguments.getFirst().value()))
+                .map(arguments -> symbolList(arguments.get(0).value()))
                 .flatMap(Optional::stream)
                 .anyMatch(references::equals);
     }
@@ -659,7 +659,7 @@ final class SemanticValidator {
                 continue;
             }
             if (attribute.arguments().size() != 1
-                    || attribute.arguments().getFirst().isNamed()) {
+                    || attribute.arguments().get(0).isNamed()) {
                 add(
                         "TUPREL-SCHEMA-SEM-013",
                         "@@%s on '%s' requires one positional field list."
@@ -667,7 +667,7 @@ final class SemanticValidator {
                         attribute.span());
                 continue;
             }
-            Optional<List<String>> names = symbolList(attribute.arguments().getFirst().value());
+            Optional<List<String>> names = symbolList(attribute.arguments().get(0).value());
             if (names.isEmpty() || names.get().isEmpty()) {
                 add(
                         "TUPREL-SCHEMA-SEM-013",
@@ -751,7 +751,7 @@ final class SemanticValidator {
         if (declarations.isEmpty()) {
             return Optional.empty();
         }
-        SchemaDocument.DatasourceDeclaration declaration = declarations.getFirst();
+        SchemaDocument.DatasourceDeclaration declaration = declarations.get(0);
         Map<String, SchemaDocument.Expression> properties =
                 collectProperties("datasource", declaration.properties());
         requireProperties("datasource", declaration.span(), properties, Set.of("provider", "url"));
@@ -794,7 +794,7 @@ final class SemanticValidator {
         if (declarations.isEmpty()) {
             return Optional.empty();
         }
-        SchemaDocument.GeneratorDeclaration declaration = declarations.getFirst();
+        SchemaDocument.GeneratorDeclaration declaration = declarations.get(0);
         Map<String, SchemaDocument.Expression> properties =
                 collectProperties("generator", declaration.properties());
         requireProperties("generator", declaration.span(), properties, Set.of("package"));
@@ -861,10 +861,10 @@ final class SemanticValidator {
         if (!(expression instanceof SchemaDocument.Call call)
                 || !call.name().equals("env")
                 || call.arguments().size() != 1
-                || call.arguments().getFirst().isNamed()) {
+                || call.arguments().get(0).isNamed()) {
             return false;
         }
-        return call.arguments().getFirst().value() instanceof SchemaDocument.StringLiteral string
+        return call.arguments().get(0).value() instanceof SchemaDocument.StringLiteral string
                 && !string.value().isBlank();
     }
 

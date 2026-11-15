@@ -26,8 +26,8 @@ class SchemaCompilerTest {
         assertTrue(result.isValid());
         assertEquals(1, result.syntax().orElseThrow().declarations().size());
         ValidatedSchema schema = result.validatedSchema().orElseThrow();
-        assertEquals("User", schema.models().getFirst().name());
-        assertEquals("String", schema.models().getFirst().fields().get(1).type().name());
+        assertEquals("User", schema.models().get(0).name());
+        assertEquals("String", schema.models().get(0).fields().get(1).type().name());
     }
 
     @Test
@@ -38,7 +38,7 @@ class SchemaCompilerTest {
 
         assertTrue(result.isValid(), () -> result.diagnostics().toString());
         assertEquals(2, result.validatedSchema().orElseThrow().models().size());
-        assertEquals("UserStatus", result.validatedSchema().orElseThrow().enums().getFirst().name());
+        assertEquals("UserStatus", result.validatedSchema().orElseThrow().enums().get(0).name());
         assertTrue(result.validatedSchema().orElseThrow().datasource().isPresent());
     }
 
@@ -145,7 +145,7 @@ class SchemaCompilerTest {
         SchemaCompilation result = compiler.compile(SourceText.of("comments.tuprel", text));
 
         assertTrue(result.isValid(), () -> result.diagnostics().toString());
-        assertEquals(4, result.validatedSchema().orElseThrow().models().getFirst().fields().size());
+        assertEquals(4, result.validatedSchema().orElseThrow().models().get(0).fields().size());
     }
 
     @Test

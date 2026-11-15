@@ -84,7 +84,7 @@ class SchemaSymbolsTest {
         assertEquals(new SchemaSymbols.Model("Customer", List.of()), recovered.symbol());
 
         assertEquals("Ready", assertInstanceOf(SchemaSymbols.Enumeration.class,
-                lookup("model A { state S|tatus }\nenum Status { Ready").orElseThrow().symbol()).values().getFirst());
+                lookup("model A { state S|tatus }\nenum Status { Ready").orElseThrow().symbol()).values().get(0));
         assertFalse(lookup("model A { id U|UID @id").isEmpty());
     }
 

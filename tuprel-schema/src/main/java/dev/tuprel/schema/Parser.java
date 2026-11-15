@@ -36,7 +36,7 @@ final class Parser {
         this.completionProbe = completionProbe;
         this.tokens =
                 tokens.stream().filter(token -> token.kind() != TokenKind.COMMENT).toList();
-        this.previous = this.tokens.getFirst();
+        this.previous = this.tokens.iterator().next();
     }
 
     static Result parse(SourceText source, List<Token> tokens) {
@@ -177,7 +177,7 @@ final class Parser {
             attributes.add(parseFieldAttribute(previous));
         }
         offerOnSameLine(CompletionContext.FIELD_ATTRIBUTE);
-        SourceSpan end = attributes.isEmpty() ? type.span() : attributes.getLast().span();
+        SourceSpan end = attributes.isEmpty() ? type.span() : attributes.get(attributes.size() - 1).span();
         return new FieldDeclaration(name.value(), type, attributes, span(name.span(), end));
     }
 

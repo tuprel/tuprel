@@ -68,20 +68,23 @@ public final class SchemaCompletion {
         }
 
         List<Token> prefix = new ArrayList<>(lexed.tokens().subList(0, cursor.tokenCount()));
-        int previousEnd = prefix.isEmpty() ? 0 : prefix.getLast().span().endOffset();
+        int previousEnd = prefix.isEmpty() ? 0 : prefix.get(prefix.size() - 1).span().endOffset();
         if (lexed.diagnostics().stream().anyMatch(diagnostic ->
                 diagnostic.code().equals("TUPREL-SCHEMA-LEX-001")
                         && diagnostic.span().startOffset() >= previousEnd
                         && diagnostic.span().endOffset() <= offset)) {
             return Optional.empty();
         }
-        Optional<Token> previous = prefix.reversed().stream()
-                .filter(token -> token.kind() != TokenKind.COMMENT)
-                .findFirst();
-        if (previous.filter(token -> isMarker(token.kind()) && token.span().startOffset() < cursor.start())
-                .isPresent()) {
-            // A detached identifier must not cause a second marker to be inserted.
-            return Optional.empty();
+        for (int index = prefix.size() - 1; index >= 0; index--) {
+            Token previous = prefix.get(index);
+            if (previous.kind() == TokenKind.COMMENT) {
+                continue;
+            }
+            if (isMarker(previous.kind()) && previous.span().startOffset() < cursor.start()) {
+                // A detached identifier must not cause a second marker to be inserted.
+                return Optional.empty();
+            }
+            break;
         }
         prefix.add(new Token(TokenKind.EOF, "", "", source.span(offset, offset)));
         Parser.CompletionContext context = Parser.completionContext(source, prefix);
@@ -205,11 +208,10 @@ public final class SchemaCompletion {
             if (!topLevelStarts.contains(declaration.span().startOffset())) {
                 continue;
             }
-            switch (declaration) {
-                case SchemaDocument.ModelDeclaration model -> addDeclaredType(candidates, model.name(), Kind.MODEL);
-                case SchemaDocument.EnumDeclaration enumeration -> addDeclaredType(
-                        candidates, enumeration.name(), Kind.ENUM);
-                default -> { }
+            if (declaration instanceof SchemaDocument.ModelDeclaration model) {
+                addDeclaredType(candidates, model.name(), Kind.MODEL);
+            } else if (declaration instanceof SchemaDocument.EnumDeclaration enumeration) {
+                addDeclaredType(candidates, enumeration.name(), Kind.ENUM);
             }
         }
     }

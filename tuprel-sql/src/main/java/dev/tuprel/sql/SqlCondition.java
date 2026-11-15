@@ -43,7 +43,7 @@ public sealed interface SqlCondition permits SqlCondition.Comparison, SqlConditi
             }
             if (operator == Operator.CONTAINS || operator == Operator.STARTS_WITH
                     || operator == Operator.ENDS_WITH) {
-                require(values.getFirst() instanceof SqlValue.Text,
+                require(values.get(0) instanceof SqlValue.Text,
                         "Text pattern operators require a text value");
             }
         }

@@ -95,10 +95,10 @@ public final class SchemaSymbols {
         Query(Lexer.Result lexed, List<Declaration> declarations) {
             layout = new TokenLayout(lexed);
             for (Declaration declaration : declarations) {
-                switch (declaration) {
-                    case ModelDeclaration model -> addType(model, model.name(), TokenKind.MODEL);
-                    case EnumDeclaration enumeration -> addType(enumeration, enumeration.name(), TokenKind.ENUM);
-                    default -> { }
+                if (declaration instanceof ModelDeclaration model) {
+                    addType(model, model.name(), TokenKind.MODEL);
+                } else if (declaration instanceof EnumDeclaration enumeration) {
+                    addType(enumeration, enumeration.name(), TokenKind.ENUM);
                 }
             }
         }
@@ -119,10 +119,10 @@ public final class SchemaSymbols {
 
         Optional<Match> lookup(int offset) {
             for (List<TypeDeclaration> group : types.values()) {
-                if (group.size() != 1 || !usable(group.getFirst())) {
+                if (group.size() != 1 || !usable(group.get(0))) {
                     continue;
                 }
-                TypeDeclaration declaration = group.getFirst();
+                TypeDeclaration declaration = group.get(0);
                 if (contains(declaration.name(), offset)) {
                     return Optional.of(new Match(describe(declaration), declaration.name(), Optional.empty()));
                 }
@@ -142,7 +142,7 @@ public final class SchemaSymbols {
                 if (group.size() != 1) {
                     continue;
                 }
-                Member member = group.getFirst();
+                Member member = group.get(0);
                 if (contains(member.name(), offset)) {
                     return field(model.name(), member).map(field -> new Match(field, member.name(), Optional.empty()));
                 }
@@ -151,7 +151,7 @@ public final class SchemaSymbols {
                         if (type.kind() == TypeKind.SCALAR) {
                             return new Match(new Scalar(type.name()), member.type(), Optional.empty());
                         }
-                        TypeDeclaration target = types.get(type.name()).getFirst();
+                        TypeDeclaration target = types.get(type.name()).get(0);
                         return new Match(describe(target), member.type(), Optional.of(target.name()));
                     });
                 }
@@ -160,31 +160,29 @@ public final class SchemaSymbols {
         }
 
         private Symbol describe(TypeDeclaration declaration) {
-            return switch (declaration.syntax()) {
-                case ModelDeclaration model -> {
-                    List<Field> fields = members(model).values().stream()
-                            .filter(group -> group.size() == 1)
-                            .map(group -> field(model.name(), group.getFirst()))
-                            .flatMap(Optional::stream)
-                            .toList();
-                    yield new Model(model.name(), fields);
-                }
-                case EnumDeclaration enumeration -> {
-                    Map<String, Integer> values = new LinkedHashMap<>();
-                    for (EnumValue value : enumeration.values()) {
-                        int index = layout.indexAt(value.span().startOffset());
-                        if (layout.isAtDepth(index, 1) && layout.isIdentifier(index, value.name())
-                                && SemanticValidator.isAllowedName(value.name())) {
-                            values.merge(value.name(), 1, Integer::sum);
-                        }
+            if (declaration.syntax() instanceof ModelDeclaration model) {
+                List<Field> fields = members(model).values().stream()
+                        .filter(group -> group.size() == 1)
+                        .map(group -> field(model.name(), group.get(0)))
+                        .flatMap(Optional::stream)
+                        .toList();
+                return new Model(model.name(), fields);
+            }
+            if (declaration.syntax() instanceof EnumDeclaration enumeration) {
+                Map<String, Integer> values = new LinkedHashMap<>();
+                for (EnumValue value : enumeration.values()) {
+                    int index = layout.indexAt(value.span().startOffset());
+                    if (layout.isAtDepth(index, 1) && layout.isIdentifier(index, value.name())
+                            && SemanticValidator.isAllowedName(value.name())) {
+                        values.merge(value.name(), 1, Integer::sum);
                     }
-                    yield new Enumeration(enumeration.name(), values.entrySet().stream()
-                            .filter(entry -> entry.getValue() == 1)
-                            .map(Map.Entry::getKey)
-                            .toList());
                 }
-                default -> throw new IllegalStateException("Expected schema type declaration");
-            };
+                return new Enumeration(enumeration.name(), values.entrySet().stream()
+                        .filter(entry -> entry.getValue() == 1)
+                        .map(Map.Entry::getKey)
+                        .toList());
+            }
+            throw new IllegalStateException("Expected schema type declaration");
         }
 
         private Map<String, List<Member>> members(ModelDeclaration model) {
@@ -231,7 +229,7 @@ public final class SchemaSymbols {
                 return Optional.empty();
             }
             return SemanticValidator.resolve(name, ignored ->
-                    group.isEmpty() || !usable(group.getFirst()) ? null : group.getFirst().kind());
+                    group.isEmpty() || !usable(group.get(0)) ? null : group.get(0).kind());
         }
 
         private static boolean usable(TypeDeclaration declaration) {
