@@ -81,8 +81,9 @@ public final class PostgresqlMigrationDevPlanner {
             PhysicalDriftReport observation) {
         String sql = diff.preview();
         byte[] bytes = sql.getBytes(StandardCharsets.UTF_8);
-        if (bytes.length > MigrationFile.MAX_SQL_BYTES || reference.files().size() >= MigrationDirectory.MAX_MIGRATIONS
-                || (!reference.files().isEmpty() && reference.files().getLast().id().equals(VALIDATION_ID))) {
+        List<MigrationFile> files = reference.files();
+        if (bytes.length > MigrationFile.MAX_SQL_BYTES || files.size() >= MigrationDirectory.MAX_MIGRATIONS
+                || (!files.isEmpty() && files.get(files.size() - 1).id().equals(VALIDATION_ID))) {
             return MigrationDevPlan.blocked(Diagnostic.CAPACITY, observation);
         }
         MigrationFile proposed = new MigrationFile(VALIDATION_ID, name, bytes);
@@ -90,7 +91,7 @@ public final class PostgresqlMigrationDevPlanner {
         if (!parsed.isSupported() || !parsed.preview().equals(sql)) {
             return MigrationDevPlan.blocked(Diagnostic.REPLAY, observation);
         }
-        List<MigrationFile> catalog = new ArrayList<>(reference.files());
+        List<MigrationFile> catalog = new ArrayList<>(files);
         catalog.add(proposed);
         MigrationPlan plan;
         try { plan = new PostgresqlMigrationPlanCompiler().compile(binding, catalog, reference.history()); }

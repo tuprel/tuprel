@@ -83,7 +83,7 @@ class MigrationRunnerIntegrationTest {
         assertEquals(MigrationExecutionResult.Failure.NONE, result.failure()); assertEquals(1, connections.get());
         assertEquals(1, result.confirmed().size());
         assertEquals(history().applied(), result.confirmed());
-        assertEquals(MigrationDirectory.discover(directory).getFirst().checksum(), result.confirmed().getFirst().checksum());
+        assertEquals(MigrationDirectory.discover(directory).get(0).checksum(), result.confirmed().get(0).checksum());
         assertTrue(exists("items")); assertTrue(exists("items_label"));
         assertFalse(statements.stream().anyMatch(sql -> sql.contains("private_marker")));
         String canonical = new PostgresqlDdlParser().parse(MigrationFile.fromDirectory(file.getParent().getFileName().toString(), Files.readAllBytes(file))).preview();
@@ -143,7 +143,7 @@ class MigrationRunnerIntegrationTest {
         MigrationPlan pending = plan();
         MigrationPlanTarget target = settings.planTarget(schema);
         SchemaSnapshot expected = SchemaSnapshot.fromParsed(target.schema(), List.of(
-                new PostgresqlDdlParser().parse(MigrationDirectory.discover(directory).getFirst())));
+                new PostgresqlDdlParser().parse(MigrationDirectory.discover(directory).get(0))));
         PhysicalDeployDigest first = physicalEvidence(target, pending, expected).orElseThrow();
         assertEquals(first, physicalEvidence(target, pending, expected).orElseThrow());
         execute("DROP INDEX " + table("items_label"));
@@ -321,7 +321,7 @@ class MigrationRunnerIntegrationTest {
         assertEquals(MigrationExecutionResult.Outcome.OUTCOME_UNKNOWN, result.outcome());
         assertEquals(MigrationExecutionResult.Failure.COMMIT, result.failure());
         assertTrue(result.confirmed().isEmpty()); assertEquals(2, commits.get());
-        assertTrue(owned.getFirst().isClosed()); assertTrue(exists("items")); assertEquals(1, history().applied().size());
+        assertTrue(owned.get(0).isClosed()); assertTrue(exists("items")); assertEquals(1, history().applied().size());
         assertFalse(result.toString().contains("private_marker"));
         MigrationInspection reconciled = runner().inspect(schema, directory);
         assertEquals(MigrationPlan.State.NO_CHANGES, reconciled.plan().state());
@@ -395,7 +395,7 @@ class MigrationRunnerIntegrationTest {
             MigrationExecutionResult result = run(failing, approved);
             assertEquals(MigrationExecutionResult.Outcome.OUTCOME_UNKNOWN, result.outcome());
             assertEquals(MigrationExecutionResult.Failure.COMMIT, result.failure());
-            assertEquals(1, result.confirmed().size()); assertTrue(owned.getFirst().isClosed());
+            assertEquals(1, result.confirmed().size()); assertTrue(owned.get(0).isClosed());
             assertTrue(exists("first")); assertFalse(exists("second")); assertFalse(exists("third"));
             MigrationInspection current = runner().inspect(schema, directory);
             assertEquals(result.confirmed(), current.history().applied()); assertEquals(2, current.plan().scripts().size());
@@ -420,7 +420,7 @@ class MigrationRunnerIntegrationTest {
             MigrationExecutionResult result = run(failing, plan().digest());
             assertEquals(MigrationExecutionResult.Outcome.OUTCOME_UNKNOWN, result.outcome());
             assertEquals(MigrationExecutionResult.Failure.ROLLBACK, result.failure());
-            assertEquals(1, result.confirmed().size()); assertTrue(owned.getFirst().isClosed());
+            assertEquals(1, result.confirmed().size()); assertTrue(owned.get(0).isClosed());
             MigrationInspection current = runner().inspect(schema, directory);
             assertEquals(result.confirmed(), current.history().applied()); assertEquals(2, current.plan().scripts().size());
             assertFalse(exists("second")); assertFalse(exists("third"));
@@ -523,7 +523,7 @@ class MigrationRunnerIntegrationTest {
                 MigrationInspectionException failure = assertThrows(MigrationInspectionException.class,
                         () -> new PostgresqlMigrationRunner(failing, settings).inspect(schema, directory));
                 assertEquals(failurePoint.equals("rollback") ? MigrationExecutionResult.Failure.ROLLBACK : MigrationExecutionResult.Failure.CLEANUP, failure.reason());
-                assertNull(failure.getCause()); assertEquals(0, failure.getSuppressed().length); assertTrue(owned.getFirst().isClosed());
+                assertNull(failure.getCause()); assertEquals(0, failure.getSuppressed().length); assertTrue(owned.get(0).isClosed());
             }
             MigrationInspection current = runner().inspect(schema, directory);
             assertFalse(current.history().initialised()); assertEquals(1, current.plan().scripts().size()); assertFalse(exists("items"));
@@ -547,7 +547,7 @@ class MigrationRunnerIntegrationTest {
             assertTrue(exists("first")); assertFalse(exists("second")); assertFalse(exists("third"));
             MigrationInspection current = runner().inspect(schema, directory);
             assertEquals(MigrationPlan.State.BLOCKED, current.plan().state());
-            assertEquals("tampered", current.history().applied().getFirst().name());
+            assertEquals("tampered", current.history().applied().get(0).name());
         }
 
         @Test void interruptionBetweenMigrationsPreservesThePrefixAndDoesNotContinue() throws Exception {

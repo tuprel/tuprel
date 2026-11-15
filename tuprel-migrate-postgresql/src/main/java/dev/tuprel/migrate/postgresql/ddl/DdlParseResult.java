@@ -72,15 +72,20 @@ public record DdlParseResult(List<DdlStatement> statements, Optional<Diagnostic>
 
     private static String render(DdlStatement statement) {
         String table = quote(statement.table().schema()) + "." + quote(statement.table().name());
-        return switch (statement) {
-            case DdlStatement.CreateTable create -> "CREATE TABLE " + table + " (\n"
+        if (statement instanceof DdlStatement.CreateTable create) {
+            return "CREATE TABLE " + table + " (\n"
                     + create.columns().stream().map(column -> "    " + quote(column.name()) + " " + column.type().sql()
                             + (column.nullable() ? "" : " NOT NULL") + (column.primaryKey() ? " PRIMARY KEY" : ""))
                             .collect(Collectors.joining(",\n")) + "\n);\n";
-            case DdlStatement.AddColumn add -> "ALTER TABLE " + table + " ADD COLUMN " + quote(add.name()) + " " + add.type().sql() + ";\n";
-            case DdlStatement.CreateIndex index -> "CREATE INDEX " + quote(index.name()) + " ON " + table + " ("
+        }
+        if (statement instanceof DdlStatement.AddColumn add) {
+            return "ALTER TABLE " + table + " ADD COLUMN " + quote(add.name()) + " " + add.type().sql() + ";\n";
+        }
+        if (statement instanceof DdlStatement.CreateIndex index) {
+            return "CREATE INDEX " + quote(index.name()) + " ON " + table + " ("
                     + index.columns().stream().map(DdlParseResult::quote).collect(Collectors.joining(", ")) + ");\n";
-        };
+        }
+        throw new IncompatibleClassChangeError();
     }
 
     private static String quote(SqlIdentifier name) { return "\"" + name.name() + "\""; }

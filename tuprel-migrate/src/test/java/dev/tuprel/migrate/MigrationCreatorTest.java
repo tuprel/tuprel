@@ -234,7 +234,7 @@ class MigrationCreatorTest {
             AclFileAttributeView view = Files.getFileAttributeView(root, AclFileAttributeView.class);
             List<AclEntry> original = view.getAcl();
             List<AclEntry> denied = new ArrayList<>(original);
-            denied.addFirst(AclEntry.newBuilder().setType(AclEntryType.DENY).setPrincipal(Files.getOwner(root))
+            denied.add(0, AclEntry.newBuilder().setType(AclEntryType.DENY).setPrincipal(Files.getOwner(root))
                     .setPermissions(AclEntryPermission.WRITE_DATA, AclEntryPermission.APPEND_DATA).build());
             view.setAcl(denied);
             try { assertThrows(IOException.class, () -> creator().create(root, "initial")); }

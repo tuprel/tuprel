@@ -108,31 +108,29 @@ public final class PostgresqlMigrationPlanCompiler {
                                 || (statement instanceof DdlStatement.CreateIndex index && reserved(index.name()))) {
                             scriptRisks.add(Risk.TARGET_UNSUPPORTED);
                         }
-                        switch (statement) {
-                            case DdlStatement.CreateTable create -> {
-                                if (!relations.add(create.table())) { scriptRisks.add(Risk.PLAN_CONFLICT); }
-                                createdTables.add(create.table());
-                                knownColumns.put(create.table(), new HashSet<>(create.columns().stream().map(DdlStatement.Column::name).toList()));
-                            }
-                            case DdlStatement.AddColumn add -> {
-                                if (relations.contains(add.table()) && !createdTables.contains(add.table())
-                                        && !existingTables.contains(add.table())) { scriptRisks.add(Risk.PLAN_CONFLICT); }
-                                if (!createdTables.contains(add.table())) { existingTables.add(add.table()); }
-                                relations.add(add.table());
-                                Set<SqlIdentifier> columns = knownColumns.computeIfAbsent(add.table(), ignored -> new HashSet<>());
-                                if (!columns.add(add.name())) { scriptRisks.add(Risk.PLAN_CONFLICT); }
-                            }
-                            case DdlStatement.CreateIndex index -> {
-                                scriptRisks.add(Risk.INDEX_BUILD_COST); scriptRisks.add(Risk.INDEX_WRITE_BLOCKING);
-                                if (relations.contains(index.table()) && !createdTables.contains(index.table())
-                                        && !existingTables.contains(index.table())) { scriptRisks.add(Risk.PLAN_CONFLICT); }
-                                if (!createdTables.contains(index.table())) { existingTables.add(index.table()); }
-                                relations.add(index.table());
-                                if (!relations.add(new DdlStatement.TableName(index.table().schema(), index.name()))) { scriptRisks.add(Risk.PLAN_CONFLICT); }
-                                // Only fully known tables can establish a missing column offline.
-                                if (createdTables.contains(index.table()) && knownColumns.containsKey(index.table())
-                                        && !knownColumns.get(index.table()).containsAll(index.columns())) { scriptRisks.add(Risk.PLAN_CONFLICT); }
-                            }
+                        if (statement instanceof DdlStatement.CreateTable create) {
+                            if (!relations.add(create.table())) { scriptRisks.add(Risk.PLAN_CONFLICT); }
+                            createdTables.add(create.table());
+                            knownColumns.put(create.table(), new HashSet<>(create.columns().stream().map(DdlStatement.Column::name).toList()));
+                        } else if (statement instanceof DdlStatement.AddColumn add) {
+                            if (relations.contains(add.table()) && !createdTables.contains(add.table())
+                                    && !existingTables.contains(add.table())) { scriptRisks.add(Risk.PLAN_CONFLICT); }
+                            if (!createdTables.contains(add.table())) { existingTables.add(add.table()); }
+                            relations.add(add.table());
+                            Set<SqlIdentifier> columns = knownColumns.computeIfAbsent(add.table(), ignored -> new HashSet<>());
+                            if (!columns.add(add.name())) { scriptRisks.add(Risk.PLAN_CONFLICT); }
+                        } else if (statement instanceof DdlStatement.CreateIndex index) {
+                            scriptRisks.add(Risk.INDEX_BUILD_COST); scriptRisks.add(Risk.INDEX_WRITE_BLOCKING);
+                            if (relations.contains(index.table()) && !createdTables.contains(index.table())
+                                    && !existingTables.contains(index.table())) { scriptRisks.add(Risk.PLAN_CONFLICT); }
+                            if (!createdTables.contains(index.table())) { existingTables.add(index.table()); }
+                            relations.add(index.table());
+                            if (!relations.add(new DdlStatement.TableName(index.table().schema(), index.name()))) { scriptRisks.add(Risk.PLAN_CONFLICT); }
+                            // Only fully known tables can establish a missing column offline.
+                            if (createdTables.contains(index.table()) && knownColumns.containsKey(index.table())
+                                    && !knownColumns.get(index.table()).containsAll(index.columns())) { scriptRisks.add(Risk.PLAN_CONFLICT); }
+                        } else {
+                            throw new IncompatibleClassChangeError();
                         }
                     }
                 }

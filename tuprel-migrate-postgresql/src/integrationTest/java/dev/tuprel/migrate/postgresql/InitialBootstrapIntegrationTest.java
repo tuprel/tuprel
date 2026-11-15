@@ -613,7 +613,7 @@ class InitialBootstrapIntegrationTest {
         assertEquals(0, publication.code(), publication::error);
         assertTrue(publication.output().contains("Publication: PUBLISHED"));
         assertFalse(publication.output().contains("Physical approval:"));
-        MigrationFile artifact = MigrationDirectory.discover(catalog).getFirst();
+        MigrationFile artifact = MigrationDirectory.discover(catalog).get(0);
         assertTrue(publication.output().contains(artifact.sql()));
         assertTrue(publication.output().contains(artifact.checksum().value()));
         assertTrue(historyInitialised());
@@ -662,7 +662,7 @@ class InitialBootstrapIntegrationTest {
         assertEquals(0, deploy(commands, initialToken).code());
         assertTrue(relationExists("Product"));
         assertEquals(artifact.checksum(), new PostgresqlMigrationHistory(settings.dataSource()).read(target.name())
-                .applied().getFirst().checksum());
+                .applied().get(0).checksum());
 
         PGSimpleDataSource application = provisionConsumerLogin();
         consumer.exercise(application);

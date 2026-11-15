@@ -257,7 +257,7 @@ class PhysicalDriftIntegrationTest {
             }
             PhysicalDriftReport confirmed = limited.inspect(schema, directory, ReferenceControl.MANAGED_HISTORY);
             assertEquals(State.DRIFT_DETECTED, confirmed.state(), confirmed::toString);
-            assertEquals("application_table", confirmed.differences().getFirst().table().name());
+            assertEquals("application_table", confirmed.differences().get(0).table().name());
         } finally {
             execute(owner + "DROP SCHEMA " + quotedSchema() + " CASCADE");
             created = false;

@@ -47,7 +47,7 @@ class SchemaDiffTest {
         List<DdlStatement> replay = new ArrayList<>(parse(TABLE).statements());
         replay.addAll(parse(diff.preview()).statements());
         assertEquals(SchemaDiff.State.NO_CHANGES, SchemaDiff.compare(SchemaSnapshot.replay(APP, replay), after).state());
-        assertEquals(SchemaDiff.Kind.TABLE_ADDED, SchemaDiff.compare(empty(), before).changes().getFirst().kind());
+        assertEquals(SchemaDiff.Kind.TABLE_ADDED, SchemaDiff.compare(empty(), before).changes().get(0).kind());
     }
 
     @Test void independentTableAndColumnDeclarationOrderingDoesNotChangeLogicalPreview() {
@@ -146,22 +146,25 @@ class SchemaDiffTest {
         SchemaDiff diff = SchemaDiff.compare(empty(), state);
         assertThrows(UnsupportedOperationException.class, () -> diff.changes().clear());
         assertThrows(UnsupportedOperationException.class, () -> diff.risks().clear());
-        assertThrows(UnsupportedOperationException.class, () -> diff.changes().getFirst().risks().clear());
+        assertThrows(UnsupportedOperationException.class, () -> diff.changes().get(0).risks().clear());
         assertFalse(state.toString().contains("Thing")); assertFalse(state.tables().get("Thing").toString().contains("id"));
-        assertFalse(diff.toString().contains("Thing")); assertFalse(diff.changes().getFirst().toString().contains("Thing"));
+        assertFalse(diff.toString().contains("Thing")); assertFalse(diff.changes().get(0).toString().contains("Thing"));
     }
 
     @Test void concurrentComparisonsOfSharedSnapshotsRemainDeterministic() throws Exception {
         SchemaSnapshot desired = snapshot(TABLE);
         String expected = SchemaDiff.compare(empty(), desired).preview();
-        try (java.util.concurrent.ExecutorService executor = Executors.newFixedThreadPool(4)) {
+        java.util.concurrent.ExecutorService executor = Executors.newFixedThreadPool(4);
+        try {
             List<Callable<String>> tasks = IntStream.range(0, 64).mapToObj(index -> (Callable<String>) () -> SchemaDiff.compare(empty(), desired).preview()).toList();
             for (java.util.concurrent.Future<String> result : executor.invokeAll(tasks)) { assertEquals(expected, result.get()); }
+        } finally {
+            executor.shutdownNow();
         }
     }
 
     @Test void statementAndObjectBudgetsAreEnforcedBeforeReturningSnapshots() {
-        DdlStatement create = parse(TABLE).statements().getFirst();
+        DdlStatement create = parse(TABLE).statements().get(0);
         assertThrows(IllegalArgumentException.class, () -> SchemaSnapshot.replay(APP, Collections.nCopies(4097, create)));
         List<DdlStatement> large = new ArrayList<>();
         for (int table = 0; table < 64; table++) {
@@ -186,7 +189,7 @@ class SchemaDiffTest {
         SchemaSnapshot desired = SchemaSnapshot.replay(APP, program);
         List<DdlStatement> initial = program.stream().map(statement -> {
             DdlStatement.CreateTable table = (DdlStatement.CreateTable) statement;
-            return (DdlStatement) new DdlStatement.CreateTable(table.table(), List.of(table.columns().getFirst()));
+            return (DdlStatement) new DdlStatement.CreateTable(table.table(), List.of(table.columns().get(0)));
         }).toList();
         SchemaDiff diff = SchemaDiff.compare(SchemaSnapshot.replay(APP, initial), desired);
         assertEquals(SchemaDiff.State.BLOCKED, diff.state());
