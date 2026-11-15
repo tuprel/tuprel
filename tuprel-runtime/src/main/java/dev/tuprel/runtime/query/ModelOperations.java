@@ -197,14 +197,14 @@ public final class ModelOperations<M, I> {
         query.condition().ifPresent(condition -> terms.add(condition.toSql()));
         query.cursor().ifPresent(cursor -> terms.add(after(orders, ordering, cursor)));
         if (!terms.isEmpty()) {
-            sql = sql.where(terms.size() == 1 ? terms.getFirst() : new SqlCondition.And(terms));
+            sql = sql.where(terms.size() == 1 ? terms.get(0) : new SqlCondition.And(terms));
         }
         List<M> rows = database.findMany(locked(query, sql), table.mapper(), options(query));
         if (rows.size() <= size) {
             return new CursorPage<>(loadIncludes(rows, query), Optional.empty());
         }
         List<M> page = rows.subList(0, size);
-        M last = page.getLast();
+        M last = page.get(size - 1);
         List<SqlValue> key = new ArrayList<>();
         for (Order<M> order : orders) {
             key.add(keyValue(order.field(), last));
@@ -383,7 +383,7 @@ public final class ModelOperations<M, I> {
                         + order.field().column().name() + "\"");
             }
         }
-        if (!requested.getLast().field().column().equals(table.id().column())) {
+        if (!requested.get(requested.size() - 1).field().column().equals(table.id().column())) {
             throw new IllegalArgumentException("Cursor ordering must end with the identifier field");
         }
         return requested;
@@ -411,9 +411,9 @@ public final class ModelOperations<M, I> {
             Order<M> order = orders.get(index);
             terms.add(comparison(order, order.ascending() ? SqlCondition.Operator.GT
                     : SqlCondition.Operator.LT, cursor.values().get(index)));
-            alternatives.add(terms.size() == 1 ? terms.getFirst() : new SqlCondition.And(terms));
+            alternatives.add(terms.size() == 1 ? terms.get(0) : new SqlCondition.And(terms));
         }
-        return alternatives.size() == 1 ? alternatives.getFirst() : new SqlCondition.Or(alternatives);
+        return alternatives.size() == 1 ? alternatives.get(0) : new SqlCondition.Or(alternatives);
     }
 
     private static SqlCondition comparison(Order<?> order, SqlCondition.Operator operator, SqlValue value) {

@@ -123,23 +123,53 @@ public final class Cursor {
     }
 
     static SqlValue.Type typeOf(SqlValue value) {
-        return switch (value) {
-            case SqlValue.Text ignored -> SqlValue.Type.TEXT;
-            case SqlValue.Int16 ignored -> SqlValue.Type.INT16;
-            case SqlValue.Int32 ignored -> SqlValue.Type.INT32;
-            case SqlValue.Int64 ignored -> SqlValue.Type.INT64;
-            case SqlValue.Float32 ignored -> SqlValue.Type.FLOAT32;
-            case SqlValue.Float64 ignored -> SqlValue.Type.FLOAT64;
-            case SqlValue.Decimal ignored -> SqlValue.Type.DECIMAL;
-            case SqlValue.Bool ignored -> SqlValue.Type.BOOLEAN;
-            case SqlValue.Uuid ignored -> SqlValue.Type.UUID;
-            case SqlValue.Timestamp ignored -> SqlValue.Type.INSTANT;
-            case SqlValue.DateTime ignored -> SqlValue.Type.LOCAL_DATE_TIME;
-            case SqlValue.Date ignored -> SqlValue.Type.LOCAL_DATE;
-            case SqlValue.Time ignored -> SqlValue.Type.LOCAL_TIME;
-            case SqlValue.Binary ignored -> SqlValue.Type.BYTES;
-            case SqlValue.Null ignored -> throw new IllegalArgumentException("Cursor values cannot be NULL");
-        };
+        Objects.requireNonNull(value);
+        if (value instanceof SqlValue.Text) {
+            return SqlValue.Type.TEXT;
+        }
+        if (value instanceof SqlValue.Int16) {
+            return SqlValue.Type.INT16;
+        }
+        if (value instanceof SqlValue.Int32) {
+            return SqlValue.Type.INT32;
+        }
+        if (value instanceof SqlValue.Int64) {
+            return SqlValue.Type.INT64;
+        }
+        if (value instanceof SqlValue.Float32) {
+            return SqlValue.Type.FLOAT32;
+        }
+        if (value instanceof SqlValue.Float64) {
+            return SqlValue.Type.FLOAT64;
+        }
+        if (value instanceof SqlValue.Decimal) {
+            return SqlValue.Type.DECIMAL;
+        }
+        if (value instanceof SqlValue.Bool) {
+            return SqlValue.Type.BOOLEAN;
+        }
+        if (value instanceof SqlValue.Uuid) {
+            return SqlValue.Type.UUID;
+        }
+        if (value instanceof SqlValue.Timestamp) {
+            return SqlValue.Type.INSTANT;
+        }
+        if (value instanceof SqlValue.DateTime) {
+            return SqlValue.Type.LOCAL_DATE_TIME;
+        }
+        if (value instanceof SqlValue.Date) {
+            return SqlValue.Type.LOCAL_DATE;
+        }
+        if (value instanceof SqlValue.Time) {
+            return SqlValue.Type.LOCAL_TIME;
+        }
+        if (value instanceof SqlValue.Binary) {
+            return SqlValue.Type.BYTES;
+        }
+        if (value instanceof SqlValue.Null) {
+            throw new IllegalArgumentException("Cursor values cannot be NULL");
+        }
+        throw new IncompatibleClassChangeError();
     }
 
     private static IllegalArgumentException invalid() {
@@ -168,28 +198,38 @@ public final class Cursor {
 
     private static void writeValue(DataOutputStream output, SqlValue value) throws IOException {
         output.writeByte(tag(typeOf(value)));
-        switch (value) {
-            case SqlValue.Text item -> writeText(output, item.value());
-            case SqlValue.Int16 item -> output.writeShort(item.value());
-            case SqlValue.Int32 item -> output.writeInt(item.value());
-            case SqlValue.Int64 item -> output.writeLong(item.value());
-            case SqlValue.Float32 item -> output.writeInt(Float.floatToIntBits(item.value()));
-            case SqlValue.Float64 item -> output.writeLong(Double.doubleToLongBits(item.value()));
-            case SqlValue.Decimal item -> writeText(output, item.value().toString());
-            case SqlValue.Bool item -> output.writeBoolean(item.value());
-            case SqlValue.Uuid item -> {
-                output.writeLong(item.value().getMostSignificantBits());
-                output.writeLong(item.value().getLeastSignificantBits());
-            }
-            case SqlValue.Timestamp item -> writeInstant(output, item.value());
-            case SqlValue.DateTime item -> {
-                output.writeLong(item.value().toLocalDate().toEpochDay());
-                output.writeLong(item.value().toLocalTime().toNanoOfDay());
-            }
-            case SqlValue.Date item -> output.writeLong(item.value().toEpochDay());
-            case SqlValue.Time item -> output.writeLong(item.value().toNanoOfDay());
-            case SqlValue.Binary item -> writeBytes(output, item.value());
-            case SqlValue.Null ignored -> throw new IllegalArgumentException("Cursor values cannot be NULL");
+        if (value instanceof SqlValue.Text item) {
+            writeText(output, item.value());
+        } else if (value instanceof SqlValue.Int16 item) {
+            output.writeShort(item.value());
+        } else if (value instanceof SqlValue.Int32 item) {
+            output.writeInt(item.value());
+        } else if (value instanceof SqlValue.Int64 item) {
+            output.writeLong(item.value());
+        } else if (value instanceof SqlValue.Float32 item) {
+            output.writeInt(Float.floatToIntBits(item.value()));
+        } else if (value instanceof SqlValue.Float64 item) {
+            output.writeLong(Double.doubleToLongBits(item.value()));
+        } else if (value instanceof SqlValue.Decimal item) {
+            writeText(output, item.value().toString());
+        } else if (value instanceof SqlValue.Bool item) {
+            output.writeBoolean(item.value());
+        } else if (value instanceof SqlValue.Uuid item) {
+            output.writeLong(item.value().getMostSignificantBits());
+            output.writeLong(item.value().getLeastSignificantBits());
+        } else if (value instanceof SqlValue.Timestamp item) {
+            writeInstant(output, item.value());
+        } else if (value instanceof SqlValue.DateTime item) {
+            output.writeLong(item.value().toLocalDate().toEpochDay());
+            output.writeLong(item.value().toLocalTime().toNanoOfDay());
+        } else if (value instanceof SqlValue.Date item) {
+            output.writeLong(item.value().toEpochDay());
+        } else if (value instanceof SqlValue.Time item) {
+            output.writeLong(item.value().toNanoOfDay());
+        } else if (value instanceof SqlValue.Binary item) {
+            writeBytes(output, item.value());
+        } else {
+            throw new IncompatibleClassChangeError();
         }
     }
 

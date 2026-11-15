@@ -128,7 +128,7 @@ class PostgresqlRendererTest {
                     new SqlCondition.Comparison(name, operator, List.of(new SqlValue.Text(operand)))));
             assertEquals("SELECT COUNT(*) AS \"count\" FROM \"Order\" WHERE \"name\" LIKE ? ESCAPE '!'",
                     rendered.text());
-            patterns.add(((SqlValue.Text) rendered.binds().getFirst()).value());
+            patterns.add(((SqlValue.Text) rendered.binds().get(0)).value());
         }
         assertEquals(List.of("%50!%!_off!!'--%", "50!%!_off!!'--%", "%50!%!_off!!'--"), patterns);
     }

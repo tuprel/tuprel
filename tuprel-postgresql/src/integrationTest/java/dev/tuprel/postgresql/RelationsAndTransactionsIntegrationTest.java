@@ -138,14 +138,15 @@ class RelationsAndTransactionsIntegrationTest {
         assertEquals(5, STATEMENTS.get(), "customers, profiles, notes, note tags and tags: one query each");
 
         assertEquals(List.of("Ana", "Bruno", "Carla"), customers.stream().map(Customer::name).toList());
-        Customer loadedAna = customers.getFirst();
+        Customer loadedAna = customers.get(0);
         assertEquals("writer", loadedAna.profile().get().orElseThrow().bio());
         assertEquals(List.of(3L, 2L, 1L), loadedAna.notes().get().stream().map(Note::id).toList());
-        Note first = loadedAna.notes().get().getLast();
+        List<Note> anaNotes = loadedAna.notes().get();
+        Note first = anaNotes.get(anaNotes.size() - 1);
         assertEquals(List.of("java", "sql"), first.tags().get().stream()
                 .map(noteTag -> noteTag.tag().get().label()).toList());
         assertTrue(customers.get(1).profile().get().isEmpty());
-        assertEquals(List.of("sql"), customers.get(1).notes().get().getFirst().tags().get().stream()
+        assertEquals(List.of("sql"), customers.get(1).notes().get().get(0).tags().get().stream()
                 .map(noteTag -> noteTag.tag().get().label()).toList());
         assertEquals(List.of(), customers.get(2).notes().get());
         assertFalse(first.customer().isLoaded(), "Only requested relations are loaded");
@@ -416,7 +417,7 @@ class RelationsAndTransactionsIntegrationTest {
 
         List<Customer> customers = db.customer().findMany(query -> query
                 .include(CustomerInclude.notes(notes -> notes.orderBy(NoteOrder.id().desc()))));
-        List<Note> notes = customers.getFirst().notes().get();
+        List<Note> notes = customers.get(0).notes().get();
 
         Product updated = db.transaction(tx -> {
             Product product = tx.product().findById(1L, query -> query.lock(RowLock.FOR_UPDATE)).orElseThrow();
