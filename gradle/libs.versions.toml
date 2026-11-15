@@ -13,7 +13,7 @@
 # Spotless 8.10.4 (actualização do PR #17). Licença Apache-2.0.
 # Requer Gradle >= 8.1; compatibilidade com Gradle 9.8.2 verificada
 # empiricamente neste repositório.
-spotless = "8.10.4"
+spotless = "8.11.0"
 
 [libraries]
 gson = { module = "com.google.code.gson:gson", version = "2.15.0" }
