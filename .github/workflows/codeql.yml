@@ -52,7 +52,7 @@ jobs:
             test-support/distribution/StagingRoot.java test-support/distribution/StagedActivation.java \
             test-support/distribution/StagedBashPath.java
       - name: Analyze
-        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
 
   analyze-native:
     name: C / ${{ matrix.platform }}
@@ -103,6 +103,6 @@ jobs:
           & ./native/cli-installer/build-windows-path.cmd (Join-Path $env:RUNNER_TEMP 'tuprel-path.exe')
           exit $LASTEXITCODE
       - name: Analyze native code
-        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           category: '/language:c-cpp/platform:${{ matrix.platform }}'
