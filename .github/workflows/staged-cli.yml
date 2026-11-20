@@ -24,7 +24,7 @@ jobs:
         ports:
           - 5432/tcp
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U tuprel_fixture -d tuprel_devtest"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 12
