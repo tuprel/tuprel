@@ -20,7 +20,12 @@ pluginManagement {
     repositories {
         // Kotlin plugin dependencies are published on Central. Resolve them
         // directly instead of following the Plugin Portal's Central redirects.
-        mavenCentral()
+        mavenCentral {
+            content {
+                includeGroup("org.jetbrains.kotlin")
+                includeGroup("org.jetbrains.kotlinx")
+            }
+        }
         gradlePluginPortal()
     }
 }
