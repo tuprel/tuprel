@@ -303,3 +303,6 @@ try {
     }
     Remove-Item -LiteralPath $resolved -Recurse -Force
 }
+
+# Expected native failures are asserted above. Report success only after cleanup.
+$global:LASTEXITCODE = 0
