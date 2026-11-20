@@ -148,3 +148,40 @@ Linux para launchers, instalador e Language Server. Testar metadados adulterados
 incompatível, rollback permitido e negado, recuperação e JVM seleccionada.
 Validar compatibilidade binária e de fontes numa actualização real do
 consumidor. Qualquer célula omitida mantém o perfil por certificar.
+
+## D1-A — consumidor Maven
+
+A prova Maven usa a main `13cd04d8dda99ba0b337e94f34118484a8f10a3d`
+como base. O harness `test-support/distribution/Verify-MavenLts.ps1`
+publica uma vez os JARs SQL, runtime e PostgreSQL num repositório temporário
+`dev.tuprel.staging:0.0.0-fixture`, usando a toolchain 21 e verificação
+estrita de dependências. Cada célula Maven 3.9.16 tem cache próprio e usa
+o Java e javac reais da versão seleccionada. O projecto e a instalação ZIP
+da CLI ficam fora do checkout, em caminhos com espaços.
+
+A execução Windows x64 e o job Linux x64 do PR #116 comprovaram geração,
+compilação com release 17 e execução nas JVMs 17, 21 e 25. Os 16 ficheiros
+gerados mantiveram os mesmos bytes. Os 97 classfiles dos três JARs têm
+major 61. O driver PostgreSQL 42.7.14 e checker-qual 3.55.1 resolvidos pelo
+Maven coincidem com os SHA-256 do manifesto Gradle. Os POMs preservam
+o driver no scope runtime e os metadados Gradle declaram JVM 17.
+
+As três células executaram também o exemplo de vendas, compilado pelo
+Maven, em schemas temporários de PostgreSQL 17. A prova cobre CRUD,
+filtros tipados, ordenação, paginação, relações, transacções e rollback.
+O harness remove os schemas e transmite as credenciais pelo stdin do
+consumidor. A fixture local usa exclusivamente `tuprel_devtest`.
+
+O consumidor compilado com release 17 executou sem recompilação nas três
+JVMs. O consumidor compilado com release 21 executou nas JVMs 21 e 25.
+O teste de upgrade preserva ainda a revisão antiga fixada em
+`2b9ef01baa96633efc630cae1d288c061a94256b`, incluindo regeneração após
+alteração do schema. Os testes negativos recusam bytecode incompatível,
+versão inexistente, checksum inválido, cache adulterada e sobrescrita de
+fontes geradas editadas. A prova Linux verifica assinaturas com chaves
+GnuPG efémeras e recusa bytes adulterados e assinatura substituída.
+
+Estes resultados cobrem o consumidor Maven de staging. A activação pública
+do suporte Java 17 e as restantes integrações continuam sujeitas aos gates
+do ADR-0024. Os checks do HEAD final e as limitações locais são registados
+na descrição do PR #116.

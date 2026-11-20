@@ -1,17 +1,21 @@
-param([string]$Gpg)
+param([string]$Gpg, [string]$Repository, [switch]$IncludeCli)
 
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
-$repository = Join-Path ([IO.Path]::GetTempPath()) ("tuprel-maven-fixture-" + [guid]::NewGuid())
-[IO.Directory]::CreateDirectory($repository) | Out-Null
+$ownsRepository = -not $Repository
+if ($ownsRepository) {
+    $repository = Join-Path ([IO.Path]::GetTempPath()) ("tuprel-maven-fixture-" + [guid]::NewGuid())
+    [IO.Directory]::CreateDirectory($repository) | Out-Null
+}
 Push-Location -LiteralPath $root
 try {
     $gradle = if ($IsWindows) { '.\gradlew.bat' } else { './gradlew' }
     $libraries = @('tuprel-sql', 'tuprel-runtime', 'tuprel-postgresql')
     $tasks = $libraries | ForEach-Object { ":${_}:publishFixturePublicationToFixtureRepository" }
+    if ($IncludeCli) { $tasks += ':tuprel-cli:distZip' }
     $publicationOptions = @("-Dtuprel.test.maven.repository=$repository")
     if ($Gpg) { $publicationOptions += '-Dtuprel.test.maven.releaseEnvelope=true' }
-    & $gradle @tasks --no-configuration-cache --dependency-verification strict -I "$PSScriptRoot/staged-maven.init.gradle" @publicationOptions
+    & $gradle @tasks --no-daemon --no-configuration-cache --dependency-verification strict -I "$PSScriptRoot/staged-maven.init.gradle" @publicationOptions
     if ($LASTEXITCODE -ne 0) { throw 'Local Maven staging failed' }
 
     $coordinates = @{ group = 'dev.tuprel.staging'; version = '0.0.0-fixture' }
@@ -50,9 +54,11 @@ try {
     if ($Gpg) { & "$PSScriptRoot/Verify-MavenReleaseEnvelope.ps1" -Gpg $Gpg -Fixture $repository -Files $releaseFiles }
 } finally {
     Pop-Location
-    $resolved = (Resolve-Path -LiteralPath $repository).Path
-    if ($resolved -ne [IO.Path]::GetFullPath($repository) -or -not (Split-Path $resolved -Leaf).StartsWith('tuprel-maven-fixture-')) {
-        throw 'Refused cleanup outside the staging repository'
+    if ($ownsRepository) {
+        $resolved = (Resolve-Path -LiteralPath $repository).Path
+        if ($resolved -ne [IO.Path]::GetFullPath($repository) -or -not (Split-Path $resolved -Leaf).StartsWith('tuprel-maven-fixture-')) {
+            throw 'Refused cleanup outside the staging repository'
+        }
+        Remove-Item -LiteralPath $resolved -Recurse -Force
     }
-    Remove-Item -LiteralPath $resolved -Recurse -Force
 }

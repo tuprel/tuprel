@@ -22,7 +22,7 @@ pwsh -File test-support/distribution/Verify-StagedMaven.ps1 -Gpg /usr/bin/gpg
 This mode stages the JARs, sources, Javadoc, POMs and Gradle module metadata.
 It checks SHA-256, produces detached OpenPGP signatures with an ephemeral
 key, verifies them with a separate public-only keyring, and rejects changed
-bytes. This verifies the release envelope locally. Central Portal namespace
+bytes and substituted signatures. This verifies the release envelope locally. Central Portal namespace
 verification, signing identity, authentication and upload remain separate.
 
 The external Maven check uses a fresh Maven cache and file repository. It
@@ -44,6 +44,31 @@ from the updated schema and builds again.
 git worktree add --detach ../tuprel-maven-baseline 2b9ef01baa96633efc630cae1d288c061a94256b
 pwsh -File test-support/distribution/Verify-MavenConsumer.ps1 -PreviousCheckout ../tuprel-maven-baseline
 ```
+
+Pass `-ReplayJdk25 <absolute JDK 25 home>` to run the pinned Java 21 binary
+on Java 25 against the new runtime without recompiling it.
+
+### D1-A Maven and Java LTS
+
+Use a verified Maven 3.9.16 installation and explicit homes for all three JDKs.
+The proof builds with JDK 21, stages the libraries once, and installs the CLI
+ZIP outside the checkout. Each Maven/JVM pair runs with its own empty cache,
+compiles with release 17, and verifies the resolved library hashes. The script
+prints the JDK, artifact hashes, generated file count and binary replay results.
+
+```powershell
+pwsh -File test-support/distribution/Verify-MavenLts.ps1 `
+  -Maven $maven -Jdk17 $jdk17 -Jdk21 $jdk21 -Jdk25 $jdk25 -Postgresql
+```
+
+The optional PostgreSQL proof reuses the staged sales example against fresh
+schemas in a loopback PostgreSQL 17 `tuprel_devtest` database. It reads the
+existing ignored playground `.env` or test environment variables, sends
+credentials through the child's standard input and removes its temporary
+schemas. Specify an absolute `-Gpg` path to include ephemeral signing.
+The Linux Staged CLI workflow runs both options using disposable fixtures.
+The matrix certifies the Maven fixture. The product's public minimum remains
+Java 21 pending the separate LTS activation.
 
 These are two source revisions with fixture versions. The test exercises
 version selection, the generated API used by the consumer and transitive
