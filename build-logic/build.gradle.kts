@@ -96,6 +96,7 @@ dependencies {
 
 tasks.named<Test>("test") {
     useJUnitPlatform()
+    testLogging.exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
 
     /*
      * O JVM de teste só orquestra o TestKit: a build real das fixtures corre
