@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: staged-cli-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   maven-lts:
     name: External Maven consumers (Java 17, 21, 25)
@@ -47,6 +51,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Restore verified Gradle dependencies
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-provider: basic
+          validate-wrappers: true
       - name: Verify and unpack Apache Maven 3.9.16
         shell: bash
         run: |
@@ -92,6 +101,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Restore verified Gradle dependencies
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-provider: basic
+          validate-wrappers: true
       - name: Build and verify an installed archive outside the checkout
         shell: pwsh
         run: |
