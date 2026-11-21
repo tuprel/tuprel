@@ -3,6 +3,10 @@ plugins {
     `java-gradle-plugin`
 }
 
+tasks.compileJava {
+    options.release.set(17)
+}
+
 gradlePlugin {
     plugins.create("tuprelCodegen") {
         id = "dev.tuprel.codegen"

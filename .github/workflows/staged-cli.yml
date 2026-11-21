@@ -14,6 +14,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  gradle-lts:
+    name: Gradle plugin LTS (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: Linux, runner: ubuntu-24.04 }
+          - { platform: Windows, runner: windows-2025 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk17
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk25
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk21
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Restore verified build dependencies
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-provider: basic
+          validate-wrappers: true
+      - name: Certify external Gradle and JDK consumers
+        shell: pwsh
+        env:
+          TUPREL_JDK_17: ${{ steps.jdk17.outputs.path }}
+          TUPREL_JDK_21: ${{ steps.jdk21.outputs.path }}
+          TUPREL_JDK_25: ${{ steps.jdk25.outputs.path }}
+        run: |
+          $options = @{ Jdk17=$env:TUPREL_JDK_17; Jdk21=$env:TUPREL_JDK_21; Jdk25=$env:TUPREL_JDK_25 }
+          if ($IsLinux) { $options.Java17Container = $true }
+          ./test-support/distribution/Verify-GradlePluginLts.ps1 @options
   maven-lts:
     name: External Maven consumers (Java 17, 21, 25)
     runs-on: ubuntu-24.04
