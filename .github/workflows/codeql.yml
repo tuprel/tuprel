@@ -51,6 +51,9 @@ jobs:
             test-support/distribution/SignedCliBundle.java test-support/distribution/VerifyCliBundle.java \
             test-support/distribution/StagingRoot.java test-support/distribution/StagedActivation.java \
             test-support/distribution/StagedBashPath.java
+      - name: Compile the Spring REST example for analysis
+        shell: pwsh
+        run: ./test-support/distribution/Build-SpringCodeql.ps1
       - name: Analyze
         uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
 

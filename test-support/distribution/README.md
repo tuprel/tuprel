@@ -94,6 +94,10 @@ temporary PostgreSQL cluster using the runner's preinstalled version 17.
 `SpringPostgresql-CI.ps1` refuses execution outside disposable Windows Actions
 runners and never starts the developer's installed PostgreSQL service.
 
+`Build-SpringCodeql.ps1` stages the dependencies but compiles the repository's
+REST sources with Maven `test-compile`, allowing CodeQL to map findings to
+the PR. It is an analysis build, not the external consumer certification.
+
 These are two source revisions with fixture versions. The test exercises
 version selection, the generated API used by the consumer and transitive
 runtime resolution. A public release requires verification of the candidate

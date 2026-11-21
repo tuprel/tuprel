@@ -264,3 +264,8 @@ computador do programador. Linux acrescenta um contentor Java17-only,
 sem JDKs do host, com Maven offline e rede do host para o PostgreSQL local
 da fixture. Resultados por célula, hashes, checks finais e limitações ficam
 no PR funcional. Nenhum destes testes activa o suporte público Java 17.
+
+O job CodeQL compila também o exemplo Maven no checkout, para que os
+resultados apontem às fontes REST do PR. Usa `test-compile`, sem executar
+SQL; a execução HTTP/PostgreSQL permanece nos jobs externos. Os pins,
+permissões e restantes builds de análise mantêm-se.
