@@ -267,9 +267,15 @@ try {
                 [IO.File]::WriteAllBytes($owned, $ownedBytes)
                 $manifest = Join-Path $sources '.tuprel-generated'
                 $ownership = [IO.File]::ReadAllBytes($manifest)
-                [IO.File]::WriteAllText($manifest, "../outside.java`t$('0' * 64)`n")
+                $outside = Join-Path (Split-Path -Parent $sources) 'outside.java'
+                [IO.File]::WriteAllText($outside, 'keep outside')
+                $outsideHash = (Get-FileHash -LiteralPath $outside -Algorithm SHA256).Hash
+                [IO.File]::WriteAllText($manifest, [Text.Encoding]::UTF8.GetString($ownership) +
+                    "../outside.java`t$($outsideHash.ToLowerInvariant())`n")
                 $null = Invoke-Consumer @('tuprelGenerate') 'TUPREL-CLI-GENERATE'
-                if (Test-Path -LiteralPath (Join-Path $project 'outside.java')) { throw 'A manifest escaped the output directory' }
+                if (-not (Test-Path -LiteralPath $outside) -or [IO.File]::ReadAllText($outside) -cne 'keep outside') {
+                    throw 'A manifest escaped the output directory'
+                }
                 [IO.File]::WriteAllBytes($manifest, $ownership)
                 [IO.File]::Delete($manifest)
                 $null = Invoke-Consumer @('tuprelGenerate') 'TUPREL-CLI-GENERATE'
