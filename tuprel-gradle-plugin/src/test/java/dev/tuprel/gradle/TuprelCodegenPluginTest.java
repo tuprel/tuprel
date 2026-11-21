@@ -8,7 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.jar.JarOutputStream;
 import org.gradle.testkit.runner.BuildResult;
@@ -37,6 +39,7 @@ class TuprelCodegenPluginTest {
                 """.formatted(quote(repository));
         String plugin = repository == null ? "id 'dev.tuprel.codegen'" : "id 'dev.tuprel.codegen' version '0.0.0-fixture'";
         Files.writeString(project.resolve("settings.gradle"), settings + "rootProject.name = 'lazy-consumer'\n");
+        writeVerification(project, repository);
         Files.writeString(project.resolve("build.gradle"), """
                 plugins {
                     id 'java'
@@ -78,6 +81,7 @@ class TuprelCodegenPluginTest {
                 rootProject.name = 'external-codegen-consumer'
                 buildCache { local { directory = file('isolated-build-cache') } }
                 """);
+        writeVerification(project, repository);
         String plugin = repository == null ? "id 'dev.tuprel.codegen'"
                 : "id 'dev.tuprel.codegen' version '0.0.0-fixture'";
         Files.writeString(project.resolve("build.gradle"), """
@@ -148,7 +152,7 @@ class TuprelCodegenPluginTest {
 
     private static GradleRunner runner(Path directory, String... tasks) {
         List<String> arguments = new ArrayList<>(List.of("--build-cache", "--configuration-cache",
-                "--configuration-cache-problems=fail"));
+                "--configuration-cache-problems=fail", "--dependency-verification", "strict"));
         String repository = System.getProperty("tuprel.fixture.plugin.repository");
         if (repository != null) arguments.add("--offline");
         arguments.addAll(List.of(tasks));
@@ -163,5 +167,31 @@ class TuprelCodegenPluginTest {
 
     private static String quote(String path) {
         return path.replace('\\', '/').replace("'", "\\'");
+    }
+
+    private static void writeVerification(Path project, String repository) throws Exception {
+        if (repository == null) { return; }
+        StringBuilder xml = new StringBuilder("<verification-metadata><configuration>"
+                + "<verify-metadata>true</verify-metadata><verify-signatures>false</verify-signatures>"
+                + "</configuration><components>");
+        for (String[] component : List.of(
+                new String[]{"dev.tuprel.staging", "tuprel-gradle-plugin"},
+                new String[]{"dev.tuprel.codegen", "dev.tuprel.codegen.gradle.plugin"})) {
+            xml.append("<component group='").append(component[0]).append("' name='")
+                    .append(component[1]).append("' version='0.0.0-fixture'>");
+            for (String extension : List.of("pom", "module", "jar")) {
+                String name = component[1] + "-0.0.0-fixture." + extension;
+                Path file = Path.of(repository, component[0].replace('.', '/'), component[1], "0.0.0-fixture", name);
+                if (Files.isRegularFile(file)) {
+                    String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(file)));
+                    xml.append("<artifact name='").append(name).append("'><sha256 value='")
+                            .append(hash).append("'/></artifact>");
+                }
+            }
+            xml.append("</component>");
+        }
+        xml.append("</components></verification-metadata>");
+        Files.createDirectories(project.resolve("gradle"));
+        Files.writeString(project.resolve("gradle/verification-metadata.xml"), xml);
     }
 }
