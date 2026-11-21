@@ -29,6 +29,8 @@ the website imports from a pinned commit.
 
 ## Reference and help
 
+- [Spring Boot products REST API](../examples/spring-products-api/README.md)
+
 - [CLI reference](reference/cli.md)
 - [Java API reference](reference/java-api.md)
 - [Troubleshooting](help/troubleshooting.md)
@@ -49,7 +51,8 @@ the website imports from a pinned commit.
 | Logical comparison of completely known DDL states | Offline Java API; no schema.tuprel/catalog projection |
 | Offline migrate diff | Known migration artifacts versus schema.tuprel; no physical observation |
 | CLI dev and physical drift detection | Future work |
-| Automatic build plugins, Spring Boot starter and introspection | Future work |
+| Spring Boot starter and Gradle code generation plugin | Development fixtures available; public publication pending |
+| PostgreSQL introspection | Future work |
 
 The playground uses temporary manual bootstrap SQL. It is not a migration engine.
 
