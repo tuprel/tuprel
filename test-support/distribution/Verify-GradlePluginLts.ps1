@@ -63,10 +63,10 @@ function New-Consumer([string]$Project, [int]$Java, [string]$Repository) {
     $runtime = Join-Path $Project 'runtime libraries'
     [IO.Directory]::CreateDirectory($cli) | Out-Null
     [IO.Directory]::CreateDirectory($runtime) | Out-Null
-    Get-ChildItem -LiteralPath "$root/tuprel-cli/build/install/tuprel/lib" -File -Filter '*.jar' |
+    Get-ChildItem -LiteralPath $cliSource -File -Filter '*.jar' |
         Copy-Item -Destination $cli
     foreach ($library in @('tuprel-runtime', 'tuprel-sql')) {
-        $jar = Join-Path $root "$library/build/libs/$library.jar"
+        $jar = Join-Path $runtimeSource "$library.jar"
         if (-not (Test-Path -LiteralPath $jar -PathType Leaf)) { throw "Missing current runtime library $library" }
         Copy-Item -LiteralPath $jar -Destination $runtime
     }
@@ -143,6 +143,17 @@ try {
     [IO.Directory]::CreateDirectory($repository) | Out-Null
     & "$PSScriptRoot/Verify-StagedGradlePlugin.ps1" -Repository $repository -PublishOnly
     $publication = Get-Hashes $repository
+    $cliSource = Join-Path $fixture 'frozen CLI libraries'
+    $runtimeSource = Join-Path $fixture 'frozen runtime libraries'
+    Copy-Item -LiteralPath "$root/tuprel-cli/build/install/tuprel/lib" -Destination $cliSource -Recurse
+    [IO.Directory]::CreateDirectory($runtimeSource) | Out-Null
+    foreach ($library in @('tuprel-runtime', 'tuprel-sql')) {
+        Copy-Item -LiteralPath "$root/$library/build/libs/$library.jar" -Destination $runtimeSource
+    }
+    $cliHashes = Get-Hashes $cliSource
+    $runtimeHashes = Get-Hashes $runtimeSource
+    foreach ($entry in $cliHashes.GetEnumerator()) { Write-Host "CLI $($entry.Key) SHA-256 $($entry.Value)" }
+    foreach ($entry in $runtimeHashes.GetEnumerator()) { Write-Host "RUNTIME $($entry.Key) SHA-256 $($entry.Value)" }
     $prefix = Join-Path $repository 'dev/tuprel/staging/tuprel-gradle-plugin/0.0.0-fixture/tuprel-gradle-plugin-0.0.0-fixture'
     $pom = ([xml](Get-Content -LiteralPath "$prefix.pom" -Raw)).project
     if ($pom.groupId -cne 'dev.tuprel.staging' -or $pom.version -cne '0.0.0-fixture' -or
@@ -337,6 +348,8 @@ org.gradle.jvmargs=-Xms64m -Xmx384m -XX:MaxMetaspaceSize=256m
         }
     }
     Assert-Hashes $publication (Get-Hashes $repository) 'final staged publication'
+    Assert-Hashes $cliHashes (Get-Hashes $cliSource) 'frozen CLI libraries'
+    Assert-Hashes $runtimeHashes (Get-Hashes $runtimeSource) 'frozen runtime libraries'
     Write-Host "Completed $($GradleVersions.Count * $JavaVersions.Count) external Gradle/JDK cells"
 } finally {
     foreach ($entry in $environment.GetEnumerator()) {
