@@ -218,3 +218,49 @@ restrição da descoberta de toolchains da execução efectiva num ambiente
 que só contém Java 17. Os resultados por célula e os checks do HEAD final
 ficam no PR funcional. A certificação pública do produto continua
 dependente da activação explícita do ADR-0024.
+
+## D1-C — starter Spring Boot e aplicação REST
+
+Base `93942402160cbc82b2d1f169d18f6e80f23c24ef`. A única alteração de
+produção é a compilação do starter com release 17 e toolchain interna 21.
+A classe de auto-configuração, o seu nome e registo SPI mantêm-se. O
+inventário tem uma classe; a comparação `javap -p -s` com o JAR original
+preserva os descritores. O consumidor da fixture anterior foi compilado
+em Java 21 antes da alteração para a prova de ligação binária em 21 e 25.
+
+A aplicação de produtos adapta o PR #103 no commit
+`8ee68e75be0852a32c704915dccc90709335168b`, sem integrar esse PR. Mantém
+controllers, serviços, DTOs, schema e preparação SQL explícita. As mudanças
+de portabilidade retiram `HttpClient` de try-with-resources e substituem
+`getFirst()` depois da validação de cardinalidade. Não alteram o runtime,
+as transacções ou a geração Java.
+
+`Verify-SpringLts.ps1` publica uma vez SQL, runtime, adapter e starter num
+repositório temporário. Cada Maven 3.9.16/JDK usa cache próprio, configuração
+isolada, CLI instalada fora do checkout e compilador da JVM seleccionada
+com release 17. O harness compara SHA-256 dos artefactos e dos ficheiros
+gerados, verifica POM/scopes, variantes Gradle, SPI e bytecode do grafo
+empacotado, incluindo as variantes multi-release seleccionáveis por Java 17.
+
+As provas incluem HTTP real, BigDecimal, paginação ordenada, validação,
+inputs SQL tratados como dados, erros redigidos e encerramento. O JAR
+executável arranca depois da saída do Maven; o mesmo JAR compilado em 17
+é repetido em 17, 21 e 25 sem recompilar. Os schemas têm nomes exclusivos,
+são criados apenas depois de validar o alvo de testes e são removidos
+depois do encerramento. O loader local mantém-se exclusivamente de testes.
+
+A fixture comum de ownership cobre DataSources único, primário, ambíguos,
+ausente e explícito, ausência de queries no arranque e fecho do pool pelo
+Spring, incluindo falha de configuração. A ausência de DataSource exclui
+expressamente o aprovisionamento JDBC automático do Spring, que não é uma
+responsabilidade do Tuprel. A prova PostgreSQL preserva commit e rollback
+Tuprel e Spring, commit independente do Tuprel dentro de uma transacção
+Spring, recusa do proxy transaccional e continuidade após falha JDBC.
+O ADR-0023 permanece proposto.
+
+Windows e Linux têm jobs próprios com PostgreSQL 17 real. O Windows usa
+um cluster temporário nos runners descartáveis, sem tocar no serviço do
+computador do programador. Linux acrescenta um contentor Java17-only,
+sem JDKs do host, com Maven offline e rede do host para o PostgreSQL local
+da fixture. Resultados por célula, hashes, checks finais e limitações ficam
+no PR funcional. Nenhum destes testes activa o suporte público Java 17.

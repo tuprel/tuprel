@@ -78,6 +78,22 @@ The Linux Staged CLI workflow runs both options using disposable fixtures.
 The matrix certifies the Maven fixture. The product's public minimum remains
 Java 21 pending the separate LTS activation.
 
+### D1-C Spring Boot and Java LTS
+
+`Verify-SpringLts.ps1 -Maven $maven -Jdk17 $jdk17 -Jdk21 $jdk21 -Jdk25 $jdk25`
+stages the [products API](../../examples/spring-products-api/README.md) outside
+the checkout. It builds the starter and libraries once with JDK 21, resolves
+them through Maven 3.9.16 in each JVM, generates release-17 sources and tests
+HTTP, PostgreSQL, DataSource ownership and transaction boundaries. The packaged
+application runs after Maven exits; the Java 17 JAR is replayed unchanged.
+
+Linux CI adds `-Java17Container` with a pinned unprivileged Java 17-only
+container, offline Maven and host networking solely to reach the loopback test
+database. No host JDK or checkout is mounted. Windows CI initializes its own
+temporary PostgreSQL cluster using the runner's preinstalled version 17.
+`SpringPostgresql-CI.ps1` refuses execution outside disposable Windows Actions
+runners and never starts the developer's installed PostgreSQL service.
+
 These are two source revisions with fixture versions. The test exercises
 version selection, the generated API used by the consumer and transitive
 runtime resolution. A public release requires verification of the candidate
