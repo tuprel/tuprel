@@ -2,6 +2,10 @@ plugins {
     id("tuprel.java-conventions")
 }
 
+tasks.compileJava {
+    options.release.set(17)
+}
+
 val consumerTransactionFixtures by configurations.creating {
     isCanBeConsumed = false
 }

@@ -42,6 +42,12 @@ public final class ConsumerApplication {
             return;
         }
         CountingDataSource pool;
+        try (ConfigurableApplicationContext context = start(SingleDataSource.class)) {
+            pool = context.getBean(CountingDataSource.class);
+            require(context.getBean(TuprelDatabase.class) != null, "Single DataSource was not configured");
+            require(pool.connections.get() == 0, "Auto-configuration queried the database");
+        }
+        require(pool.closes.get() == 1, "Spring must close the single pool exactly once");
         try (ConfigurableApplicationContext context = start(PrimaryDataSources.class)) {
             pool = context.getBean("preferredPool", CountingDataSource.class);
             TuprelDatabase database = context.getBean(TuprelDatabase.class);
@@ -65,6 +71,13 @@ public final class ConsumerApplication {
         try (ConfigurableApplicationContext context = start(NoDataSource.class)) {
             require(context.getBeansOfType(TuprelDatabase.class).isEmpty(), "Missing DataSource must leave Tuprel unconfigured");
         }
+        try {
+            start(FailedConfiguration.class).close();
+            throw new AssertionError("Invalid application configuration must fail");
+        } catch (org.springframework.beans.BeansException expected) {
+            require(FailedConfiguration.pool.connections.get() == 0, "Failed startup queried the pool");
+            require(FailedConfiguration.pool.closes.get() == 1, "Failed startup leaked its pool");
+        }
         System.out.println("Spring Boot consumer checks passed");
     }
 
@@ -80,7 +93,22 @@ public final class ConsumerApplication {
             require(database.findById(new SqlCommand.FindById(table, column, id),
                     row -> row.int32("id")).orElseThrow() == 7, "Expected the committed row");
 
+            try {
+                database.transaction(transaction -> {
+                    transaction.create(new SqlCommand.Insert(table,
+                            List.of(new SqlCommand.Assignment(column, new SqlValue.Int32(12)))));
+                    throw new RollbackTrigger();
+                });
+                throw new AssertionError("Expected explicit Tuprel rollback");
+            } catch (RollbackTrigger expected) {
+                require(database.findById(new SqlCommand.FindById(table, column, new SqlValue.Int32(12)),
+                        row -> row.int32("id")).isEmpty(), "Tuprel must roll back its own connection");
+            }
+
             RollbackProbe probe = context.getBean(RollbackProbe.class);
+            probe.writeAndCommit();
+            require(database.findById(new SqlCommand.FindById(table, column, new SqlValue.Int32(13)),
+                    row -> row.int32("id")).orElseThrow() == 13, "Spring JDBC commit was lost");
             try {
                 probe.writeThenFail();
                 throw new AssertionError("Expected the Spring rollback trigger");
@@ -99,6 +127,16 @@ public final class ConsumerApplication {
             } catch (TuprelDatabaseException expected) {
                 require(expected.phase() == TuprelDatabaseException.Phase.CONNECTION, "Expected a connection refusal");
             }
+            require(database.findById(new SqlCommand.FindById(table, column, new SqlValue.Int32(10)),
+                    row -> row.int32("id")).isEmpty(), "Spring must roll back after proxy refusal");
+            try {
+                database.create(new SqlCommand.Insert(table, List.of(new SqlCommand.Assignment(column, id))));
+                throw new AssertionError("Expected primary key violation");
+            } catch (TuprelDatabaseException expected) {
+                require("23505".equals(expected.sqlState()), "Expected a redacted constraint failure");
+            }
+            require(database.findById(new SqlCommand.FindById(table, column, id),
+                    row -> row.int32("id")).orElseThrow() == 7, "JDBC failure corrupted subsequent operations");
         }
     }
 
@@ -140,6 +178,11 @@ public final class ConsumerApplication {
         }
 
         @Transactional
+        public void writeAndCommit() {
+            jdbc.update("INSERT INTO inventory (id) VALUES (?)", 13);
+        }
+
+        @Transactional
         public void writeThenFail() {
             jdbc.update("INSERT INTO inventory (id) VALUES (?)", 8);
             database.transaction(transaction -> transaction.create(new SqlCommand.Insert(
@@ -178,8 +221,24 @@ public final class ConsumerApplication {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @EnableAutoConfiguration
+    @EnableAutoConfiguration(excludeName = "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration")
     static class NoDataSource {}
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableAutoConfiguration
+    static class SingleDataSource {
+        @Bean CountingDataSource pool() { return new CountingDataSource(); }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableAutoConfiguration
+    static class FailedConfiguration {
+        static CountingDataSource pool;
+        @Bean CountingDataSource pool() { pool = new CountingDataSource(); return pool; }
+        @Bean Object invalid(CountingDataSource dataSource) {
+            throw new IllegalStateException("Invalid fixture configuration");
+        }
+    }
 
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration

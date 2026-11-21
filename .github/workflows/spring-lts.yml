@@ -1,0 +1,116 @@
+name: Spring Boot LTS
+
+on:
+  pull_request:
+    branches: [main, 'feat/**']
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spring-lts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Spring Boot LTS (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:17.11-trixie
+        env:
+          POSTGRES_USER: tuprel_fixture
+          POSTGRES_PASSWORD: disposable_fixture
+          POSTGRES_DB: tuprel_devtest
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U tuprel_fixture -d tuprel_devtest"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk17
+        with: { distribution: temurin, java-version: '17' }
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk25
+        with: { distribution: temurin, java-version: '25' }
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk21
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-provider: basic
+          validate-wrappers: true
+      - name: Verify Apache Maven 3.9.16
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          archive=apache-maven-3.9.16-bin.tar.gz
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --max-time 120 "https://archive.apache.org/dist/maven/maven-3/3.9.16/binaries/$archive" -o "$archive"
+          printf '%s  %s\n' '831a8591fe20c8243b1dbe7d71e3244f31d1665b0804b2e825e38cbbe5ce0cafb8338851f90780735568773e0a6cd07bbec107cda0b896b008b861075358b6f6' "$archive" | sha512sum --check
+          tar -xzf "$archive"
+      - name: Certify external Spring consumers
+        shell: pwsh
+        env:
+          TUPREL_JDK_17: ${{ steps.jdk17.outputs.path }}
+          TUPREL_JDK_21: ${{ steps.jdk21.outputs.path }}
+          TUPREL_JDK_25: ${{ steps.jdk25.outputs.path }}
+          TUPREL_TEST_JDBC_URL: jdbc:postgresql://127.0.0.1:${{ job.services.postgres.ports[5432] }}/tuprel_devtest
+          TUPREL_TEST_DB_USER: tuprel_fixture
+          TUPREL_TEST_DB_PASSWORD: disposable_fixture
+        run: |
+          ./test-support/distribution/Verify-SpringLts.ps1 -Maven "$env:RUNNER_TEMP/apache-maven-3.9.16/bin/mvn" `
+            -Jdk17 $env:TUPREL_JDK_17 -Jdk21 $env:TUPREL_JDK_21 -Jdk25 $env:TUPREL_JDK_25 -Java17Container
+  windows:
+    name: Spring Boot LTS (Windows)
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk17
+        with: { distribution: temurin, java-version: '17' }
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk25
+        with: { distribution: temurin, java-version: '25' }
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk21
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-provider: basic
+          validate-wrappers: true
+      - name: Start an isolated PostgreSQL 17 cluster
+        shell: pwsh
+        run: ./test-support/distribution/SpringPostgresql-CI.ps1
+      - name: Verify Apache Maven 3.9.16
+        shell: pwsh
+        run: |
+          $archive=Join-Path $env:RUNNER_TEMP 'apache-maven-3.9.16-bin.tar.gz'
+          Invoke-WebRequest -Uri 'https://archive.apache.org/dist/maven/maven-3/3.9.16/binaries/apache-maven-3.9.16-bin.tar.gz' -OutFile $archive -TimeoutSec 120
+          if ((Get-FileHash $archive -Algorithm SHA512).Hash -ine '831a8591fe20c8243b1dbe7d71e3244f31d1665b0804b2e825e38cbbe5ce0cafb8338851f90780735568773e0a6cd07bbec107cda0b896b008b861075358b6f6') { throw 'Maven distribution integrity failure' }
+          tar -xzf $archive -C $env:RUNNER_TEMP
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot extract the verified Maven distribution' }
+      - name: Certify external Spring consumers
+        shell: pwsh
+        env:
+          TUPREL_JDK_17: ${{ steps.jdk17.outputs.path }}
+          TUPREL_JDK_21: ${{ steps.jdk21.outputs.path }}
+          TUPREL_JDK_25: ${{ steps.jdk25.outputs.path }}
+        run: |
+          ./test-support/distribution/Verify-SpringLts.ps1 -Maven "$env:RUNNER_TEMP/apache-maven-3.9.16/bin/mvn.cmd" `
+            -Jdk17 $env:TUPREL_JDK_17 -Jdk21 $env:TUPREL_JDK_21 -Jdk25 $env:TUPREL_JDK_25
+      - name: Stop only the disposable cluster
+        if: always()
+        shell: pwsh
+        run: ./test-support/distribution/SpringPostgresql-CI.ps1 -Stop

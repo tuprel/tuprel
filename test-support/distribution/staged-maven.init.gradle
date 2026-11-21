@@ -20,10 +20,13 @@ if (!(fixtureVersion in ['0.0.0-fixture', '0.0.1-fixture'])) {
 }
 
 def releaseEnvelope = Boolean.getBoolean('tuprel.test.maven.releaseEnvelope')
+def springConsumer = Boolean.getBoolean('tuprel.test.maven.springConsumer')
 
 gradle.beforeProject { library ->
     if (library.rootProject.name != 'tuprel'
-            || !(library.name in ['tuprel-sql', 'tuprel-runtime', 'tuprel-postgresql'])) { return }
+            || !(library.name in (springConsumer
+                ? ['tuprel-sql', 'tuprel-runtime', 'tuprel-postgresql', 'tuprel-spring-boot-starter']
+                : ['tuprel-sql', 'tuprel-runtime', 'tuprel-postgresql']))) { return }
     library.group = 'dev.tuprel.staging'
     library.version = fixtureVersion
     library.pluginManager.apply('maven-publish')

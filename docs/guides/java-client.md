@@ -68,6 +68,11 @@ or the [Java API reference](../reference/java-api.md).
 
 ## Spring Boot development integration
 
+The [products REST example](../../examples/spring-products-api/README.md)
+demonstrates generated clients in services, request validation and real HTTP
+tests with Spring Boot 4.1.2. It uses development staging artifacts and an
+application-owned DataSource; public artifact publication remains pending.
+
 The [source-built starter](../../tuprel-spring-boot-starter/README.md) can
 provide a TuprelDatabase from the application's DataSource. It is tested
 with a separate Spring Boot 4.1 application and remains in development.
