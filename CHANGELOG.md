@@ -158,6 +158,11 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Alterado
 
+- O plugin Gradle de desenvolvimento segue a toolchain Java do consumidor
+  ou a JVM do build quando não há toolchain explícita. O artefacto do plugin
+  passa a usar target 17, com resolução e geração verificadas pelas fixtures
+  LTS. Java 21 continua a ser o mínimo público até à activação do ADR-0024.
+
 - Documentação de arquitectura, fases e handoff reconciliada com o fecho da
   Fase 0: zero módulos de produto, primeiro módulo na Fase 1 e RFCs aplicados
   como gates das fases que afectam.

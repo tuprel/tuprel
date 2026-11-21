@@ -1,0 +1,58 @@
+import java.nio.file.Files
+import java.nio.file.Path
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+
+plugins {
+    id 'java'
+    id 'dev.tuprel.codegen' version '0.0.0-fixture'
+}
+
+def requestedToolchain = providers.gradleProperty('fixture.toolchain')
+if (requestedToolchain.isPresent()) {
+    java.toolchain.languageVersion = requestedToolchain.map { JavaLanguageVersion.of(it) }
+}
+
+tuprelCodegen {
+    cliClasspath.from(fileTree('installed CLI/lib') { include '*.jar' })
+}
+dependencies {
+    implementation(fileTree('runtime libraries') { include '*.jar' })
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(17) }
+    doFirst { task ->
+        if (task.javaCompiler.get().metadata.languageVersion.asInt() != 17) {
+            throw new GradleException('Expected the actual Java 17 compiler')
+        }
+        System.out.println('REPORT compiler Java 17 at ' + task.javaCompiler.get().metadata.installationPath)
+    }
+}
+
+abstract class EnvironmentReport extends DefaultTask {
+    @Input abstract Property<String> getExpectedJava()
+    @Input abstract Property<String> getExpectedHome()
+
+    @TaskAction void report() {
+        if (Runtime.version().feature() != Integer.parseInt(expectedJava.get())
+                || !Files.isSameFile(Path.of(System.getProperty('java.home')), Path.of(expectedHome.get()))) {
+            throw new GradleException('Unexpected Gradle daemon JVM')
+        }
+        System.out.println('REPORT daemon Java ' + Runtime.version().feature() + ' at ' + System.getProperty('java.home'))
+    }
+}
+
+tasks.register('verifyEnvironment', EnvironmentReport) {
+    expectedJava = providers.gradleProperty('fixture.java')
+    expectedHome = providers.gradleProperty('fixture.javaHome')
+}
+
+tasks.register('runConsumer', JavaExec) {
+    dependsOn tasks.classes
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'fixture.Consumer'
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = providers.gradleProperty('fixture.java').map { JavaLanguageVersion.of(it) }
+    }
+}

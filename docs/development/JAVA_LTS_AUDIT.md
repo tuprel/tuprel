@@ -185,3 +185,36 @@ Estes resultados cobrem o consumidor Maven de staging. A activação pública
 do suporte Java 17 e as restantes integrações continuam sujeitas aos gates
 do ADR-0024. Os checks do HEAD final e as limitações locais são registados
 na descrição do PR #116.
+
+## D1-B — plugin Gradle
+
+A base da entrega é `b6995c5e2b821bc3bfcb4331a8e4508a25c20834`.
+O plugin original tem cinco classes major 65 e fixa Java 21 no launcher
+da CLI. A adaptação compila essas classes com release 17 e conserva o
+inventário, os descritores públicos/protegidos e o ID `dev.tuprel.codegen`.
+O provider do launcher passa a seguir a toolchain do consumidor. Uma
+toolchain vazia utiliza a JVM do build. O compilador interno mantém JDK 21.
+
+`Verify-GradlePluginLts.ps1` publica uma vez o plugin e o marker num
+repositório temporário, verifica POM, variantes JVM e SHA-256, e resolve-os
+por ID e versão em projectos externos. As nove células combinam Gradle
+9.7.1/9.8.2/9.9.1 com Java 17/21/25. Todas usam o mesmo artefacto publicado.
+O daemon e a CLI usam a JVM da célula; o compilador de fontes geradas é
+um javac 17 real. A descoberta e o download automático de JDKs ficam
+desactivados. O harness verifica também uma toolchain explícita 17.
+
+A baseline diferencial guardada antes da alteração confirma os mesmos
+17 ficheiros gerados, incluindo o manifest de ownership, e os respectivos
+SHA-256. A configuração de cache da fixture foi isolada por projecto para
+que o primeiro `compileJava` execute realmente, mantendo o assert SUCCESS.
+São testados os estados incrementais, configuration cache, mudança do
+classpath, evolução do schema, clean e recusa de fontes editadas.
+Artefactos e markers adulterados são recusados sob verificação estrita.
+
+A CI acrescenta Windows e Linux, com limites de tempo próprios. No Linux,
+um perfil adicional corre os três Gradles num contentor Temurin 17 fixado
+por digest, sem rede e sem JDKs do host montados. Isto distingue a
+restrição da descoberta de toolchains da execução efectiva num ambiente
+que só contém Java 17. Os resultados por célula e os checks do HEAD final
+ficam no PR funcional. A certificação pública do produto continua
+dependente da activação explícita do ADR-0024.

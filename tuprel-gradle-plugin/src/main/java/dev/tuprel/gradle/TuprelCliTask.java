@@ -42,6 +42,7 @@ public abstract class TuprelCliTask extends DefaultTask {
     @Classpath
     public final ConfigurableFileCollection getCliClasspath() { return cliClasspath; }
 
+    /** The consumer's Java toolchain, or its build JVM when no toolchain is configured. */
     @Nested
     public final Property<JavaLauncher> getLauncher() { return launcher; }
 
@@ -52,8 +53,14 @@ public abstract class TuprelCliTask extends DefaultTask {
         if (cliClasspath.isEmpty()) {
             throw new GradleException("Set tuprelCodegen.cliClasspath to the lib directory of a trusted Tuprel CLI installation.");
         }
+        JavaLauncher javaLauncher = launcher.get();
+        int version = javaLauncher.getMetadata().getLanguageVersion().asInt();
+        if (version < 17) {
+            throw new GradleException("Tuprel CLI requires Java 17 or newer. Configure a compatible Java toolchain or task launcher.");
+        }
+        getLogger().info("Tuprel CLI JVM: Java {} at {}", version, javaLauncher.getExecutablePath().getAsFile());
         exec.javaexec(spec -> {
-            spec.setExecutable(launcher.get().getExecutablePath().getAsFile().getAbsolutePath());
+            spec.setExecutable(javaLauncher.getExecutablePath().getAsFile().getAbsolutePath());
             spec.workingDir(projectDirectory.get().getAsFile());
             spec.classpath(cliClasspath);
             spec.getMainClass().set("dev.tuprel.cli.TuprelCli");

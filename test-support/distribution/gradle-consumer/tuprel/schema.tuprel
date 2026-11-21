@@ -1,0 +1,8 @@
+generator java {
+  package = "consumer.generated"
+}
+
+model Product {
+  id Int @id
+  name String
+}

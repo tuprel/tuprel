@@ -1,5 +1,13 @@
 # Distribution fixtures
 
+The Gradle plugin LTS fixture resolves the published plugin marker without
+composite builds or TestKit classpath injection. It stages one plugin build
+and verifies Gradle 9.7.1, 9.8.2 and 9.9.1 against Java 17, 21 and 25. See the
+[plugin guide](../../tuprel-gradle-plugin/README.md#lts-certification-fixture)
+for reproduction commands, Java selection and the isolated Linux single-JDK
+proof. Its Gradle ZIP hashes come from the official distribution checksum
+endpoints. Staging publication remains local and temporary.
+
 `Verify-StagedCli.ps1` extracts and runs a source-built CLI archive from a
 temporary installation. `Verify-StagedMaven.ps1` stages the SQL, runtime and
 PostgreSQL JARs in a temporary file repository. It verifies artifact names,
