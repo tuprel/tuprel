@@ -20,6 +20,10 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Fixture REST Spring Boot 4.1.2 independente para certificar Java 17, 21 e 25,
+  com starter compilado para release 17, HTTP/PostgreSQL reais e JAR executável.
+  Java 21 mantém-se como mínimo público; o ownership transaccional não muda.
+
 - Preview read-only de `migrate dev` contra histórico aplicado verificado.
   Mostra SQL aditivo canónico e riscos apenas após validar o replay.
 
