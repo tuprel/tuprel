@@ -31,7 +31,7 @@ public final class LanguageServerProbe {
         if (args[2].equals("launcher")) {
             Path launcher = distribution.resolve("bin/tuprel-language-server" + (windows ? ".bat" : ""));
             command = windows ? List.of("cmd.exe", "/d", "/c", launcher.toString())
-                    : List.of("/bin/sh", launcher.toString());
+                    : List.of(launcher.toString());
         } else {
             command = List.of(javaHome.resolve(windows ? "bin/java.exe" : "bin/java").toString(),
                     "-cp", distribution.resolve("lib") + java.io.File.separator + "*", "dev.tuprel.lsp.TuprelLanguageServer");
@@ -39,7 +39,8 @@ public final class LanguageServerProbe {
         ProcessBuilder builder = new ProcessBuilder(command);
         builder.directory(distribution.getParent().toFile());
         builder.environment().put("JAVA_HOME", javaHome.toString());
-        for (String name : List.of("JAVA_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "CLASSPATH")) {
+        for (String name : List.of("JAVA_OPTS", "TUPREL_LANGUAGE_SERVER_OPTS", "JAVA_TOOL_OPTIONS",
+                "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "CLASSPATH")) {
             builder.environment().remove(name);
         }
         Process child = builder.start();
