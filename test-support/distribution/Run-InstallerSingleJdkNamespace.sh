@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Disposable CI mount/network namespace; native filesystem policy is unchanged.
 set -euo pipefail
+test "$#" -eq 7
+# Refuse direct privileged invocation in the host's namespaces.
+test "$(readlink /proc/self/ns/mnt)" != "$(readlink /proc/1/ns/mnt)"
+test "$(readlink /proc/self/ns/net)" != "$(readlink /proc/1/ns/net)"
 prepared="$1"
 single="$2"
 jdk21="$3"
