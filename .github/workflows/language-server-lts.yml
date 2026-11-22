@@ -1,0 +1,80 @@
+name: Language Server LTS
+
+on:
+  pull_request:
+    branches: [main, 'feat/**']
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: language-server-lts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: Language Server LTS (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: Linux, runner: ubuntu-24.04 }
+          - { platform: Windows, runner: windows-2025 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk17
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk25
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk21
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-provider: basic
+          validate-wrappers: true
+      - name: Certify installed launchers and classpath invocation
+        shell: pwsh
+        env:
+          JDK17: ${{ steps.jdk17.outputs.path }}
+          JDK21: ${{ steps.jdk21.outputs.path }}
+          JDK25: ${{ steps.jdk25.outputs.path }}
+        run: |
+          $options = @{ Jdk17=$env:JDK17; Jdk21=$env:JDK21; Jdk25=$env:JDK25 }
+          if ($IsLinux) { $options.Java17Container = $true }
+          ./test-support/distribution/Verify-LanguageServerLts.ps1 @options
+      - name: Run existing protocol and adversarial tests on each JVM
+        shell: pwsh
+        env:
+          JDK17: ${{ steps.jdk17.outputs.path }}
+          JDK21: ${{ steps.jdk21.outputs.path }}
+          JDK25: ${{ steps.jdk25.outputs.path }}
+        run: |
+          $paths = "-Dorg.gradle.java.installations.paths=$env:JDK17,$env:JDK21,$env:JDK25"
+          foreach ($version in 17,21,25) {
+            if ($IsWindows) { ./gradlew.bat :tuprel-language-server:integrationTest "-PlspTestJava=$version" $paths --no-daemon --dependency-verification strict }
+            else { ./gradlew :tuprel-language-server:integrationTest "-PlspTestJava=$version" $paths --no-daemon --dependency-verification strict }
+            if ($LASTEXITCODE -ne 0) { throw "Protocol tests failed on Java $version" }
+            Copy-Item tuprel-language-server/build/test-results/integrationTest "build/java-lts-d2/evidence/tests-$version" -Recurse
+          }
+      - name: Preserve certification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: language-server-lts-${{ matrix.platform }}
+          path: build/java-lts-d2/evidence/
+          if-no-files-found: error

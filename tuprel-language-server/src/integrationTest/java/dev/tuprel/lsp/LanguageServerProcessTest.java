@@ -44,7 +44,7 @@ class LanguageServerProcessTest {
             assertTrue(client.diagnostics(FIRST, 1).isEmpty());
             String invalid = "model User { id UUID @id value Missing }";
             client.open(SECOND, 3, invalid);
-            SchemaDiagnostic expected = new SchemaCompiler().compile(SourceText.of("test", invalid)).diagnostics().getFirst();
+            SchemaDiagnostic expected = new SchemaCompiler().compile(SourceText.of("test", invalid)).diagnostics().get(0);
             JsonObject diagnostic = client.diagnostics(SECOND, 3).get(0).getAsJsonObject();
             assertEquals(expected.code(), diagnostic.get("code").getAsString());
             assertEquals(expected.message(), diagnostic.get("message").getAsString());
@@ -481,15 +481,15 @@ class LanguageServerProcessTest {
             assertTrue(response.get("isIncomplete").getAsBoolean());
             List<String> labels = labels(response.getAsJsonArray("items"));
             assertEquals(200, labels.size());
-            assertEquals("Type100", labels.getFirst());
-            assertEquals("Type299", labels.getLast());
+            assertEquals("Type100", labels.get(0));
+            assertEquals("Type299", labels.get(labels.size() - 1));
 
             client.change(FIRST, 2, schema.toString().replace("field Typ ", "field Type30 "));
             client.diagnostics(FIRST, 2);
             List<String> refined = labels(client.complete(FIRST, 0, 28).getAsJsonArray());
             assertEquals(10, refined.size());
-            assertEquals("Type300", refined.getFirst());
-            assertEquals("Type309", refined.getLast());
+            assertEquals("Type300", refined.get(0));
+            assertEquals("Type309", refined.get(refined.size() - 1));
             client.shutdown();
         }
     }

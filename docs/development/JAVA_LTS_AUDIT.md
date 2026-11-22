@@ -311,3 +311,10 @@ alterar a configuração de produção ou a trust store do utilizador. A prova
 offline Java17-only mantém-se separada. Consultar o
 [contrato e reprodução](../../test-support/distribution/SIGNED_CLI_STAGING.md#installed-cli-jdbc-tls-and-scram).
 Esta extensão não certifica uma imagem com runtime incluído nem activa Java 17.
+
+## D2 — Language Server e VS Code
+
+A adaptação do servidor e a prova de distribuição instalada estão descritas
+na [certificação D2](LANGUAGE_SERVER_LTS.md). A matriz e os resultados do
+Extension Host são gates separados, fixados ao mesmo HEAD Java.
+Java 21 mantém-se como mínimo público até decisão explícita na Fase E.

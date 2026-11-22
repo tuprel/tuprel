@@ -20,6 +20,7 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -261,30 +262,34 @@ public final class TuprelLanguageServer {
     }
 
     private static String hoverText(SchemaSymbols.Symbol symbol) {
-        return switch (symbol) {
-            case SchemaSymbols.Model model -> {
-                String fields = model.fields().stream()
-                        .map(field -> field.name() + ": " + field.type().name() + switch (field.cardinality()) {
-                            case REQUIRED -> "";
-                            case OPTIONAL -> "?";
-                            case LIST -> "[]";
-                        })
-                        .collect(Collectors.joining(", "));
-                yield "Model: " + model.name() + "\nType: TUPREL model"
-                        + (fields.isEmpty() ? "" : "\nFields: " + fields);
-            }
-            case SchemaSymbols.Enumeration enumeration ->
-                    "Enum: " + enumeration.name() + "\nType: TUPREL enum"
-                            + (enumeration.values().isEmpty() ? "" : "\nValues: " + String.join(", ", enumeration.values()));
-            case SchemaSymbols.Field field ->
-                    "Field: " + field.model() + "." + field.name() + "\nType: " + field.type().name()
-                            + "\nCardinality: " + switch (field.cardinality()) {
-                                case REQUIRED -> "required";
-                                case OPTIONAL -> "optional";
-                                case LIST -> "list";
-                            };
-            case SchemaSymbols.Scalar scalar -> "Type: " + scalar.name() + "\nTUPREL scalar";
-        };
+        Objects.requireNonNull(symbol);
+        if (symbol instanceof SchemaSymbols.Model model) {
+            String fields = model.fields().stream()
+                    .map(field -> field.name() + ": " + field.type().name() + switch (field.cardinality()) {
+                        case REQUIRED -> "";
+                        case OPTIONAL -> "?";
+                        case LIST -> "[]";
+                    })
+                    .collect(Collectors.joining(", "));
+            return "Model: " + model.name() + "\nType: TUPREL model"
+                    + (fields.isEmpty() ? "" : "\nFields: " + fields);
+        }
+        if (symbol instanceof SchemaSymbols.Enumeration enumeration) {
+            return "Enum: " + enumeration.name() + "\nType: TUPREL enum"
+                    + (enumeration.values().isEmpty() ? "" : "\nValues: " + String.join(", ", enumeration.values()));
+        }
+        if (symbol instanceof SchemaSymbols.Field field) {
+            return "Field: " + field.model() + "." + field.name() + "\nType: " + field.type().name()
+                    + "\nCardinality: " + switch (field.cardinality()) {
+                        case REQUIRED -> "required";
+                        case OPTIONAL -> "optional";
+                        case LIST -> "list";
+                    };
+        }
+        if (symbol instanceof SchemaSymbols.Scalar scalar) {
+            return "Type: " + scalar.name() + "\nTUPREL scalar";
+        }
+        throw new IncompatibleClassChangeError("Unknown schema symbol");
     }
 
     private static boolean validPositionUri(String uri, PositionQuery query) {
