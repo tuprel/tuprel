@@ -50,7 +50,7 @@ Os testes existentes podem executar integralmente nas três JVMs:
 
 ```powershell
 ./gradlew :tuprel-language-server:integrationTest -PlspTestJava=17 `
-  '-Porg.gradle.java.installations.paths=/path/to/jdk17,/path/to/jdk21,/path/to/jdk25' `
+  '-Dorg.gradle.java.installations.paths=/path/to/jdk17,/path/to/jdk21,/path/to/jdk25' `
   --no-daemon --dependency-verification strict
 ```
 
@@ -61,8 +61,12 @@ como artefactos do run. Os restantes workflows não são substituídos.
 
 Windows local: launcher e classpath passaram em Java 17, 21 e 25, com respostas
 iguais à referência e sem alterações à distribuição durante a matriz.
-Os resultados finais dos testes completos e de Linux são registados no PR
-e nos jobs do HEAD correspondente; não são inferidos deste ensaio local.
+Os 18 testes stdio existentes passaram em cada uma das três JVMs, sem skips.
+`spotlessCheck check build` e o build independente do playground passaram
+sequencialmente com verificação estrita. A comparação com a distribuição
+anterior preservou o inventário de classes e a API pública/protegida.
+Os resultados de Linux são registados no PR e nos jobs do HEAD correspondente;
+não são inferidos deste ensaio local.
 
 A certificação do Extension Host pertence ao PR separado de `tuprel-editors`,
 fixado ao HEAD Java cuja matriz esteja aprovada. A distribuição não inclui

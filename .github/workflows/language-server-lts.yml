@@ -64,7 +64,7 @@ jobs:
           JDK21: ${{ steps.jdk21.outputs.path }}
           JDK25: ${{ steps.jdk25.outputs.path }}
         run: |
-          $paths = "-Porg.gradle.java.installations.paths=$env:JDK17,$env:JDK21,$env:JDK25"
+          $paths = "-Dorg.gradle.java.installations.paths=$env:JDK17,$env:JDK21,$env:JDK25"
           foreach ($version in 17,21,25) {
             if ($IsWindows) { ./gradlew.bat :tuprel-language-server:integrationTest "-PlspTestJava=$version" $paths --no-daemon --dependency-verification strict }
             else { ./gradlew :tuprel-language-server:integrationTest "-PlspTestJava=$version" $paths --no-daemon --dependency-verification strict }
