@@ -1,5 +1,11 @@
 # Distribution fixtures
 
+The [installer LTS fixture](SIGNED_CLI_STAGING.md#java-lts-installer-certification-fixture)
+builds signed staging packages once and exercises the same installer, native
+validator and stable launcher on Java 17, 21 and 25. It covers native filesystem
+profiles without modifying the developer's persistent PATH. Public Java 21
+requirements and distribution/reboot gates remain unchanged.
+
 The Gradle plugin LTS fixture resolves the published plugin marker without
 composite builds or TestKit classpath injection. It stages one plugin build
 and verifies Gradle 9.7.1, 9.8.2 and 9.9.1 against Java 17, 21 and 25. See the

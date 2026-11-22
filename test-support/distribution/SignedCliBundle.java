@@ -127,6 +127,7 @@ final class SignedCliBundle {
     }
 
     private Path install(StagingRoot guarded) throws IOException {
+        requireCompatibleRuntime();
         guarded.verify();
         Path root = guarded.anchor();
         Path destination = root.resolve(version);
@@ -217,6 +218,65 @@ final class SignedCliBundle {
 
     String digest() {
         return new String(receipt, StandardCharsets.US_ASCII).strip();
+    }
+
+    /** Checks the authenticated bytes, without loading classes or changing installation state. */
+    void requireCompatibleRuntime() throws IOException {
+        for (Map.Entry<String, byte[]> file : files.entrySet()) {
+            if (file.getKey().startsWith("lib/")) checkLibraryRuntime(file.getValue(), Runtime.version().feature());
+        }
+    }
+
+    static void checkLibraryRuntime(byte[] library, int feature) throws IOException {
+        if (library.length < 4 || library[0] != 'P' || library[1] != 'K'
+                || !((library[2] == 3 && library[3] == 4) || (library[2] == 5 && library[3] == 6))) {
+            throw new IOException("Invalid library archive");
+        }
+        int remaining = 64 * 1024 * 1024;
+        Set<String> names = new HashSet<>();
+        Map<String, byte[]> classes = new LinkedHashMap<>();
+        boolean multiRelease = false;
+        try (ZipInputStream jar = new ZipInputStream(new ByteArrayInputStream(library), StandardCharsets.UTF_8)) {
+            ZipEntry entry;
+            while ((entry = jar.getNextEntry()) != null) {
+                String name = entry.getName();
+                if (names.size() >= 65536 || !names.add(name)) throw new IOException("Unsupported library inventory");
+                byte[] content = jar.readNBytes(remaining + 1);
+                remaining -= content.length;
+                if (remaining < 0) throw new IOException("Library inspection exceeds its size bound");
+                if (name.equals("META-INF/MANIFEST.MF")) {
+                    if (content.length > 65536) throw new IOException("Library manifest exceeds its size bound");
+                    java.util.jar.Manifest manifest = new java.util.jar.Manifest(new ByteArrayInputStream(content));
+                    multiRelease = "true".equalsIgnoreCase(manifest.getMainAttributes().getValue("Multi-Release"));
+                } else if (name.endsWith(".class")) {
+                    classes.put(name, content);
+                }
+            }
+        }
+        if (names.isEmpty()) throw new IOException("Empty or unreadable library inventory");
+        for (Map.Entry<String, byte[]> entry : classes.entrySet()) {
+            int allowed = feature;
+            if (entry.getKey().startsWith("META-INF/versions/")) {
+                if (!multiRelease) continue;
+                String[] path = entry.getKey().split("/", 4);
+                int version;
+                try { version = Integer.parseInt(path[2]); }
+                catch (NumberFormatException failure) { throw new IOException("Unsupported library variant"); }
+                if (path.length != 4 || version < 9) throw new IOException("Unsupported library variant");
+                if (version > feature) continue;
+                allowed = version;
+            }
+            byte[] header = entry.getValue();
+            if (header.length < 8 || header[0] != (byte) 0xca || header[1] != (byte) 0xfe
+                    || header[2] != (byte) 0xba || header[3] != (byte) 0xbe) {
+                throw new IOException("Invalid library classfile");
+            }
+            int minor = (header[4] & 255) * 256 + (header[5] & 255);
+            int major = (header[6] & 255) * 256 + (header[7] & 255);
+            if (major < 45 || major > allowed + 44 || minor == 65535 || (major >= 56 && minor != 0)) {
+                throw new IOException("CLI library is incompatible with the selected JVM");
+            }
+        }
     }
 
     List<String> checkedLibraries(StagingRoot guarded, Path installed) throws IOException {

@@ -47,10 +47,11 @@ jobs:
           ./gradlew build --rerun-tasks --no-build-cache --no-daemon --dependency-verification strict -PtuprelTestDatabase=container
           ./gradlew -p examples/tuprel-playground classes --rerun-tasks --no-build-cache --no-daemon --dependency-verification strict
           mkdir -p "$RUNNER_TEMP/tuprel-installer-analysis"
-          javac --release 21 -Xlint:all -Werror -d "$RUNNER_TEMP/tuprel-installer-analysis" \
+          javac --release 17 -Xlint:all -Werror -d "$RUNNER_TEMP/tuprel-installer-analysis" \
             test-support/distribution/SignedCliBundle.java test-support/distribution/VerifyCliBundle.java \
             test-support/distribution/StagingRoot.java test-support/distribution/StagedActivation.java \
-            test-support/distribution/StagedBashPath.java
+            test-support/distribution/StagedBashPath.java test-support/distribution/SignedCliBundleFixture.java \
+            test-support/distribution/InstallerRuntimeTest.java
       - name: Compile the Spring REST example for analysis
         shell: pwsh
         run: ./test-support/distribution/Build-SpringCodeql.ps1

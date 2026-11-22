@@ -20,6 +20,11 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Matriz de staging do instalador e launcher para Java 17, 21 e 25, com
+  artefactos assinados partilhados e recusa de bytecode incompatível antes
+  da instalação ou activação. A remoção autenticada de versões inactivas
+  não exige a JVM usada por essas versões. Não activa suporte público Java 17.
+
 - Fixture REST Spring Boot 4.1.2 independente para certificar Java 17, 21 e 25,
   com starter compilado para release 17, HTTP/PostgreSQL reais e JAR executável.
   Java 21 mantém-se como mínimo público; o ownership transaccional não muda.

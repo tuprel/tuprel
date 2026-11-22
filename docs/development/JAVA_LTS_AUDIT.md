@@ -269,3 +269,33 @@ O job CodeQL compila também o exemplo Maven no checkout, para que os
 resultados apontem às fontes REST do PR. Usa `test-compile`, sem executar
 SQL; a execução HTTP/PostgreSQL permanece nos jobs externos. Os pins,
 permissões e restantes builds de análise mantêm-se.
+
+## D1-D — Instalador e launcher
+
+A certificação usa `Verify-InstallerLts.ps1`, com JDK 21 como produtor e
+compilação release 17 dos helpers standalone. O inventário anterior contém
+dez classes; acrescenta-se apenas o teste `InstallerRuntimeTest`. A API de
+entrada, os descritores JNI e os formatos assinados permanecem iguais.
+Não são necessárias novas dependências. Os helpers anteriores eram major
+65; os novos são major 61. A implementação nativa não muda.
+
+Uma única preparação produz duas versões CLI, um catálogo com assinatura
+Ed25519 efémera, o verificador e a biblioteca JNI. Cada célula 17/21/25
+reutiliza esses bytes, compara SHA-256 antes/depois e executa instalação,
+activação, launcher, geração, compilação release 17, rollback, interrupções
+e remoção. A JVM vem do caminho explícito seleccionado, sem fallback 21.
+O preflight de classfiles recusa instalação/activação incompatível antes
+de alterar a versão anterior; a remoção de dados autenticados não carrega
+classes e continua possível numa JVM mais antiga.
+
+A matriz separa Windows/NTFS, Linux/ext4 e Linux/XFS. Os perfis Linux
+incluem uma prova sem rede num contentor apenas com JDK 17 e os artefactos
+preparados, sem montar o checkout ou outros JDKs. Os resultados efectivos
+e limitações devem ser registados no PR; a definição do job não certifica
+uma célula. O ambiente Windows local sem MSVC permite compilar e verificar
+assinaturas nas três JVMs, mas não executar a prova JNI completa.
+
+Não se certificam aqui runtime incluído, distribuição pública do bootstrap
+ou biblioteca nativa, metadados de release, reinício real ou alteração do
+PATH real do utilizador. P0-02B.4 conserva os seus gates. D2 e a activação
+E ficam fora do âmbito; Java 21 continua como mínimo público.

@@ -1,0 +1,78 @@
+name: Installer Java LTS
+
+on:
+  pull_request:
+    branches: [main, 'feat/**']
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installer-lts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  installer:
+    name: Installer LTS (${{ matrix.profile }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { profile: Windows NTFS, runner: windows-2025, filesystem: '' }
+          - { profile: Linux ext4, runner: ubuntu-24.04, filesystem: ext4 }
+          - { profile: Linux XFS, runner: ubuntu-24.04, filesystem: xfs }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk17
+        with: { distribution: temurin, java-version: '17' }
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk25
+        with: { distribution: temurin, java-version: '25' }
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        id: jdk21
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-provider: basic
+          validate-wrappers: true
+      - name: Certify Windows NTFS
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          TUPREL_JDK_17: ${{ steps.jdk17.outputs.path }}
+          TUPREL_JDK_21: ${{ steps.jdk21.outputs.path }}
+          TUPREL_JDK_25: ${{ steps.jdk25.outputs.path }}
+        run: |
+          ./test-support/distribution/Verify-InstallerLts.ps1 `
+            -Jdk17 $env:TUPREL_JDK_17 -Jdk21 $env:TUPREL_JDK_21 -Jdk25 $env:TUPREL_JDK_25
+      - name: Certify Linux on the explicit filesystem
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          TUPREL_JDK_17: ${{ steps.jdk17.outputs.path }}
+          TUPREL_JDK_21: ${{ steps.jdk21.outputs.path }}
+          TUPREL_JDK_25: ${{ steps.jdk25.outputs.path }}
+          TUPREL_FIXTURE_FS: ${{ matrix.filesystem }}
+        run: |
+          set -euo pipefail
+          fixture="$(mktemp -d "$RUNNER_TEMP/tuprel-installer-lts.XXXXXXXX")"
+          mkdir "$fixture/volume"
+          truncate -s 1G "$fixture/image"
+          if [ "$TUPREL_FIXTURE_FS" = ext4 ]; then
+            mkfs.ext4 -F -q "$fixture/image"
+          else
+            mkfs.xfs -f -q "$fixture/image"
+          fi
+          sudo mount -t "$TUPREL_FIXTURE_FS" -o loop "$fixture/image" "$fixture/volume"
+          trap 'sudo umount -- "$fixture/volume"' EXIT
+          test "$(findmnt -n -o FSTYPE --mountpoint "$fixture/volume")" = "$TUPREL_FIXTURE_FS"
+          sudo chown "$(id -u):$(id -g)" "$fixture/volume"
+          pwsh -File test-support/distribution/Verify-InstallerLts.ps1 -FixtureParent "$fixture/volume" \
+            -Jdk17 "$TUPREL_JDK_17" -Jdk21 "$TUPREL_JDK_21" -Jdk25 "$TUPREL_JDK_25" -Java17Container

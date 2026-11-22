@@ -26,6 +26,7 @@ public final class VerifyCliBundle {
             SignedCliBundle bundle = SignedCliBundle.verify(Path.of(args[1]), read(Path.of(args[2]), 512),
                     read(Path.of(args[3]), 64), key, args[5], args[0]);
             if (args.length == 6) {
+                bundle.requireCompatibleRuntime();
                 System.out.println("Signed Tuprel staging bundle verified");
             } else {
                 StagingRoot.load(Path.of(args[8]));

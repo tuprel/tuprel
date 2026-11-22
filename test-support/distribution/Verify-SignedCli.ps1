@@ -1,4 +1,7 @@
-param([string]$FixtureParent = $(if ($IsWindows) { $env:LOCALAPPDATA } else { $HOME }))
+param(
+    [string]$FixtureParent = $(if ($IsWindows) { $env:LOCALAPPDATA } else { $HOME }),
+    [string]$PreparedDirectory
+)
 
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
@@ -16,40 +19,63 @@ $before = $env:PATH
 try {
     $native = Join-Path $fixture $(if ($IsWindows) { 'tuprel-staging.dll' } else { 'libtuprel-staging.so' })
     $nativeSource = Join-Path $root 'native/cli-installer'
-    if ($IsWindows) { & "$nativeSource/build-windows-staging.cmd" $native }
-    else { & bash "$nativeSource/build-linux-staging.sh" $native }
-    if ($LASTEXITCODE) { throw 'Staging native validator did not compile' }
+    if ($PreparedDirectory) {
+        Copy-Item -LiteralPath (Join-Path $PreparedDirectory ([IO.Path]::GetFileName($native))) -Destination $native
+    } else {
+        if ($IsWindows) { & "$nativeSource/build-windows-staging.cmd" $native }
+        else { & bash "$nativeSource/build-linux-staging.sh" $native }
+        if ($LASTEXITCODE) { throw 'Staging native validator did not compile' }
+    }
     $classes = Join-Path $fixture 'classes'
     [IO.Directory]::CreateDirectory($classes) | Out-Null
     $java = Join-Path $env:JAVA_HOME 'bin/java'
+    $nativeOption = '--enable-native-access=ALL-UNNAMED'
     $javac = Join-Path $env:JAVA_HOME 'bin/javac'
-    & $javac --release 21 -Xlint:all -Werror -d $classes "$PSScriptRoot/SignedCliBundle.java" "$PSScriptRoot/SignedCliBundleFixture.java" "$PSScriptRoot/VerifyCliBundle.java" "$PSScriptRoot/StagingRoot.java" "$PSScriptRoot/StagedActivation.java" "$PSScriptRoot/StagedBashPath.java"
-    if ($LASTEXITCODE -ne 0) { throw 'Staging verifier did not compile' }
+    if ($PreparedDirectory) {
+        Get-ChildItem -LiteralPath "$PreparedDirectory/classes" -File | Copy-Item -Destination $classes
+    } else {
+        & $javac --release 17 -Xlint:all -Werror -d $classes "$PSScriptRoot/SignedCliBundle.java" "$PSScriptRoot/SignedCliBundleFixture.java" "$PSScriptRoot/VerifyCliBundle.java" "$PSScriptRoot/StagingRoot.java" "$PSScriptRoot/StagedActivation.java" "$PSScriptRoot/StagedBashPath.java"
+        if ($LASTEXITCODE -ne 0) { throw 'Staging verifier did not compile' }
+    }
 
     $versions = @('0.0.0-staging', '0.0.1-staging')
     $archives = @()
-    Push-Location -LiteralPath $root
-    try {
+    if (-not $PreparedDirectory) {
+      Push-Location -LiteralPath $root
+      try {
         $gradle = if ($IsWindows) { '.\gradlew.bat' } else { './gradlew' }
         foreach ($version in $versions) {
             & $gradle :tuprel-cli:distZip --dependency-verification strict "-PtuprelStagedCliVersion=$version"
             if ($LASTEXITCODE -ne 0) { throw 'Versioned CLI staging failed' }
             $archives += (Resolve-Path -LiteralPath "tuprel-cli/build/distributions/tuprel-$version.zip").Path
         }
-    } finally { Pop-Location }
-    $keyId = & $java -cp $classes SignedCliBundleFixture prepare $fixture @archives
-    if ($LASTEXITCODE -ne 0 -or $keyId -cnotmatch '^[a-f0-9]{64}$') { throw 'Signed bundle preparation failed' }
+      } finally { Pop-Location }
+      $keyId = & $java $nativeOption -cp $classes SignedCliBundleFixture prepare $fixture @archives
+      if ($LASTEXITCODE -ne 0 -or $keyId -cnotmatch '^[a-f0-9]{64}$') { throw 'Signed bundle preparation failed' }
+      & $java $nativeOption -cp $classes SignedCliBundleFixture prepare-legacy $fixture @archives $keyId $native
+      if ($LASTEXITCODE -ne 0) { throw 'Authenticated legacy fixture preparation failed' }
+    } else {
+        $catalogue=Join-Path $PreparedDirectory 'catalogue'
+        Get-ChildItem -LiteralPath $catalogue -Force | Copy-Item -Destination $fixture -Recurse
+        $archives=@($versions | ForEach-Object { Join-Path $catalogue "$_.zip" })
+        $keyId=(Get-Content -LiteralPath "$PreparedDirectory/key-id" -Raw).Trim()
+        if ($keyId -cnotmatch '^[a-f0-9]{64}$') { throw 'Invalid prepared trust pin' }
+    }
 
     $verifier = Join-Path $fixture 'verify-cli.jar'
     $jar = Join-Path $env:JAVA_HOME 'bin/jar'
-    & $jar --create --file $verifier --main-class VerifyCliBundle -C $classes SignedCliBundle.class -C $classes VerifyCliBundle.class -C $classes StagingRoot.class -C $classes StagedActivation.class -C $classes 'StagedActivation$State.class' -C $classes 'StagedActivation$Authorization.class' -C $classes 'StagedActivation$CommitStage.class'
-    if ($LASTEXITCODE -ne 0) { throw 'Independent staging verifier packaging failed' }
+    if ($PreparedDirectory) {
+        Copy-Item -LiteralPath "$PreparedDirectory/verify-cli.jar" -Destination $verifier
+    } else {
+        & $jar --create --file $verifier --main-class VerifyCliBundle -C $classes SignedCliBundle.class -C $classes VerifyCliBundle.class -C $classes StagingRoot.class -C $classes StagedActivation.class -C $classes 'StagedActivation$State.class' -C $classes 'StagedActivation$Authorization.class' -C $classes 'StagedActivation$CommitStage.class'
+        if ($LASTEXITCODE -ne 0) { throw 'Independent staging verifier packaging failed' }
+    }
     $verifyArguments = @($versions[0], $archives[0], (Join-Path $fixture "$($versions[0]).manifest"),
         (Join-Path $fixture "$($versions[0]).ed25519"), (Join-Path $fixture 'public-key.bin'))
-    & $java -jar $verifier @verifyArguments $keyId
+    & $java $nativeOption -jar $verifier @verifyArguments $keyId
     if ($LASTEXITCODE -ne 0) { throw 'The independent verifier rejected an authentic staging bundle' }
     $wrongPin = if ($keyId.StartsWith('0')) { '1' + $keyId.Substring(1) } else { '0' + $keyId.Substring(1) }
-    & $java -jar $verifier @verifyArguments $wrongPin
+    & $java $nativeOption -jar $verifier @verifyArguments $wrongPin
     if ($LASTEXITCODE -ne 1) { throw 'The independent verifier accepted a wrong trust pin' }
 
     $secondArguments = @($versions[1], $archives[1], (Join-Path $fixture "$($versions[1]).manifest"),
@@ -63,44 +89,50 @@ try {
         if ($LASTEXITCODE) { throw 'Cannot prepare the unsafe fixture ACL' }
     } else { [IO.File]::SetUnixFileMode($unsafe, [IO.UnixFileMode]504) }
     foreach ($operation in @('install', 'remove')) {
-        & $java -jar $verifier @verifyArguments $keyId $operation $unsafe $native
+        & $java $nativeOption -jar $verifier @verifyArguments $keyId $operation $unsafe $native
         if ($LASTEXITCODE -ne 1 -or @(Get-ChildItem -LiteralPath $unsafe -Force).Count -ne 0) {
             throw 'Unsafe root must be refused before any installation mutation'
         }
     }
-    & $java -jar $verifier @verifyArguments $keyId install $fixture (Join-Path $fixture 'missing-native-library')
+    & $java $nativeOption -jar $verifier @verifyArguments $keyId install $fixture (Join-Path $fixture 'missing-native-library')
     if ($LASTEXITCODE -ne 1 -or (Test-Path -LiteralPath (Join-Path $fixture '.tuprel-staging.lock'))) {
         throw 'Missing validator must be refused before creating the staging lock'
     }
-    & $java -jar $verifier @verifyArguments $keyId install $fixture $native
+    & $java $nativeOption -jar $verifier @verifyArguments $keyId install $fixture $native
     if ($LASTEXITCODE -ne 0) { throw 'First signed installation failed' }
-    & $java -jar $verifier @verifyArguments $keyId install $fixture $native
+    & $java $nativeOption -jar $verifier @verifyArguments $keyId install $fixture $native
     if ($LASTEXITCODE -ne 0) { throw 'An identical signed installation must be idempotent' }
     $abandoned = @(Get-ChildItem -LiteralPath $fixture -Force -Directory -Filter ".$($versions[0])-pending-*")
     if ($abandoned.Count -ne 1 -or (Get-Content -Raw -LiteralPath (Join-Path $abandoned[0].FullName 'partial')) -cne 'interrupted attempt') {
         throw 'Reinstall must preserve abandoned staging data'
     }
-    & $java -jar $verifier @secondArguments $keyId install $fixture $native
+    & $java $nativeOption -jar $verifier @secondArguments $keyId install $fixture $native
     if ($LASTEXITCODE -ne 0) { throw 'Second signed installation failed' }
 
     $control = @('-cp', $verifier, 'StagedActivation', $fixture, $native, $fixture, $keyId)
     $launcher = Join-Path $fixture $(if ($IsWindows) { 'tuprel.ps1' } else { 'tuprel' })
     if ($IsWindows) {
         $quote = { param($value) "'" + $value.Replace("'", "''") + "'" }
-        $command = '& ' + (((@($java) + $control + 'launch') | ForEach-Object { & $quote $_ }) -join ' ')
+        $command = '& ' + (((@($java, $nativeOption) + $control + 'launch') | ForEach-Object { & $quote $_ }) -join ' ')
         [IO.File]::WriteAllText($launcher, "$command @args`nexit `$LASTEXITCODE`n")
     } else {
         $quote = { param($value) "'" + $value.Replace("'", "'\''") + "'" }
-        $command = ((@($java) + $control + 'launch') | ForEach-Object { & $quote $_ }) -join ' '
+        $command = ((@($java, $nativeOption) + $control + 'launch') | ForEach-Object { & $quote $_ }) -join ' '
         [IO.File]::WriteAllText($launcher, "#!/bin/bash`nexec $command `"`$@`"`n")
         [IO.File]::SetUnixFileMode($launcher, [IO.UnixFileMode]448)
     }
-    & $java @control activate $versions[0]
+    & $java $nativeOption @control activate $versions[0]
     if ($LASTEXITCODE) { throw 'First activation failed' }
+    & $java $nativeOption -cp $classes SignedCliBundleFixture test-runtime $fixture @archives $keyId $native
+    if ($LASTEXITCODE -ne 0) { throw 'Runtime transition and authenticated legacy removal failed' }
     if ($IsWindows) {
         $pathTool = Join-Path $fixture 'tuprel-path-fixture.exe'
-        & "$nativeSource/build-windows-path.cmd" $pathTool fixture
-        if ($LASTEXITCODE) { throw 'Windows PATH fixture did not compile' }
+        if ($PreparedDirectory) {
+            Copy-Item -LiteralPath "$PreparedDirectory/tuprel-path-fixture.exe" -Destination $pathTool
+        } else {
+            & "$nativeSource/build-windows-path.cmd" $pathTool fixture
+            if ($LASTEXITCODE) { throw 'Windows PATH fixture did not compile' }
+        }
         & "$PSScriptRoot/Verify-WindowsUserPath.ps1" -Binary $pathTool -LauncherDirectory $fixture
     } else {
         $fixtureHome = Join-Path $fixture 'Bash home'
@@ -114,9 +146,9 @@ try {
             [IO.File]::SetUnixFileMode($profileFile, [IO.UnixFileMode]384)
         }
         foreach ($kind in @('interactive', 'login')) {
-            & $java -cp $classes StagedBashPath add $kind $fixtureHome $fixture $native
+            & $java $nativeOption -cp $classes StagedBashPath add $kind $fixtureHome $fixture $native
             if ($LASTEXITCODE) { throw 'Bash PATH installation failed' }
-            & $java -cp $classes StagedBashPath add $kind $fixtureHome $fixture $native
+            & $java $nativeOption -cp $classes StagedBashPath add $kind $fixtureHome $fixture $native
             if ($LASTEXITCODE) { throw 'Repeated Bash PATH installation failed' }
         }
         $bashCheck = 'test "$(command -v tuprel)" = "$1" && tuprel --version'
@@ -136,7 +168,7 @@ try {
         $userEdit = "# later user edit`n"
         [IO.File]::AppendAllText($interactiveProfile, $userEdit)
         foreach ($kind in @('interactive', 'login')) {
-            & $java -cp $classes StagedBashPath remove $kind $fixtureHome $fixture $native
+            & $java $nativeOption -cp $classes StagedBashPath remove $kind $fixtureHome $fixture $native
             if ($LASTEXITCODE) { throw 'Bash PATH reversal failed' }
         }
         if ([IO.File]::ReadAllText($interactiveProfile) -cne ($profileText + $userEdit) -or
@@ -144,19 +176,19 @@ try {
         & /usr/bin/env "HOME=$fixtureHome" 'PATH=/usr/bin:/bin' /bin/bash -ic 'test -z "$(command -v tuprel)"'
         if ($LASTEXITCODE) { throw 'Bash still resolves Tuprel after reversal' }
         [IO.File]::AppendAllText($interactiveProfile, "return`n")
-        & $java -cp $classes StagedBashPath add interactive $fixtureHome $fixture $native
+        & $java $nativeOption -cp $classes StagedBashPath add interactive $fixtureHome $fixture $native
         if ($LASTEXITCODE -ne 1) { throw 'Unverifiable Bash startup code must be refused' }
     }
-    & $java @control activate '9.9.9-staging'
+    & $java $nativeOption @control activate '9.9.9-staging'
     if ($LASTEXITCODE -ne 1) { throw 'Unknown version must be refused' }
-    & $java -jar $verifier @verifyArguments $keyId remove $fixture $native
+    & $java $nativeOption -jar $verifier @verifyArguments $keyId remove $fixture $native
     if ($LASTEXITCODE -ne 1) { throw 'Removal must refuse the active version' }
     $pointer = Join-Path $fixture '.tuprel-active'
     $beforeActivation = [IO.File]::ReadAllBytes($pointer)
     if ($IsWindows) {
         $busy = [IO.File]::Open($pointer, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
         try {
-            & $java @control activate $versions[1]
+            & $java $nativeOption @control activate $versions[1]
             if ($LASTEXITCODE -ne 1 -or [Convert]::ToHexString([IO.File]::ReadAllBytes($pointer)) -ne
                     [Convert]::ToHexString($beforeActivation)) { throw 'Sharing violation must preserve the active pointer' }
         } finally { $busy.Dispose() }
@@ -164,7 +196,7 @@ try {
     $activationInputs = @($fixture, $native, $fixture, $keyId, 'activate', $versions[1])
     $existingCandidates = @(Get-ChildItem -LiteralPath $fixture -Force -Filter '.tuprel-activation-*').Count
     foreach ($phase in @('BEFORE_PREPARATION', 'BEFORE_REPLACE', 'AFTER_REPLACE')) {
-        & $java -cp $classes SignedCliBundleFixture interrupt-activation $phase @activationInputs
+        & $java $nativeOption -cp $classes SignedCliBundleFixture interrupt-activation $phase @activationInputs
         if ($LASTEXITCODE -ne 42) { throw "Activation did not halt at $phase" }
         $expected = if ($phase -eq 'AFTER_REPLACE') { $versions[1] } else { $versions[0] }
         $reported = & $launcher --version
@@ -174,13 +206,13 @@ try {
     }
     $candidates = @(Get-ChildItem -LiteralPath $fixture -Force -Filter '.tuprel-activation-*')
     if ($candidates.Count -ne ($existingCandidates + 1)) { throw 'Interrupted activation lost its staged candidate' }
-    & $java @control rollback $versions[0]
+    & $java $nativeOption @control rollback $versions[0]
     if ($LASTEXITCODE) { throw 'Rollback after activation recovery failed' }
     $beforeActivation = [IO.File]::ReadAllBytes($pointer)
     $bundleJar = Join-Path $fixture "$($versions[1])/lib/tuprel-cli-$($versions[1]).jar"
     $authenticJar = [IO.File]::ReadAllBytes($bundleJar)
     [IO.File]::AppendAllText($bundleJar, 'tampered')
-    & $java @control activate $versions[1]
+    & $java $nativeOption @control activate $versions[1]
     if ($LASTEXITCODE -ne 1 -or [Convert]::ToHexString([IO.File]::ReadAllBytes($pointer)) -ne
             [Convert]::ToHexString($beforeActivation)) { throw 'Failed update changed the active pointer' }
     [IO.File]::WriteAllBytes($bundleJar, $authenticJar)
@@ -190,9 +222,9 @@ try {
     try {
         foreach ($version in @($versions[0], $versions[1], $versions[0])) {
             if ($version -eq $versions[1]) {
-                & $java @control activate $version
+                & $java $nativeOption @control activate $version
                 if ($LASTEXITCODE) { throw 'Update activation failed' }
-                & $java @control activate $versions[0]
+                & $java $nativeOption @control activate $versions[0]
                 if ($LASTEXITCODE -ne 1) { throw 'Ordinary activation must refuse downgrade' }
                 $authorization = Join-Path $fixture 'authorization'
                 $signature = Join-Path $fixture 'authorization.ed25519'
@@ -200,16 +232,21 @@ try {
                 $originalSignature = [IO.File]::ReadAllBytes($signature)
                 [IO.File]::Copy((Join-Path $fixture 'revoked-authorization'), $authorization, $true)
                 [IO.File]::Copy((Join-Path $fixture 'revoked-authorization.ed25519'), $signature, $true)
-                & $java @control rollback $versions[0]
+                & $java $nativeOption @control rollback $versions[0]
                 if ($LASTEXITCODE -ne 1) { throw 'Rollback must refuse a revoked version' }
                 [IO.File]::WriteAllBytes($authorization, $originalPolicy)
                 [IO.File]::WriteAllBytes($signature, $originalSignature)
             } elseif ([IO.File]::ReadAllLines($pointer)[1] -ceq $versions[1]) {
-                & $java @control rollback $version
+                & $java $nativeOption @control rollback $version
                 if ($LASTEXITCODE) { throw 'Authorized rollback failed' }
             }
             $reported = & $launcher --version
             if ($LASTEXITCODE -ne 0 -or $reported -cne "tuprel $version") { throw 'Installed launcher reported the wrong version' }
+            $versionLauncher=Join-Path $fixture "$version/bin/$(if($IsWindows){'tuprel.bat'}else{'tuprel'})"
+            $versionReported=& $versionLauncher --version
+            if($LASTEXITCODE -ne 0 -or $versionReported -cne "tuprel $version") {
+                throw 'The authenticated archive launcher did not use the selected JVM'
+            }
             if (-not (Test-Path -LiteralPath 'tuprel/schema.tuprel' -PathType Leaf)) {
                 & $launcher init
                 if ($LASTEXITCODE -ne 0) { throw 'Installed CLI init failed' }
@@ -218,6 +255,10 @@ try {
             if ($LASTEXITCODE -ne 0) { throw 'Installed CLI validate failed' }
             & $launcher generate
             if ($LASTEXITCODE -ne 0) { throw 'Installed CLI generate failed' }
+            $sources=@(Get-ChildItem -LiteralPath 'build/generated/sources/tuprel/main' -Recurse -File -Filter '*.java')
+            if ($sources.Count -eq 0) { throw 'Installed CLI generated no Java sources' }
+            & $javac --release 17 -cp "$fixture/$version/lib/*" -d 'build/compiled' @($sources.FullName)
+            if ($LASTEXITCODE -ne 0) { throw 'Installed generated sources did not compile with release 17' }
         }
     } finally {
         $env:PATH = $before
@@ -226,7 +267,7 @@ try {
     foreach ($candidate in $candidates) {
         if (-not [IO.File]::Exists($candidate.FullName)) { throw 'Activation lost interruption evidence' }
     }
-    & $java @control activate $versions[1]
+    & $java $nativeOption @control activate $versions[1]
     if ($LASTEXITCODE) { throw 'Cannot reselect the authenticated latest version' }
     $launchJob = Start-Job -ArgumentList $launcher -ScriptBlock {
         param($stableLauncher)
@@ -235,40 +276,40 @@ try {
         $actual
     }
     try {
-        & $java @control rollback $versions[0]
+        & $java $nativeOption @control rollback $versions[0]
         if ($LASTEXITCODE) { throw 'Concurrent rollback failed' }
         $reported = Receive-Job -Job $launchJob -Wait
         if ($reported -cnotin @("tuprel $($versions[0])", "tuprel $($versions[1])")) {
             throw 'Concurrent launcher did not see a complete authorized version'
         }
     } finally { Remove-Job -Job $launchJob -Force }
-    & $java @control activate $versions[1]
+    & $java $nativeOption @control activate $versions[1]
     if ($LASTEXITCODE) { throw 'Cannot reactivate the latest version' }
     [IO.File]::AppendAllText($bundleJar, 'tampered')
     & $launcher --version
     if ($LASTEXITCODE -ne 1) { throw 'Launcher must refuse tampered active bytes' }
     [IO.File]::WriteAllBytes($bundleJar, $authenticJar)
-    & $java -cp $classes SignedCliBundleFixture test-refusal $fixture @archives $keyId $native
+    & $java $nativeOption -cp $classes SignedCliBundleFixture test-refusal $fixture @archives $keyId $native
     if ($LASTEXITCODE -ne 0) { throw 'Modified-file protection failed' }
-    & $java -cp $classes SignedCliBundleFixture interrupt-removal $fixture @archives
+    & $java $nativeOption -cp $classes SignedCliBundleFixture interrupt-removal $fixture @archives
     if ($LASTEXITCODE -ne 42) { throw 'Expected the removal fixture to halt after deleting one file' }
     $removing = Join-Path $fixture ".$($versions[0])-removing"
     $foreign = Join-Path $removing 'user-file.txt'
     [IO.File]::WriteAllText($foreign, 'preserve')
-    & $java -jar $verifier @verifyArguments $keyId remove $fixture $native
+    & $java $nativeOption -jar $verifier @verifyArguments $keyId remove $fixture $native
     if ($LASTEXITCODE -ne 1 -or (Get-Content -LiteralPath $foreign -Raw) -cne 'preserve' -or
             -not (Test-Path -LiteralPath (Join-Path $removing 'bin/tuprel.bat') -PathType Leaf)) {
         throw 'Interrupted removal did not preserve unknown files and verified siblings'
     }
     Remove-Item -LiteralPath $foreign
-    & $java -jar $verifier @verifyArguments $keyId install $fixture $native
+    & $java $nativeOption -jar $verifier @verifyArguments $keyId install $fixture $native
     if ($LASTEXITCODE -ne 1) { throw 'Installation must refuse while a removal is pending' }
-    & $java -jar $verifier @secondArguments $keyId remove $fixture $native
+    & $java $nativeOption -jar $verifier @secondArguments $keyId remove $fixture $native
     if ($LASTEXITCODE -ne 1) { throw 'Removing the active second version must be refused' }
     [IO.File]::Delete($pointer)
     & $launcher --version
     if ($LASTEXITCODE -ne 1) { throw 'Launcher must refuse a missing active pointer' }
-    & $java -jar $verifier @secondArguments $keyId remove $fixture $native
+    & $java $nativeOption -jar $verifier @secondArguments $keyId remove $fixture $native
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $removing -PathType Container)) {
         throw 'Removing the second version must not affect the pending removal'
     }
@@ -276,7 +317,7 @@ try {
     if ($IsWindows) {
         $locked = [IO.File]::Open($survivor, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
         try {
-            & $java -jar $verifier @verifyArguments $keyId remove $fixture $native
+            & $java $nativeOption -jar $verifier @verifyArguments $keyId remove $fixture $native
             if ($LASTEXITCODE -ne 1) { throw 'Expected a Windows sharing violation during removal' }
         } finally { $locked.Dispose() }
     } else {
@@ -284,18 +325,18 @@ try {
         $priorMode = [IO.File]::GetUnixFileMode($bin)
         [IO.File]::SetUnixFileMode($bin, [IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserExecute)
         try {
-            & $java -jar $verifier @verifyArguments $keyId remove $fixture $native
+            & $java $nativeOption -jar $verifier @verifyArguments $keyId remove $fixture $native
             if ($LASTEXITCODE -ne 1) { throw 'Expected Linux to refuse removal from a non-writable directory' }
         } finally { [IO.File]::SetUnixFileMode($bin, $priorMode) }
     }
     if (-not (Test-Path -LiteralPath $survivor -PathType Leaf)) {
         throw 'Removal failure lost the protected file'
     }
-    & $java -jar $verifier @verifyArguments $keyId remove $fixture $native
+    & $java $nativeOption -jar $verifier @verifyArguments $keyId remove $fixture $native
     if ($LASTEXITCODE -ne 0 -or (Test-Path -LiteralPath $removing)) {
         throw 'Restart did not finish scoped removal of the first version'
     }
-    & $java -jar $verifier @verifyArguments $keyId remove $fixture $native
+    & $java $nativeOption -jar $verifier @verifyArguments $keyId remove $fixture $native
     if ($LASTEXITCODE -ne 0) { throw 'Repeat removal must be idempotent' }
     'Signed installation, version switching, process interruption and scoped recovery verified'
 } finally {

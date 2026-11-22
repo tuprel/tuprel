@@ -128,3 +128,51 @@ A local Windows proof used jdeps and jlink to produce a 56.2 MiB JDK 21
 image, including a small fixture project. The image ran init, validate and
 generate offline. JDBC, TLS, native integration and runtime updates still
 need their own validation before a runtime can be bundled.
+
+## Java LTS installer certification fixture
+
+Run the staging matrix with explicit JDK installations:
+
+```powershell
+pwsh -File test-support/distribution/Verify-InstallerLts.ps1 `
+  -Jdk17 C:/jdks/17 -Jdk21 C:/jdks/21 -Jdk25 C:/jdks/25
+```
+
+The producer uses JDK 21 to compile the verifier, activation controller and
+fixtures with `--release 17`, build two CLI versions, and sign one temporary
+catalogue. The matrix executes those same JARs, signatures and native library
+on each selected JVM. SHA-256 inventories detect changes between cells.
+The selected Java executable is explicit in the stable fixture launcher;
+neither activation nor launch searches for a hidden Java 21 installation.
+
+Before installation, activation or launch, the verifier checks the authenticated
+library classfile headers against the selected JVM. It bounds decompression,
+rejects duplicate entries and preview classes, and accounts for multi-release
+JAR variants. This is a compatibility preflight, not a substitute for JVM
+verification, API analysis or execution tests. Signed formats, trust pins,
+native confinement and rollback policy remain unchanged. Removal validates
+ownership and authenticated bytes without loading the removed classes: Java
+17 can therefore remove an inactive installation requiring Java 21.
+
+The negative fixture retargets one real codegen class header to major 65 and
+signs the resulting test archive with an ephemeral key. It proves refusal on
+Java 17 before mutation and preservation of the active pointer. It is not a
+published historical release. The same fixture proves explicit rollback and
+removal on compatible JVMs. Existing interruption, tampering, unknown-file,
+concurrency and PATH fixture checks run in every cell. Generated sources are
+compiled using that cell's actual `javac --release 17`.
+
+The `Installer Java LTS` workflow runs Windows/NTFS, Linux/ext4 and Linux/XFS
+profiles. Linux uses explicit disposable loopback filesystems and additionally
+runs a pinned Java-17-only container with no network, host JDK or checkout
+mounted. Native compilation requires the existing MSVC or Linux C toolchain.
+The scripts report failures rather than falling back to another JVM or native
+implementation. Per-platform results must be read from the final PR checks;
+an unexecuted cell is not certified.
+
+These tests change only fixture Bash profiles and the disposable Windows
+registry key, not the developer's persistent PATH. They do not provide the
+missing real user-profile/reboot evidence for P0-02B.4. Process interruption
+does not prove power-loss durability. Public Java 17 activation, authenticated
+public bootstrap/native distribution, release trust metadata and a bundled
+runtime remain separate gates. The public product minimum remains Java 21.

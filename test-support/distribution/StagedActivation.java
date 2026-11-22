@@ -72,6 +72,7 @@ public final class StagedActivation {
                 if (!bundle.digest().equals(allowed.digest()) || (launch && !bundle.digest().equals(previous.digest()))) {
                     throw new IOException("Version identity differs from the authorization");
                 }
+                bundle.requireCompatibleRuntime();
                 Path installed = root.anchor().resolve(version);
                 Object identity = root.identity(installed);
                 List<String> libraries = bundle.checkedLibraries(root, installed);
