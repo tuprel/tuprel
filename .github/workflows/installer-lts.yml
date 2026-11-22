@@ -51,7 +51,7 @@ jobs:
           TUPREL_JDK_25: ${{ steps.jdk25.outputs.path }}
         run: |
           ./test-support/distribution/Verify-InstallerLts.ps1 `
-            -Jdk17 $env:TUPREL_JDK_17 -Jdk21 $env:TUPREL_JDK_21 -Jdk25 $env:TUPREL_JDK_25
+            -Jdk17 $env:TUPREL_JDK_17 -Jdk21 $env:TUPREL_JDK_21 -Jdk25 $env:TUPREL_JDK_25 -JdbcTls
       - name: Certify Linux on the explicit filesystem
         if: runner.os == 'Linux'
         shell: bash
@@ -75,4 +75,4 @@ jobs:
           test "$(findmnt -n -o FSTYPE --mountpoint "$fixture/volume")" = "$TUPREL_FIXTURE_FS"
           sudo chown "$(id -u):$(id -g)" "$fixture/volume"
           pwsh -File test-support/distribution/Verify-InstallerLts.ps1 -FixtureParent "$fixture/volume" \
-            -Jdk17 "$TUPREL_JDK_17" -Jdk21 "$TUPREL_JDK_21" -Jdk25 "$TUPREL_JDK_25" -Java17Only
+            -Jdk17 "$TUPREL_JDK_17" -Jdk21 "$TUPREL_JDK_21" -Jdk25 "$TUPREL_JDK_25" -Java17Only -JdbcTls

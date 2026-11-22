@@ -300,3 +300,14 @@ Não se certificam aqui runtime incluído, distribuição pública do bootstrap
 ou biblioteca nativa, metadados de release, reinício real ou alteração do
 PATH real do utilizador. P0-02B.4 conserva os seus gates. D2 e a activação
 E ficam fora do âmbito; Java 21 continua como mínimo público.
+
+A extensão JDBC/TLS/SCRAM da D1-D usa `migrate status` pelo launcher real da
+versão assinada já instalada, com a JVM seleccionada em cada célula. O driver
+vem da distribuição instalada. Um PostgreSQL 17 descartável exige TLS e SCRAM;
+os registos do mesmo backend comprovam autenticação, regra HBA, protocolo e
+cifra. CA não confiável, password incorrecta e ligação sem TLS são recusadas.
+O perfil de confiança fica numa pasta temporária do processo cliente, sem
+alterar a configuração de produção ou a trust store do utilizador. A prova
+offline Java17-only mantém-se separada. Consultar o
+[contrato e reprodução](../../test-support/distribution/SIGNED_CLI_STAGING.md#installed-cli-jdbc-tls-and-scram).
+Esta extensão não certifica uma imagem com runtime incluído nem activa Java 17.

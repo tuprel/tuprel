@@ -1,9 +1,12 @@
 param(
     [string]$FixtureParent = $(if ($IsWindows) { $env:LOCALAPPDATA } else { $HOME }),
-    [string]$PreparedDirectory
+    [string]$PreparedDirectory,
+    [object]$TlsState,
+    [int]$ExpectedJdk
 )
 
 $ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/InstallerTlsFixture.ps1"
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
 $fixture = Join-Path $FixtureParent ("tuprel signed cli café " + [guid]::NewGuid())
 [IO.Directory]::CreateDirectory($fixture) | Out-Null
@@ -276,6 +279,9 @@ try {
             if ($LASTEXITCODE -ne 0) { throw 'Installed CLI validate failed' }
             & $launcher generate
             if ($LASTEXITCODE -ne 0) { throw 'Installed CLI generate failed' }
+            if($TlsState -and $version -eq $versions[1]) {
+                Test-InstalledCliTls $TlsState $versionLauncher $project $ExpectedJdk
+            }
             $sources=@(Get-ChildItem -LiteralPath 'build/generated/sources/tuprel/main' -Recurse -File -Filter '*.java')
             if ($sources.Count -eq 0) { throw 'Installed CLI generated no Java sources' }
             $consumerClasspath = "$fixture/$version/lib/*" + [IO.Path]::PathSeparator + "$consumerLibraries/*"
