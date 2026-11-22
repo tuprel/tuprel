@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-test "$JAVA_HOME" = /opt/java/openjdk
 prepared="$TUPREL_PREPARED_DIRECTORY"
 root="$TUPREL_SINGLE_ROOT"
+test "$JAVA_HOME" = "$prepared/jdk17"
 pin="$(cat "$prepared/key-id")"
 cp -a "$prepared/catalogue/." "$root/"
 java="$JAVA_HOME/bin/java"

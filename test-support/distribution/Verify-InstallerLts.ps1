@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory)][string]$Jdk21,
     [Parameter(Mandatory)][string]$Jdk25,
     [string]$FixtureParent = $(if ($IsWindows) { $env:LOCALAPPDATA } else { $HOME }),
-    [switch]$Java17Container
+    [switch]$Java17Only
 )
 
 $ErrorActionPreference='Stop'
@@ -80,13 +80,26 @@ try {
     Copy-Item -LiteralPath "$root/tuprel-runtime/build/libs/tuprel-runtime.jar" -Destination $consumerLibraries
     $catalogue=Join-Path $fixture 'catalogue'
     [IO.Directory]::CreateDirectory($catalogue) | Out-Null
-    if(-not $IsWindows){[IO.File]::SetUnixFileMode($catalogue,[IO.UnixFileMode]448)}
+    if($IsWindows) {
+        & icacls $catalogue /setowner "*$sid" | Out-Null
+        if($LASTEXITCODE -ne 0){throw 'Cannot assign catalogue owner'}
+        & icacls $catalogue /grant:r "*${sid}:(OI)(CI)F" /inheritance:r | Out-Null
+        if($LASTEXITCODE -ne 0){throw 'Cannot secure catalogue ACL'}
+    } else {[IO.File]::SetUnixFileMode($catalogue,[IO.UnixFileMode]448)}
     $pin=& "$env:JAVA_HOME/bin/java" --enable-native-access=ALL-UNNAMED -cp $classes SignedCliBundleFixture prepare $catalogue @archives
     if($LASTEXITCODE -ne 0 -or $pin -cnotmatch '^[a-f0-9]{64}$'){throw 'Signed catalogue preparation failed'}
     [IO.File]::WriteAllText((Join-Path $fixture 'key-id'),$pin)
     & "$env:JAVA_HOME/bin/java" --enable-native-access=ALL-UNNAMED -cp $classes SignedCliBundleFixture prepare-legacy $catalogue @archives $pin $native
     if($LASTEXITCODE -ne 0){throw 'Java21 legacy installation fixture failed'}
     Copy-Item -LiteralPath "$PSScriptRoot/Verify-InstallerSingleJdk.sh" -Destination (Join-Path $fixture 'single-jdk.sh')
+    if($Java17Only) {
+        if(-not $IsLinux){throw 'The Java17-only namespace proof is Linux-only'}
+        $isolatedJdk=Join-Path $fixture 'jdk17'
+        [IO.Directory]::CreateDirectory($isolatedJdk) | Out-Null
+        & /bin/cp -a --no-preserve=ownership -- "$($jdks[17])/." $isolatedJdk
+        if($LASTEXITCODE -ne 0){throw 'Cannot prepare the isolated Java17 installation'}
+        Copy-Item -LiteralPath "$PSScriptRoot/Run-InstallerSingleJdkNamespace.sh" -Destination (Join-Path $fixture 'namespace.sh')
+    }
     foreach($class in Get-ChildItem $classes -File -Filter '*.class') {
         $bytes=[IO.File]::ReadAllBytes($class.FullName)
         if($bytes[6]*256+$bytes[7] -ne 61){throw 'Installer class is not major 61'}
@@ -105,22 +118,15 @@ try {
         }
         Write-Host "PASS installer and stable launcher Java $version; identical signed artifacts/native bytes, activation, rollback, recovery and generated compilation"
     }
-    if($Java17Container) {
-        if(-not $IsLinux){throw 'The Java17-only container proof is Linux-only'}
-        $image='eclipse-temurin:17-jdk@sha256:7a0b2bc7e1372bb05ee361fb79e8a9e822df47343b8716253b3bbaa75060653e'
-        & docker pull --platform linux/amd64 $image
-        if($LASTEXITCODE -ne 0){throw 'Cannot obtain the pinned Java17 image'}
+    if($Java17Only) {
         $uidValue=& id -u
         $gidValue=& id -g
         if($uidValue -notmatch '^[1-9][0-9]*$' -or $gidValue -notmatch '^[0-9]+$'){throw 'Expected an unprivileged UID/GID'}
         $single=Join-Path $fixture 'single JDK17 consumer'
         [IO.Directory]::CreateDirectory($single) | Out-Null
         [IO.File]::SetUnixFileMode($single,[IO.UnixFileMode]448)
-        & docker run --rm --platform linux/amd64 --network none --read-only --cap-drop=ALL `
-            --security-opt=no-new-privileges --user "${uidValue}:${gidValue}" --tmpfs /tmp `
-            --mount "type=bind,source=$fixture,target=$fixture" `
-            --env "TUPREL_PREPARED_DIRECTORY=$fixture" --env "TUPREL_SINGLE_ROOT=$single" `
-            $image /bin/bash "$fixture/single-jdk.sh"
+        & sudo unshare --mount --net /bin/bash "$fixture/namespace.sh" `
+            $fixture $single $jdks[21] $jdks[25] $root $uidValue $gidValue
         if($LASTEXITCODE -ne 0){throw 'Java17-only installed consumer failed'}
         $resolvedSingle=(Resolve-Path $single).Path
         if(-not $resolvedSingle.StartsWith($fixture+[IO.Path]::DirectorySeparatorChar)){throw 'Refused single-JDK cleanup'}
@@ -130,7 +136,7 @@ try {
         foreach($entry in $frozen.GetEnumerator()) {
             if($actual[$entry.Key] -cne $entry.Value){throw 'Single-JDK proof modified trusted artifacts'}
         }
-        Write-Host 'PASS installer and launcher in Java17-only container; no network, no host JDK or checkout mounted'
+        Write-Host 'PASS installer and launcher in Java17-only namespace; other JDKs and checkout masked, no network'
     }
 } finally {
     foreach($entry in $environment.GetEnumerator()) {

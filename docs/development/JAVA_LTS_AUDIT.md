@@ -289,8 +289,9 @@ de alterar a versão anterior; a remoção de dados autenticados não carrega
 classes e continua possível numa JVM mais antiga.
 
 A matriz separa Windows/NTFS, Linux/ext4 e Linux/XFS. Os perfis Linux
-incluem uma prova sem rede num contentor apenas com JDK 17 e os artefactos
-preparados, sem montar o checkout ou outros JDKs. Os resultados efectivos
+incluem uma prova sem rede num namespace apenas com JDK 17 e os artefactos
+preparados, com o checkout e os outros JDKs ocultos. O filesystem nativo
+mantém-se; roots overlay de Docker continuam recusadas. Os resultados efectivos
 e limitações devem ser registados no PR; a definição do job não certifica
 uma célula. O ambiente Windows local sem MSVC permite compilar e verificar
 assinaturas nas três JVMs, mas não executar a prova JNI completa.

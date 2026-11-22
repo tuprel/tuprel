@@ -75,4 +75,4 @@ jobs:
           test "$(findmnt -n -o FSTYPE --mountpoint "$fixture/volume")" = "$TUPREL_FIXTURE_FS"
           sudo chown "$(id -u):$(id -g)" "$fixture/volume"
           pwsh -File test-support/distribution/Verify-InstallerLts.ps1 -FixtureParent "$fixture/volume" \
-            -Jdk17 "$TUPREL_JDK_17" -Jdk21 "$TUPREL_JDK_21" -Jdk25 "$TUPREL_JDK_25" -Java17Container
+            -Jdk17 "$TUPREL_JDK_17" -Jdk21 "$TUPREL_JDK_21" -Jdk25 "$TUPREL_JDK_25" -Java17Only

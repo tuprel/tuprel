@@ -57,7 +57,14 @@ try {
     } else {
         $catalogue=Join-Path $PreparedDirectory 'catalogue'
         Get-ChildItem -LiteralPath $catalogue -Force | Copy-Item -Destination $fixture -Recurse
-        if (-not $IsWindows) {
+        if ($IsWindows) {
+            foreach ($directory in Get-ChildItem -LiteralPath $fixture -Directory -Recurse -Force) {
+                & icacls $directory.FullName /setowner "*$sid" | Out-Null
+                if ($LASTEXITCODE) { throw 'Cannot assign copied fixture owner' }
+                & icacls $directory.FullName /grant:r "*${sid}:(OI)(CI)F" /inheritance:r | Out-Null
+                if ($LASTEXITCODE) { throw 'Cannot secure copied fixture ACL' }
+            }
+        } else {
             # Copy-Item creates directories using the process umask. Each copied
             # staging root must retain the private profile required by the OS validator.
             foreach ($directory in Get-ChildItem -LiteralPath $fixture -Directory -Recurse -Force) {

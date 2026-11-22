@@ -166,8 +166,9 @@ installing the CLI does not install application dependencies into the project.
 
 The `Installer Java LTS` workflow runs Windows/NTFS, Linux/ext4 and Linux/XFS
 profiles. Linux uses explicit disposable loopback filesystems and additionally
-runs a pinned Java-17-only container with no network, host JDK or checkout
-mounted. Native compilation requires the existing MSVC or Linux C toolchain.
+runs a Java-17-only mount/network namespace with the checkout and other
+JDKs masked. The namespace retains the supported native filesystem topology;
+Docker overlay roots remain unsupported. Native compilation requires the existing MSVC or Linux C toolchain.
 The scripts report failures rather than falling back to another JVM or native
 implementation. Per-platform results must be read from the final PR checks;
 an unexecuted cell is not certified.
