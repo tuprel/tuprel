@@ -96,7 +96,9 @@ try {
         if(-not $IsLinux){throw 'The Java17-only namespace proof is Linux-only'}
         $isolatedJdk=Join-Path $fixture 'jdk17'
         [IO.Directory]::CreateDirectory($isolatedJdk) | Out-Null
-        & /bin/cp -a --no-preserve=ownership -- "$($jdks[17])/." $isolatedJdk
+        # Materialize the selected JDK's configuration links before masking
+        # the tool cache; retain their exact bytes, not dangling absolute links.
+        & /bin/cp -aL --no-preserve=ownership -- "$($jdks[17])/." $isolatedJdk
         if($LASTEXITCODE -ne 0){throw 'Cannot prepare the isolated Java17 installation'}
         Copy-Item -LiteralPath "$PSScriptRoot/Run-InstallerSingleJdkNamespace.sh" -Destination (Join-Path $fixture 'namespace.sh')
     }
