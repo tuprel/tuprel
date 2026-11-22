@@ -4,6 +4,10 @@ The Java 21 server provides official diagnostics, whole-document formatting,
 contextual completion, Hover and Go to Definition over local stdin and stdout.
 Start it from an installed distribution.
 
+The D2 staging build targets Java 17 and is tested with the same installed
+libraries on Java 17, 21 and 25. This certification work does not change the
+public Java 21 requirement; activation remains subject to ADR-0024.
+
 ```powershell
 .\gradlew.bat :tuprel-language-server:installDist
 .\tuprel-language-server\build\install\tuprel-language-server\bin\tuprel-language-server.bat
