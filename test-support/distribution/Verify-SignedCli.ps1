@@ -57,6 +57,13 @@ try {
     } else {
         $catalogue=Join-Path $PreparedDirectory 'catalogue'
         Get-ChildItem -LiteralPath $catalogue -Force | Copy-Item -Destination $fixture -Recurse
+        if (-not $IsWindows) {
+            # Copy-Item creates directories using the process umask. Each copied
+            # staging root must retain the private profile required by the OS validator.
+            foreach ($directory in Get-ChildItem -LiteralPath $fixture -Directory -Recurse -Force) {
+                [IO.File]::SetUnixFileMode($directory.FullName, [IO.UnixFileMode]448)
+            }
+        }
         $archives=@($versions | ForEach-Object { Join-Path $catalogue "$_.zip" })
         $keyId=(Get-Content -LiteralPath "$PreparedDirectory/key-id" -Raw).Trim()
         if ($keyId -cnotmatch '^[a-f0-9]{64}$') { throw 'Invalid prepared trust pin' }
