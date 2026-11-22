@@ -20,6 +20,10 @@ publicada, artefacto distribuído nem coordenada Maven aprovada.
 
 ### Adicionado
 
+- Prova JDBC/TLS e SCRAM pelo comando `migrate status` da distribuição CLI
+  assinada e instalada, nas células Java LTS do instalador. Usa PostgreSQL 17
+  descartável e verifica recusas de CA, credenciais e ligação sem TLS.
+
 - Matriz de staging do instalador e launcher para Java 17, 21 e 25, com
   artefactos assinados partilhados e recusa de bytecode incompatível antes
   da instalação ou activação. A remoção autenticada de versões inactivas

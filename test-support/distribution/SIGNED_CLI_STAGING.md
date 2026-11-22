@@ -182,3 +182,55 @@ missing real user-profile/reboot evidence for P0-02B.4. Process interruption
 does not prove power-loss durability. Public Java 17 activation, authenticated
 public bootstrap/native distribution, release trust metadata and a bundled
 runtime remain separate gates. The public product minimum remains Java 21.
+
+### Installed CLI JDBC, TLS and SCRAM
+
+Add `-JdbcTls` to `Verify-InstallerLts.ps1` to run the online proof. The
+installer workflow requires it on NTFS, ext4 and XFS for Java 17, 21 and 25.
+Each cell first authenticates and activates its installed package through the
+existing stable launcher, then invokes that package's actual `bin/tuprel`
+(`bin/tuprel.bat` on Windows):
+
+```text
+tuprel migrate status --target-schema fixture_status
+```
+
+This command opens the JDBC connection using the driver shipped in the signed
+CLI distribution. No external JDBC client or extra JAR is put on its classpath.
+The application-level `psql` helper only provisions the disposable cluster and
+checks server policy and the absence of history objects; its admin identity
+differs from the CLI's restricted `fixture_client` identity.
+
+`InstallerTlsFixture.ps1` creates an ephemeral CA, an IP/hostname-qualified
+server certificate and an unrelated CA. PostgreSQL 17 requires TLS 1.2 or later;
+HBA line 2 rejects non-TLS IPv4 connections and line 3 requires SCRAM over TLS.
+The fixture verifies the loaded file's rules and the client's SCRAM verifier
+without exposing its value. For each successful CLI invocation, the same
+server backend PID must have both SCRAM authentication against HBA line 3 and
+an authorization log containing the negotiated TLS protocol, cipher and bits.
+The result records those fields, the JDK and the actual Tuprel command.
+
+The JDBC URL uses the existing `sslmode=verify-full` contract. Public CA bytes
+are placed only in a disposable client profile: the archive launcher's standard
+`JAVA_OPTS` sets `user.home`, and Windows also receives a private `APPDATA`.
+Neither the user's trust store nor production configuration changes. These are
+the [pgJDBC default certificate locations](https://jdbc.postgresql.org/documentation/use/),
+not a new CLI configuration API. The stable launcher does not forward these
+test JVM options; the online connection is deliberately tested through the
+authenticated package's archive launcher.
+
+Every cell must reject an untrusted CA, an incorrect password and a non-TLS
+connection, then successfully reconnect. Status must leave the target schema
+without a history table. Credentials remain in process environments or private
+fixture initialization files, never process arguments, output or committed
+artifacts. Subprocesses, connection waits and server-log collection have finite
+deadlines. Only sanitized server evidence is printed; raw logs and keys are
+removed with the fixture.
+
+Windows starts a new PostgreSQL 17 cluster under the fixture root on a selected
+loopback port; it never uses an existing service. Linux uses the existing CI
+PostgreSQL 17 image with an ephemeral data volume and loopback-only published
+port. Local Docker is refused. The offline Java17-only namespace proof remains
+unchanged and has no dependency on the online cluster. A local archive-only
+test is useful to debug TLS but does not certify the signed native installation;
+final per-profile results belong to the installer workflow on the PR HEAD.

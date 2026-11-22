@@ -3,11 +3,14 @@ param(
     [Parameter(Mandatory)][string]$Jdk21,
     [Parameter(Mandatory)][string]$Jdk25,
     [string]$FixtureParent = $(if ($IsWindows) { $env:LOCALAPPDATA } else { $HOME }),
-    [switch]$Java17Only
+    [switch]$Java17Only,
+    [switch]$JdbcTls
 )
 
 $ErrorActionPreference='Stop'
 $PSNativeCommandUseErrorActionPreference=$false
+. "$PSScriptRoot/InstallerTlsFixture.ps1"
+$tlsState=$null
 $root=(Resolve-Path "$PSScriptRoot/../..").Path
 $jdks=@{17=(Resolve-Path $Jdk17).Path;21=(Resolve-Path $Jdk21).Path;25=(Resolve-Path $Jdk25).Path}
 $environment=@{}
@@ -43,6 +46,7 @@ try {
         if($LASTEXITCODE -ne 0){throw 'Cannot secure fixture ACL'}
     } else { [IO.File]::SetUnixFileMode($fixture,[IO.UnixFileMode]448) }
     Select-Jdk 21
+    if($JdbcTls){$tlsState=Start-InstallerTlsFixture $FixtureParent ''}
     $classes=Join-Path $fixture 'classes'
     [IO.Directory]::CreateDirectory($classes) | Out-Null
     $sources=@('SignedCliBundle','SignedCliBundleFixture','VerifyCliBundle','StagingRoot',
@@ -112,7 +116,7 @@ try {
         Select-Jdk $version
         & "$env:JAVA_HOME/bin/java" -cp $classes InstallerRuntimeTest
         if($LASTEXITCODE -ne 0){throw 'Runtime selection unit proof failed'}
-        & "$PSScriptRoot/Verify-SignedCli.ps1" -FixtureParent $fixture -PreparedDirectory $fixture
+        & "$PSScriptRoot/Verify-SignedCli.ps1" -FixtureParent $fixture -PreparedDirectory $fixture -TlsState $tlsState -ExpectedJdk $version
         $actual=Get-Hashes $fixture
         if($actual.Count -ne $frozen.Count){throw 'Prepared artifact inventory changed'}
         foreach($entry in $frozen.GetEnumerator()) {
@@ -141,6 +145,7 @@ try {
         Write-Host 'PASS installer and launcher in Java17-only namespace; other JDKs and checkout masked, no network'
     }
 } finally {
+    try {if($tlsState){Stop-InstallerTlsFixture $tlsState}} finally {
     foreach($entry in $environment.GetEnumerator()) {
         if($null -eq $entry.Value){Remove-Item "Env:$($entry.Key)" -ErrorAction SilentlyContinue}
         else{[Environment]::SetEnvironmentVariable($entry.Key,$entry.Value)}
@@ -149,5 +154,6 @@ try {
     if($resolved -cne [IO.Path]::GetFullPath($fixture) -or -not(Split-Path -Leaf $resolved).StartsWith('tuprel installer lts ') -or
             ((Get-Item $resolved).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Refused cleanup outside installer fixture'}
     Remove-Item -LiteralPath $resolved -Recurse -Force
+    }
 }
 $global:LASTEXITCODE=0
