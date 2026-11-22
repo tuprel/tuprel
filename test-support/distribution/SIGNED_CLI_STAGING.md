@@ -161,6 +161,8 @@ published historical release. The same fixture proves explicit rollback and
 removal on compatible JVMs. Existing interruption, tampering, unknown-file,
 concurrency and PATH fixture checks run in every cell. Generated sources are
 compiled using that cell's actual `javac --release 17`.
+The producer supplies the runtime library separately to the consumer compiler;
+installing the CLI does not install application dependencies into the project.
 
 The `Installer Java LTS` workflow runs Windows/NTFS, Linux/ext4 and Linux/XFS
 profiles. Linux uses explicit disposable loopback filesystems and additionally

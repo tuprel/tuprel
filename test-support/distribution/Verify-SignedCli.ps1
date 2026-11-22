@@ -45,7 +45,7 @@ try {
       try {
         $gradle = if ($IsWindows) { '.\gradlew.bat' } else { './gradlew' }
         foreach ($version in $versions) {
-            & $gradle :tuprel-cli:distZip --dependency-verification strict "-PtuprelStagedCliVersion=$version"
+            & $gradle :tuprel-cli:distZip :tuprel-runtime:jar --dependency-verification strict "-PtuprelStagedCliVersion=$version"
             if ($LASTEXITCODE -ne 0) { throw 'Versioned CLI staging failed' }
             $archives += (Resolve-Path -LiteralPath "tuprel-cli/build/distributions/tuprel-$version.zip").Path
         }
@@ -68,6 +68,13 @@ try {
         $keyId=(Get-Content -LiteralPath "$PreparedDirectory/key-id" -Raw).Trim()
         if ($keyId -cnotmatch '^[a-f0-9]{64}$') { throw 'Invalid prepared trust pin' }
     }
+
+    # Generated clients consume the runtime library separately from the CLI.
+    $consumerLibraries = Join-Path $fixture 'consumer-libraries'
+    [IO.Directory]::CreateDirectory($consumerLibraries) | Out-Null
+    $runtimeJar = if ($PreparedDirectory) { "$PreparedDirectory/consumer-libraries/tuprel-runtime.jar" }
+        else { "$root/tuprel-runtime/build/libs/tuprel-runtime.jar" }
+    Copy-Item -LiteralPath $runtimeJar -Destination $consumerLibraries
 
     $verifier = Join-Path $fixture 'verify-cli.jar'
     $jar = Join-Path $env:JAVA_HOME 'bin/jar'
@@ -264,7 +271,8 @@ try {
             if ($LASTEXITCODE -ne 0) { throw 'Installed CLI generate failed' }
             $sources=@(Get-ChildItem -LiteralPath 'build/generated/sources/tuprel/main' -Recurse -File -Filter '*.java')
             if ($sources.Count -eq 0) { throw 'Installed CLI generated no Java sources' }
-            & $javac --release 17 -cp "$fixture/$version/lib/*" -d 'build/compiled' @($sources.FullName)
+            $consumerClasspath = "$fixture/$version/lib/*" + [IO.Path]::PathSeparator + "$consumerLibraries/*"
+            & $javac --release 17 -cp $consumerClasspath -d 'build/compiled' @($sources.FullName)
             if ($LASTEXITCODE -ne 0) { throw 'Installed generated sources did not compile with release 17' }
         }
     } finally {

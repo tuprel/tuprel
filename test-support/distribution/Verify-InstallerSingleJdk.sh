@@ -31,7 +31,7 @@ control launch validate
 control launch generate
 mapfile -d '' sources < <(find build/generated/sources/tuprel/main -name '*.java' -print0)
 test "${#sources[@]}" -gt 0
-"$JAVA_HOME/bin/javac" --release 17 -cp "$root/0.0.0-staging/lib/*" -d build/compiled "${sources[@]}"
+"$JAVA_HOME/bin/javac" --release 17 -cp "$root/0.0.0-staging/lib/*:$prepared/consumer-libraries/*" -d build/compiled "${sources[@]}"
 control activate 0.0.1-staging
 test "$(control launch --version)" = 'tuprel 0.0.1-staging'
 if control activate 0.0.0-staging; then exit 1; fi

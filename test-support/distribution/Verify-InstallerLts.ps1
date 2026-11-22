@@ -68,13 +68,16 @@ try {
     try {
         $gradle=if($IsWindows){'.\gradlew.bat'}else{'./gradlew'}
         foreach($version in $versions) {
-            & $gradle :tuprel-cli:distZip --no-daemon --dependency-verification strict "-PtuprelStagedCliVersion=$version"
+            & $gradle :tuprel-cli:distZip :tuprel-runtime:jar --no-daemon --dependency-verification strict "-PtuprelStagedCliVersion=$version"
             if($LASTEXITCODE -ne 0){throw 'Versioned CLI preparation failed'}
             $archive=Join-Path $fixture "tuprel-$version.zip"
             Copy-Item -LiteralPath "tuprel-cli/build/distributions/tuprel-$version.zip" -Destination $archive
             $archives+=$archive
         }
     } finally { Pop-Location }
+    $consumerLibraries=Join-Path $fixture 'consumer-libraries'
+    [IO.Directory]::CreateDirectory($consumerLibraries) | Out-Null
+    Copy-Item -LiteralPath "$root/tuprel-runtime/build/libs/tuprel-runtime.jar" -Destination $consumerLibraries
     $catalogue=Join-Path $fixture 'catalogue'
     [IO.Directory]::CreateDirectory($catalogue) | Out-Null
     if(-not $IsWindows){[IO.File]::SetUnixFileMode($catalogue,[IO.UnixFileMode]448)}
