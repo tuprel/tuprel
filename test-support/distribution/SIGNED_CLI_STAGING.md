@@ -168,7 +168,10 @@ The `Installer Java LTS` workflow runs Windows/NTFS, Linux/ext4 and Linux/XFS
 profiles. Linux uses explicit disposable loopback filesystems and additionally
 runs a Java-17-only mount/network namespace with the checkout and other
 JDKs masked. The namespace retains the supported native filesystem topology;
-Docker overlay roots remain unsupported. Native compilation requires the existing MSVC or Linux C toolchain.
+Docker overlay roots remain unsupported. The isolated Linux proof explicitly
+uses the UTF-8 locale required for its Unicode installation path on Java 17
+and reports the JVM's filesystem encoding. Native compilation requires the
+existing MSVC or Linux C toolchain.
 The scripts report failures rather than falling back to another JVM or native
 implementation. Per-platform results must be read from the final PR checks;
 an unexecuted cell is not certified.

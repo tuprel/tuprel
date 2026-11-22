@@ -9,6 +9,8 @@ java="$JAVA_HOME/bin/java"
 native="$prepared/libtuprel-staging.so"
 verifier="$prepared/verify-cli.jar"
 "$java" -version
+test "$(locale charmap)" = UTF-8
+"$java" -XshowSettings:properties -version 2>&1 | grep -E 'java.home =|file.encoding =|sun.jnu.encoding ='
 "$java" -cp "$prepared/classes" InstallerRuntimeTest
 verify() {
   "$java" --enable-native-access=ALL-UNNAMED -jar "$verifier" "$1" "$root/$1.zip" \

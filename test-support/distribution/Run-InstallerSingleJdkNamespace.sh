@@ -29,7 +29,7 @@ test ! -e /usr/bin/javac
 test ! -e "$checkout/gradlew"
 exec setpriv --reuid="$uid_value" --regid="$gid_value" --clear-groups \
   --bounding-set=-all --no-new-privs \
-  env -i HOME="$single" JAVA_HOME="$prepared/jdk17" \
+  env -i HOME="$single" JAVA_HOME="$prepared/jdk17" LANG=C.UTF-8 LC_ALL=C.UTF-8 \
     PATH="$prepared/jdk17/bin:/usr/bin:/bin" \
     TUPREL_PREPARED_DIRECTORY="$prepared" TUPREL_SINGLE_ROOT="$single" \
     /bin/bash "$prepared/single-jdk.sh"
