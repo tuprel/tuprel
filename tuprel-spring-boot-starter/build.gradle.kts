@@ -14,7 +14,7 @@ dependencies {
     consumerTransactionFixtures("org.springframework:spring-jdbc:7.0.10")
     api(project(":tuprel-runtime"))
     implementation(project(":tuprel-postgresql"))
-    implementation("org.springframework.boot:spring-boot-autoconfigure:4.1.2")
+    implementation("org.springframework.boot:spring-boot-autoconfigure:4.2.0")
     integrationTestImplementation("org.postgresql:postgresql:42.7.14")
     integrationTestImplementation("org.testcontainers:testcontainers-postgresql:2.0.5")
 }
