@@ -11,7 +11,7 @@ val consumerTransactionFixtures by configurations.creating {
 }
 
 dependencies {
-    consumerTransactionFixtures("org.springframework:spring-jdbc:7.0.10")
+    consumerTransactionFixtures("org.springframework:spring-jdbc:7.1.0")
     api(project(":tuprel-runtime"))
     implementation(project(":tuprel-postgresql"))
     implementation("org.springframework.boot:spring-boot-autoconfigure:4.1.2")
